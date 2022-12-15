@@ -1,0 +1,13 @@
+name: run
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: pip install -r requirements.txt
+    - run: python main.py
