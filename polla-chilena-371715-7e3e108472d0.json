@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "polla-chilena-371715",
+  "private_key_id": "7e3e108472d03295a2177e22c0f85426e68b05b1",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCr1ojC57MXjTwV\n24hP4Y0niJw2jFWB6D1nFkQQvH/42slGE2sDDmGnVHLW/zFd+voCmbygm5KGcBVc\nU6kI4Mbt48WF8fLUHAvSYdLVwipv429vq4xi9PwDPa+izlNJ0yul1TiB+TRX4wJl\nI9Um39MHLxqGMacA1xjdtDILLyXSM1OUUSXRqUu0krfrd/37ZGX+1PU+F1bTeBNW\nPgddE3zolMYm4o3kmxnKSLPHLavqIUbbmBVXrkS01WSCUnh7T3DpxuJwgWuJrY5t\nJU7lzTTfJ8kdnBwB8P3mjqo29F9lUvSrVlDPfAkSvFxDIyF0Gs4bpoOqv7Q+VNxm\nTA9Tf5SXAgMBAAECggEAVSlH8wxAYjIxLoXzut8GBSs7e/81m2GdGLtctUyuQYcw\njAWwmb2lYPfFyE6FyVVKVUKazJ/9UJo4w96EXe2EOT6SVE0x8rQJmdS4WA7X2EbH\nofjLZPmT8gk+w7lsZqB8t72BuUxniAzt0XEeQJtZquxJwWrXIN/5J1sYGBngLRlI\nH8GQDrPfFRZZNM2nf8vqvu51kLctxbm5XqnW4fT3UmTyK9eIP421fBNpdcjaZysU\nrrqMEnVhdT5WIdlQ0Xv1yrCtNBj1gsZIGPfMVVknzm0LL0EYOjl+parhO43+klZz\noUDjQXpOIgD0k0GbXUcDHVU5VXG1ae+yh8tzAg4cuQKBgQDvfa43q9WY93v5tv0f\ntIv5e2nD/9lyAQA39Zi90CiLMeuBpe2F+KxoSCFaNfoYe1ipf9hTsG+T2GSCodjF\niKFaWNwB4dVWJ6n7n+8gxQFDTk2VDG03vDU0DsWqUkikzu06s3pV3+ICjlTyVh+e\nG5RQmilHZllfuw3tP1qXC2gseQKBgQC3rvnqlEC66pp3gtbCyf0tRCs5EYehCeHC\n4qrtKxrI/CRVwUOQwCkfH6WH5TpWS/IgOBPlsnkXqOQa03Z5WD90qLGHg21p6hKn\nC1ZqLdpk03mqQfpPzHL6/z/lElk6YsdWCTYN77Idl8vyXBmGuFy+oZXmhs/u0MVg\nNMWt+htljwKBgQCb2CZBtgEmLI4xfsGTGzMnIwc9c0V16W7R+3DsvANWKSL+2BIL\n5zmSFrYVdSCNQ977VeVY+GxzQhKN63IbgQC2wTJRyzq/eMolovrCUVC0EsVro42D\nAmeAu8gnQKpjDQDU/Swzq5/wV9yxYhfrFDlchiUsgE7Se+/hHiP+PH8KyQKBgBYL\nKLDvM8l6yCjZid58kSayjKFfqjA4WGCkBTFLP/6oy8+CzxH7DbRPfvUNHHAo0xjs\nwe6J+aBOQ3m4sPolDhB5Aj0qF6JjVfO4F5nMgO4itvIo0tpqxc27fjaGejDYk+WO\nW29WucB1bCNczC9vxqmWCMBOo3uckGNYUfTsFAefAoGAdG/2VZNucqA8mwT9uh2m\nw7ilmbD/gMgY4bis2HpJl5bxRMebU7ngmBGjSgsfHUoGTJhEN+i9baTcFx5uJUNJ\nfXqcA/MTN+CKIwRu99EiXMXg6v1jCfteAPKdwJGKxdJUKCvvgUAVV33gsnPndFKY\nB2z2zRg8z+Yk6MPG1nh/j7M=\n-----END PRIVATE KEY-----\n",
+  "client_email": "polla-729@polla-chilena-371715.iam.gserviceaccount.com",
+  "client_id": "115112193287385285127",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/polla-729%40polla-chilena-371715.iam.gserviceaccount.com"
+}
