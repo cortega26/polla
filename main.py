@@ -1,18 +1,55 @@
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from google.oauth2.credentials import Credentials
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+
+def driversetup():
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument("lang=en")
+    options.add_argument("start-maximized")  
+    options.add_argument("disable-infobars")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--incognito")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    driver = webdriver.Chrome(options=options)
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
+    return driver
 
 
 def polla():
-    options = Options()
-    options.headless = True
-    driver = webdriver.Chrome(options=options)
+    driver = driversetup()
     driver.get("http://www.polla.cl/es")
     driver.find_element("xpath", "//div[3]/div/div/div/img").click()
     text = BeautifulSoup(driver.page_source, "html.parser")
-    prize_elements = text.find_all("span", class_="prize")
+    prizes = text.find_all("span", class_="prize")
     driver.close()
-    return [int(prize_element.text.strip("$").replace('.', '')) * 1000000 for prize_element in prize_elements]
+    return [int(prize.text.strip("$").replace('.', '')) * 1000000 for prize in prizes]
 
 
-print(polla())
+def main():
+    JSON_FILE_PATH = '{YOUR_GCP_SERVICE_ACCOUNT_FILEPATH_AND_FILE_HERE.JSON}'
+    creds = service_account.Credentials.from_service_account_file(JSON_FILE_PATH)
+    service = build("sheets", "v4", credentials=creds)
+    spreadsheet_id = '16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc' 
+    range_name = 'Sheet1!A1:A7'
+    values = [[polla()[1]],
+              [[polla()[2]],
+              [[polla()[3]],
+              [[polla()[4]],
+              [[polla()[5] + [polla()[6]],
+              [0],
+              [[polla()[7] + [polla()[8]]]
+    body = {'values': values}
+    result = service.spreadsheets().values().update(
+        spreadsheetId=spreadsheet_id, range=range_name,
+        valueInputOption='RAW', body=body).execute()
+    print(f'{result["updatedCells"]} cells updated.')
+                             
+
+main()
