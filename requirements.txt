@@ -1,8 +1,6 @@
-# beautifulsoup4==4.9.1
-# selenium==4.0.0
 bs4
 selenium
-google-auth
-google-auth-oauthlib
-google-auth-httplib2
+google-auth 
+google-auth-oauthlib 
+google-auth-httplib2 
 google-api-python-client
