@@ -43,21 +43,11 @@ def polla():
 
 
 def main():
-    print("Starting main function")  # Debug print
-    # Load the service account key file
     JSON_FILE_PATH = 'service-account.json'
     creds = service_account.Credentials.from_service_account_file(JSON_FILE_PATH)
-    print(creds)  # Debug print
-
-    # Build the Sheets API client
     service = build('sheets', 'v4', credentials=creds)
-    print(service)  # Debug print
-
-    # Set the ID of the spreadsheet to update
     spreadsheet_id = '16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc' 
     range_name = 'Sheet1!A1:A7'
-
-    # Scrape the prizes and format the values to update
     prizes = polla()
     values = [[prizes[1]],
               [prizes[2]],
@@ -67,15 +57,10 @@ def main():
               [0],
               [prizes[7] + prizes[8]]]
     body = {'values': values}
-    print(f"Updating spreadsheet with values: {values}")  # Debug print
-
-    # Update the spreadsheet with the new values
     response = service.spreadsheets().values().update(
         spreadsheetId=spreadsheet_id, range=range_name,
         valueInputOption='RAW', body=body).execute()
-    print(response)  # Debug print
     print(f'{response["updatedCells"]} cells updated.')
-
                              
 
 if __name__ == '__main__':
