@@ -63,4 +63,5 @@ def main():
     print(f'{result["updatedCells"]} cells updated.')
                              
 
-main()
+if __name__ == '__main__':
+    main()
