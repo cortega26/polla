@@ -44,7 +44,7 @@ def polla():
 
 def main():
     """Update a Google Sheets spreadsheet with the scraped prizes."""
-    JSON_FILE_PATH = '{YOUR_GCP_SERVICE_ACCOUNT_FILEPATH_AND_FILE_HERE.JSON}'
+    JSON_FILE_PATH = 'service-account.json'
     creds = service_account.Credentials.from_service_account_file(JSON_FILE_PATH)
     service = build("sheets", "v4", credentials=creds)
     spreadsheet_id = '16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc' 
