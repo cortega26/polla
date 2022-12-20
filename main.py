@@ -1,3 +1,12 @@
+"""
+Scrape prizes from polla.cl website and update a Google Sheets spreadsheet with the values.
+
+This script uses the BeautifulSoup library to scrape the prizes from the polla.cl website, 
+and the Google Sheets API to update a Google Sheets spreadsheet with the scraped values. It 
+utilizes Chrome in headless mode (i.e. without a GUI) to load the website and retrieve the data.
+"""
+
+
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -7,6 +16,12 @@ from googleapiclient.discovery import build
 
 
 def polla():
+    """
+    Scrape the prizes from the polla.cl website.
+    
+    Returns:
+        list: A list of integers representing the prizes in pesos.
+    """
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
@@ -28,6 +43,7 @@ def polla():
 
 
 def main():
+    """Update a Google Sheets spreadsheet with the scraped prizes."""
     JSON_FILE_PATH = '{YOUR_GCP_SERVICE_ACCOUNT_FILEPATH_AND_FILE_HERE.JSON}'
     creds = service_account.Credentials.from_service_account_file(JSON_FILE_PATH)
     service = build("sheets", "v4", credentials=creds)
