@@ -43,24 +43,36 @@ def polla():
 
 
 def main():
-    """Update a Google Sheets spreadsheet with the scraped prizes."""
+    # Load the service account key file
     JSON_FILE_PATH = 'service-account.json'
     creds = service_account.Credentials.from_service_account_file(JSON_FILE_PATH)
-    service = build("sheets", "v4", credentials=creds)
+    print(creds)  # Debug print
+
+    # Build the Sheets API client
+    service = build('sheets', 'v4', credentials=creds)
+    print(service)  # Debug print
+
+    # Set the ID of the spreadsheet to update
     spreadsheet_id = '16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc' 
     range_name = 'Sheet1!A1:A7'
-    values = [[polla()[1]],
-              [[polla()[2]],
-              [[polla()[3]],
-              [[polla()[4]],
-              [[polla()[5] + [polla()[6]],
+
+    # Scrape the prizes and format the values to update
+    prizes = polla()
+    values = [[prizes[1]],
+              [prizes[2]],
+              [prizes[3]],
+              [prizes[4]],
+              [prizes[5] + prizes[6]],
               [0],
-              [[polla()[7] + [polla()[8]]]
+              [prizes[7] + prizes[8]]]
     body = {'values': values}
-    result = service.spreadsheets().values().update(
+
+    # Update the spreadsheet with the new values
+    response = service.spreadsheets().values().update(
         spreadsheetId=spreadsheet_id, range=range_name,
         valueInputOption='RAW', body=body).execute()
-    print(f'{result["updatedCells"]} cells updated.')
+    print(response)  # Debug print
+    print(f'{response["updatedCells"]} cells updated.')
                              
 
 if __name__ == '__main__':
