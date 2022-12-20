@@ -43,6 +43,7 @@ def polla():
 
 
 def main():
+    """Updates a Google Sheets spreadsheet with data retrieved from the polla function."""
     JSON_FILE_PATH = 'service-account.json'
     creds = service_account.Credentials.from_service_account_file(JSON_FILE_PATH)
     service = build('sheets', 'v4', credentials=creds)
