@@ -32,6 +32,7 @@ def scrape_polla():
     driver.close()
     return [int(prize.text.strip("$").replace(".", "")) * 1000000 for prize in prizes]
 
+
 def update_google_sheet():
     credentials_json = os.environ["CREDENTIALS"]
     with open("service-account.json", "w") as f:
