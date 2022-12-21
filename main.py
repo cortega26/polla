@@ -1,27 +1,24 @@
-"""
-Scrape prizes from polla.cl website and update a Google Sheets spreadsheet with the values.
-
-This script uses the BeautifulSoup library to scrape the prizes from the polla.cl website, 
-and the Google Sheets API to update a Google Sheets spreadsheet with the scraped values. It 
-utilizes Chrome in headless mode (i.e. without a GUI) to load the website and retrieve the data.
-"""
-
 import os
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from google.oauth2.credentials import Credentials
-from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from google.oauth2 import service_account
 
 
 def scrape_polla():
-    options = webdriver.ChromeOptions()
+    """Scrape polla.cl for prize information.
+
+    Returns:
+        list: List of prizes in Chilean pesos.
+    """
+    options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("lang=es")
+    options.add_argument("--disable-extensions")
     options.add_argument("--incognito")
     options.add_argument("--disable-blink-features=AutomationControlled")
     driver = webdriver.Chrome(options=options)
@@ -34,28 +31,33 @@ def scrape_polla():
 
 
 def update_google_sheet():
+    """Update a Google Sheet with the latest prize information from polla.cl."""
     credentials_json = os.environ["CREDENTIALS"]
     with open("service-account.json", "w") as f:
         f.write(credentials_json)
     creds = service_account.Credentials.from_service_account_file("service-account.json")
-    JSON_FILE_PATH = "service-account.json"
-    creds = service_account.Credentials.from_service_account_file(JSON_FILE_PATH)
     service = build("sheets", "v4", credentials=creds)
     spreadsheet_id = "16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc"
     range_name = "Sheet1!A1:A7"
     prizes = scrape_polla()
-    values = [[prizes[1]],
-              [prizes[2]],
-              [prizes[3]],
-              [prizes[4]],
-              [prizes[5] + prizes[6]],
-              [0],
-              [prizes[7] + prizes[8]]]
+    values = [
+        [prizes[1]],
+        [prizes[2]],
+        [prizes[3]],
+        [prizes[4]],
+        [prizes[5] + prizes[6]],
+        [0],
+        [prizes[7] + prizes[8]]
+    ]
     body = {"values": values}
     response = service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id, range=range_name, valueInputOption="RAW", body=body
+        spreadsheetId=spreadsheet_id,
+        range=range_name,
+        valueInputOption="RAW",
+        body=body
     ).execute()
-    print(f'{response["updatedCells"]} cells updated.')
+    print(f"{response['updatedCells']} cells updated.")
                              
 
 update_google_sheet()
+
