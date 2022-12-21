@@ -6,6 +6,7 @@ and the Google Sheets API to update a Google Sheets spreadsheet with the scraped
 utilizes Chrome in headless mode (i.e. without a GUI) to load the website and retrieve the data.
 """
 
+import os
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -21,7 +22,6 @@ def scrape_polla():
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("lang=es")
-    options.add_argument("--disable-extensions")
     options.add_argument("--incognito")
     options.add_argument("--disable-blink-features=AutomationControlled")
     driver = webdriver.Chrome(options=options)
