@@ -1,6 +1,6 @@
-# Polla Scraper
+# Polla.cl Prize Scraper
 
-This script scrapes prizes from the [polla.cl](http://www.polla.cl/es) website and updates a Google Sheets spreadsheet with the scraped values.
+This script scrapes the website [polla.cl](http://www.polla.cl/es) for the latest prize information and updates a Google Sheet with the data.
 
 ## Requirements
 
