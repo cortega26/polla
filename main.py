@@ -1,4 +1,6 @@
 import os
+import sys
+import time
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -32,7 +34,17 @@ def scrape_polla():
         text = BeautifulSoup(driver.page_source, "html.parser")
         prizes = text.find_all("span", class_="prize")
         driver.close()
-        return [int(prize.text.strip("$").replace(".", "")) * 1000000 for prize in prizes]
+        prizes = [int(prize.text.strip("$").replace(".", "")) * 1000000 for prize in prizes]
+        if sum(prizes) == 0:
+            for i in range(3):
+                time.sleep(60 * 60)
+                prizes = scrape_polla()
+                if sum(prizes) > 0:
+                    break
+            else:
+                print("Sum of prizes is still zero after 3 tries. Aborting script.")
+                sys.exit()
+        return prizes
     except Exception as e:
         print(f"An error occurred: {e}")
         return []
