@@ -77,7 +77,6 @@ def update_google_sheet():
     except HttpError as error:
         print(f"An error occurred: {error}")
 
-                             
 
 update_google_sheet()
 
