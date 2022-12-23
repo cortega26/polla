@@ -25,3 +25,4 @@ This script scrapes the website [polla.cl](http://www.polla.cl/es) for the lates
 - The script uses Chrome in headless mode (i.e. without a GUI) to load the website and retrieve the data.
 - The `scrape_polla` function scrapes the prizes from the website using BeautifulSoup and returns a list of integers.
 - The `update_google_sheet` function authenticates using the service account JSON file, builds the Sheets API client, and updates the specified range in the spreadsheet with the values from the `scrape_polla` function.
+- If the sum of all prizes is zero, the script will wait for 3 hours before trying again. If the sum is still zero after 3 tries, the script will exit.
