@@ -7,10 +7,13 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      CREDENTIALS: ${{ secrets.CREDENTIALS }}
     steps:
     - uses: actions/checkout@v2
     - name: Set up JSON key
       run: echo "${{ secrets.CREDENTIALS }}" > service-account.json
     - run: pip install -r requirements.txt
     - run: python main.py
+
 
