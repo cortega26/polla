@@ -7,21 +7,25 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
 
+def get_chrome_options():
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("lang=es")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--incognito")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    return options
+
+
 def scrape_polla():
     """Scrape polla.cl for prize information.
-
     Returns:
         list: List of prizes in Chilean pesos.
     """
     try:
-        options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("lang=es")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--incognito")
-        options.add_argument("--disable-blink-features=AutomationControlled")
+        options = get_chrome_options()
         driver = webdriver.Chrome(options=options)
         driver.get("http://www.polla.cl/es")
         driver.find_element("xpath", "//div[3]/div/div/div/img").click()
@@ -34,14 +38,21 @@ def scrape_polla():
         return []
 
 
-
-def update_google_sheet():
-    """Update a Google Sheet with the latest prize information from polla.cl."""
+def get_credentials():
     try:
         credentials_json = os.environ["CREDENTIALS"]
         with open("service-account.json", "w") as f:
             f.write(credentials_json)
         creds = service_account.Credentials.from_service_account_file("service-account.json")
+        return creds
+    except KeyError:
+        print("Error: CREDENTIALS environment variable not set.")
+        
+        
+def update_google_sheet():
+    """Update a Google Sheet with the latest prize information from polla.cl."""
+    try:
+        creds = get_credentials()
         service = build("sheets", "v4", credentials=creds)
         spreadsheet_id = "16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc"
         range_name = "Sheet1!A1:A7"
@@ -63,10 +74,9 @@ def update_google_sheet():
             body=body
         ).execute()
         print(f"{response['updatedCells']} cells updated.")
-    except KeyError:
-        print("Error: CREDENTIALS environment variable not set.")
     except HttpError as error:
         print(f"An error occurred: {error}")
+
                              
 
 update_google_sheet()
