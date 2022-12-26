@@ -93,5 +93,3 @@ def update_google_sheet():
 
 if __name__ == "__main__":
     update_google_sheet()
-
-
