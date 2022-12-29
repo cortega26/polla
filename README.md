@@ -22,6 +22,7 @@ This script scrapes the website [polla.cl](http://www.polla.cl/es) for the lates
 
 ## Notes
 
+- The script is automated to run after every draw of the lottery, which occurs three times a week. Using cron, the script is set to run at a specified time, ensuring that the data in the spreadsheet is always up to date.
 - The script uses Chrome in headless mode (i.e. without a GUI) to load the website and retrieve the data.
 - The `scrape_polla` function scrapes the prizes from the website using BeautifulSoup and returns a list of integers.
 - The `update_google_sheet` function authenticates using the service account JSON file, builds the Sheets API client, and updates the specified range in the spreadsheet with the values from the `scrape_polla` function.
