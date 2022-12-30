@@ -22,7 +22,7 @@ This script scrapes the website [polla.cl](http://www.polla.cl/es) for the lates
 
 ## Notes
 
-- The script is automated to run after every draw of the lottery, which occurs three times a week: using cron, the script is set to run at a specified time, ensuring that the data in the spreadsheet is always up to date.
+- The script is automated to run after every draw of the lottery, which occurs three times a week: using GitHub Actions and cron the script is set to run at a specified time, ensuring that the data in the spreadsheet is always up to date.
 - The script uses Chrome in headless mode (i.e. without a GUI) to load the website and retrieve the data.
 - The `scrape_polla` function scrapes the prizes from the website using BeautifulSoup and returns a list of integers.
 - If the sum of all prizes is zero, the script will wait for 1 hour before trying again. If the sum is still zero after 3 tries, the script will exit.
