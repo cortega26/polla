@@ -47,7 +47,7 @@ def scrape_polla():
         return prizes
     except Exception as e:
         print(f"An error occurred: {e}")
-        return []
+        exit()
 
 
 def get_credentials():
@@ -59,6 +59,7 @@ def get_credentials():
         return creds
     except KeyError:
         print("Error: CREDENTIALS environment variable not set.")
+        exit()
         
         
 def update_google_sheet():
