@@ -1,13 +1,12 @@
-import os
-import sys
-import time
-
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.oauth2 import service_account
+from os import environ
+from sys import exit
+from time import sleep
 
 
 def get_chrome_options():
@@ -38,13 +37,13 @@ def scrape_polla():
         prizes = [int(prize.text.strip("$").replace(".", "")) * 1000000 for prize in prizes]
         if sum(prizes) == 0: # Everytime the website is updated, prizes show 0 zero for about 2 hours
             for i in range(3):
-                time.sleep(60 * 60)
+                sleep(60 * 60)
                 prizes = scrape_polla()
                 if sum(prizes) > 0:
                     break
             else:
                 print("Sum of prizes is still zero after 3 tries. Aborting script.")
-                sys.exit()
+                exit()
         return prizes
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -53,7 +52,7 @@ def scrape_polla():
 
 def get_credentials():
     try:
-        credentials_json = os.environ["CREDENTIALS"]
+        credentials_json = environ["CREDENTIALS"]
         with open("service-account.json", "w") as f:
             f.write(credentials_json)
         creds = service_account.Credentials.from_service_account_file("service-account.json")
