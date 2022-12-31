@@ -3,7 +3,7 @@ from selenium import webdriver
 #from selenium.webdriver.chrome.options import Options
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from google.oauth2 import service_account
+from google.oauth2.service_account import Credentials
 from os import environ
 from sys import exit
 from time import sleep
@@ -55,7 +55,7 @@ def get_credentials():
         credentials_json = environ["CREDENTIALS"]
         with open("service-account.json", "w") as f:
             f.write(credentials_json)
-        creds = service_account.Credentials.from_service_account_file("service-account.json")
+        creds = Credentials.from_service_account_file("service-account.json")
         return creds
     except KeyError:
         print("Error: CREDENTIALS environment variable not set.")
