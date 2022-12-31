@@ -86,7 +86,7 @@ def update_google_sheet():
             valueInputOption="RAW",
             body=body
         ).execute()
-        print(f"{response['updatedCells']} cells updated. Total prizes: {prizes}.")
+        print(f"{response['updatedCells']} cells updated. Total prizes: {prizes[0]}.")
     except HttpError as error:
         print(f"An error occurred: {error}")
 
