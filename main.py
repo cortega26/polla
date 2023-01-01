@@ -9,6 +9,12 @@ from time import sleep
 
 
 def get_chrome_options():
+    """
+    Returns a ChromeOptions object with various options set.
+
+    Returns:
+    ChromeOptions: An object with the options specified in the options dictionary.
+    """
     options = {
         "headless": True,
         "no-sandbox": True,
@@ -53,6 +59,15 @@ def scrape_polla():
 
 
 def get_credentials():
+    """
+    Retrieves Google OAuth2 service account credentials from an environment variable.
+
+    Returns:
+    Credentials: An object containing the service account credentials.
+
+    Raises:
+    KeyError: If the CREDENTIALS environment variable is not set.
+    """
     try:
         credentials_json = environ["CREDENTIALS"]
         with open("service-account.json", "w") as f:
