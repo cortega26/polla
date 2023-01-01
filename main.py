@@ -47,8 +47,8 @@ def scrape_polla():
                 print("Sum of prizes is still zero after 3 tries. Aborting script.")
                 exit()
         return prizes
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    except Exception as error:
+        print(f"An error occurred: {error}")
         exit()
 
 
