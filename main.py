@@ -9,12 +9,7 @@ from time import sleep
 
 
 def get_chrome_options():
-    """
-    Returns a ChromeOptions object with various options set.
-
-    Returns:
-    ChromeOptions: An object with the options specified in the options dictionary.
-    """
+    """Returns a ChromeOptions object with various options set."""
     options = {
         "headless": True,
         "no-sandbox": True,
