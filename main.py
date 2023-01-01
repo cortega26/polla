@@ -38,7 +38,7 @@ def scrape_polla():
         prizes = text.find_all("span", class_="prize")
         driver.close()
         prizes = [int(prize.text.strip("$").replace(".", "")) * 1000000 for prize in prizes]
-        if sum(prizes) == 0: # Everytime the website is updated, prizes show 0 zero for about 2 hours
+        if sum(prizes) == 0: # Everytime the website is updated, prizes show 0 for about 2 hours
             for i in range(3):
                 sleep(60 * 60)
                 prizes = scrape_polla()
