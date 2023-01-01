@@ -25,9 +25,11 @@ def get_chrome_options():
 
 
 def scrape_polla():
-    """Scrape polla.cl for prize information.
+    """
+    Scrape polla.cl for prize information.
+    
     Returns:
-        list: List of prizes in Chilean pesos.
+    List: List of prizes in Chilean pesos.
     """
     try:
         options = get_chrome_options()
