@@ -1,16 +1,14 @@
-# Polla.cl Prize Scraper
+# Prize Scraper for polla.cl
+This script is designed to scrape the prize information from [polla.cl](http://www.polla.cl/es), update the relevant values in a Google Sheet, and log the number of cells updated.
 
-This script scrapes the website [polla.cl](http://www.polla.cl/es) for the latest prize information and updates a Google Sheet with the data.
-
-## Requirements
-
-- [BeautifulSoup](https://pypi.org/project/beautifulsoup4/)
-- [Selenium](https://pypi.org/project/selenium/)
-- [google-auth](https://pypi.org/project/google-auth/)
-- [google-auth-oauthlib](https://pypi.org/project/google-auth-oauthlib/)
-- [google-auth-httplib2](https://pypi.org/project/google-auth-httplib2/)
-- [google-api-python-client](https://pypi.org/project/google-api-python-client/)
-- [ChromeDriver](https://chromedriver.chromium.org/)
+## Libraries Used
+- `bs4` (Beautiful Soup): Used to parse the HTML source code of the website.
+- `selenium`: Used to interact with the website and retrieve the HTML source code.
+- `googleapiclient`: Used to interact with the Google Sheets API.
+- `google.oauth2.service_account`: Used to authenticate the script with the Google Sheets API.
+- `os`: Used to retrieve an environment variable.
+- `sys`: Used to exit the script if necessary.
+- `time`: Used to introduce a sleep period in case of temporary errors.
 
 ## Usage
 
@@ -21,8 +19,7 @@ This script scrapes the website [polla.cl](http://www.polla.cl/es) for the lates
 5. Run the script: `python main.py`
 
 ## Notes
-
-- The script is automated to run after every draw of the lottery, which occurs three times a week: using GitHub Actions and cron the script is set to run at a specified time, ensuring that the data in the spreadsheet is always up to date.
-- The script uses Chrome in headless mode (i.e. without a GUI) to load the website and retrieve the data.
-- The `scrape_polla` function scrapes the prizes from the website using BeautifulSoup and returns a list of integers.
-- If the sum of all prizes is zero, the script will wait for 1 hour before trying again. If the sum is still zero after 3 tries, the script will exit.
+- The script is set up to use a specific Google Sheet and range. This can be adjusted in the code as necessary.
+- The script is set up to run after every draw of the lottery, which occurs three times a week: using GitHub Actions and cron the script is set to run at a specified time, ensuring that the data in the spreadsheet is always up to date.
+- The script is set up to run in headless mode, meaning that the Chrome window will not be visible. This can be adjusted in the code as necessary.
+- The script is set up to only scrape the prizes and update the relevant values in the Google Sheet. If additional information is desired, the code can be adjusted as necessary.
