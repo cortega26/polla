@@ -22,4 +22,3 @@ This script is designed to scrape the prize information from [polla.cl](http://w
 - The script is set up to use a specific Google Sheet and range. This can be adjusted in the code as necessary.
 - The script is set up to run after every draw of the lottery, which occurs three times a week: using GitHub Actions and cron the script is set to run at a specified time, ensuring that the data in the spreadsheet is always up to date.
 - The script is set up to run in headless mode, meaning that the Chrome window will not be visible. This can be adjusted in the code as necessary.
-- The script is set up to only scrape the prizes and update the relevant values in the Google Sheet. If additional information is desired, the code can be adjusted as necessary.
