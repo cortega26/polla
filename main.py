@@ -48,11 +48,11 @@ def scrape_polla():
                     break
             else:
                 print("Sum of prizes is still zero after 3 tries. Aborting script.")
-                exit()
+                exit(1)
         return prizes
     except Exception as error:
         print(f"An error occurred: {error}")
-        exit()
+        exit(1)
 
 
 def get_credentials():
