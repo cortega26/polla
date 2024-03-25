@@ -1,15 +1,24 @@
+import os
+import time
+import logging
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.oauth2.service_account import Credentials
-from os import environ
-from sys import exit
-from time import sleep
+
+SPREADSHEET_ID = "16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc"
+RANGE_NAME = "Sheet1!A1:A7"
+SERVICE_ACCOUNT_FILE = "service-account.json"
+LOG_FILE = "app.log"
+
+# Configure logging
+logging.basicConfig(filename=LOG_FILE, level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def get_chrome_options():
-    """Returns a ChromeOptions object with various options set."""
+    """Returns ChromeOptions object with various options set."""
     options = {
         "headless": True,
         "no-sandbox": True,
@@ -24,35 +33,34 @@ def get_chrome_options():
     return chrome_options
 
 
-def scrape_polla():
+def scrape_polla(driver):
     """
     Scrape polla.cl for prize information.
-    
+
+    Args:
+    driver: WebDriver instance.
+
     Returns:
     List: List of prizes in Chilean pesos.
     """
     try:
-        options = get_chrome_options()
-        driver = webdriver.Chrome(options=options)
         driver.get("http://www.polla.cl/es")
         driver.find_element("xpath", "//div[3]/div/div/div/img").click()
         text = BeautifulSoup(driver.page_source, "html.parser")
         prizes = text.find_all("span", class_="prize")
-        driver.close()
         prizes = [int(prize.text.strip("$").replace(".", "")) * 1000000 for prize in prizes]
-        if sum(prizes) == 0: # Everytime the website is updated, prizes show 0 for about 2 hours
+        if sum(prizes) == 0:
             for _ in range(3):
-                sleep(3600)
-                prizes = scrape_polla()
+                time.sleep(3600)
+                prizes = scrape_polla(driver)
                 if sum(prizes) > 0:
                     break
             else:
-                print("Sum of prizes is still zero after 3 tries. Aborting script.")
-                exit(1)
+                raise ValueError("Sum of prizes is still zero after 3 tries.")
         return prizes
-    except Exception as error:
-        print(f"An error occurred: {error}")
-        exit(1)
+    except (WebDriverException, ValueError) as error:
+        logging.error(f"An error occurred while scraping polla.cl: {error}")
+        raise
 
 
 def get_credentials():
@@ -66,24 +74,22 @@ def get_credentials():
     KeyError: If the CREDENTIALS environment variable is not set.
     """
     try:
-        credentials_json = environ["CREDENTIALS"]
-        with open("service-account.json", "w") as f:
-            f.write(credentials_json)
-        creds = Credentials.from_service_account_file("service-account.json")
+        credentials_json = os.environ["CREDENTIALS"]
+        creds = Credentials.from_service_account_info(credentials_json)
         return creds
     except KeyError:
-        print("Error: CREDENTIALS environment variable not set.")
-        exit()
-        
-        
+        logging.error("Error: CREDENTIALS environment variable not set.")
+        raise
+
+
 def update_google_sheet():
     """Update a Google Sheet with the latest prize information from polla.cl."""
     try:
+        options = get_chrome_options()
+        driver = webdriver.Chrome(options=options)
+        prizes = scrape_polla(driver)
         creds = get_credentials()
         service = build("sheets", "v4", credentials=creds)
-        spreadsheet_id = "16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc"
-        range_name = "Sheet1!A1:A7"
-        prizes = scrape_polla()
         values = [
             [prizes[1]],
             [prizes[2]],
@@ -95,14 +101,20 @@ def update_google_sheet():
         ]
         body = {"values": values}
         response = service.spreadsheets().values().update(
-            spreadsheetId=spreadsheet_id,
-            range=range_name,
+            spreadsheetId=SPREADSHEET_ID,
+            range=RANGE_NAME,
             valueInputOption="RAW",
             body=body
         ).execute()
         print(f"{response['updatedCells']} cells updated. Total prizes: {prizes[0]}.")
-    except HttpError as error:
-        print(f"An error occurred: {error}")
+    except (HttpError, WebDriverException, ValueError) as error:
+        logging.error(f"An error occurred while updating Google Sheet: {error}")
+        raise
+    finally:
+        try:
+            driver.quit()
+        except NameError:
+            pass  # driver variable might not be defined if initialization fails
 
 
 if __name__ == "__main__":
