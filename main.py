@@ -1,4 +1,4 @@
-
+import json
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from googleapiclient.discovery import build
@@ -56,6 +56,8 @@ def scrape_polla():
         exit(1)
 
 
+import json
+
 def get_credentials():
     """
     Retrieves Google OAuth2 service account credentials from an environment variable.
@@ -67,13 +69,14 @@ def get_credentials():
     KeyError: If the CREDENTIALS environment variable is not set.
     """
     try:
-        credentials_json = environ["CREDENTIALS"]
-        with open("service-account.json", "w") as f:
-            f.write(credentials_json)
-        creds = Credentials.from_service_account_file("service-account.json")
+        credentials_json = json.loads(environ["CREDENTIALS"])
+        creds = Credentials.from_service_account_info(credentials_json)
         return creds
     except KeyError:
         print("Error: CREDENTIALS environment variable not set.")
+        exit(1)
+    except Exception as e:
+        print(f"Error: {e}")
         exit(1)
         
         
