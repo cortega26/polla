@@ -1,11 +1,11 @@
 import json
+import sys
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.oauth2.service_account import Credentials
 from os import environ
-from sys import exit
 from time import sleep
 
 
@@ -54,11 +54,11 @@ def scrape_polla():
                     break
             else:
                 print("Sum of prizes is still zero after 3 tries. Aborting script.")
-                exit(1)
+                sys.exit(1)
         return prizes
     except Exception as error:
         print(f"An error occurred: {error}")
-        exit(1)
+        sys.exit(1)
 
 
 def get_credentials():
@@ -77,10 +77,10 @@ def get_credentials():
         return creds
     except KeyError:
         print("Error: CREDENTIALS environment variable not set.")
-        exit(1)
+        sys.exit(1)
     except Exception as e:
         print(f"Error: {e}")
-        exit(1)
+        sys.exit(1)
 
 
 def update_google_sheet():
