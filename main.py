@@ -21,7 +21,12 @@ def get_chrome_options():
         "disable-blink-features": "AutomationControlled"
     }
     chrome_options = webdriver.chrome.options.Options()
-    [chrome_options.add_argument(f"--{key}={value}") for key, value in options.items()]
+    for key, value in options.items():
+        if isinstance(value, bool):
+            if value:
+                chrome_options.add_argument(f"--{key}")
+        else:
+            chrome_options.add_argument(f"--{key}={value}")
     return chrome_options
 
 
@@ -76,8 +81,8 @@ def get_credentials():
     except Exception as e:
         print(f"Error: {e}")
         exit(1)
-        
-        
+
+
 def update_google_sheet():
     """Update a Google Sheet with the latest prize information from polla.cl."""
     try:
