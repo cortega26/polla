@@ -56,8 +56,6 @@ def scrape_polla():
         exit(1)
 
 
-import json
-
 def get_credentials():
     """
     Retrieves Google OAuth2 service account credentials from an environment variable.
