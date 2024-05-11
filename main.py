@@ -45,16 +45,15 @@ def scrape_polla():
     """
     try:
         options = get_chrome_options()
-        driver = webdriver.Chrome(options=options)
-        driver.get("http://www.polla.cl/es")
-        driver.find_element("xpath", "//div[3]/div/div/div/img").click()
-        text = BeautifulSoup(driver.page_source, "html.parser")
-        prizes = text.find_all("span", class_="prize")
-        driver.close()
-        prizes = [int(prize.text.strip("$").replace(".", "")) * 1000000 for prize in prizes]
-        if sum(prizes) == 0: # Everytime the website is updated, prizes show 0 for about 2 hours
-            raise ScriptError("Sum of prizes is still zero after 3 tries. Aborting script.")
-        return prizes
+        with webdriver.Chrome(options=options) as driver:
+            driver.get("http://www.polla.cl/es")
+            driver.find_element("xpath", "//div[3]/div/div/div/img").click()
+            text = BeautifulSoup(driver.page_source, "html.parser")
+            prizes = text.find_all("span", class_="prize")
+            prizes = [int(prize.text.strip("$").replace(".", "")) * 1000000 for prize in prizes]
+            if sum(prizes) == 0:
+                raise ScriptError("Sum of prizes is still zero after 3 tries. Aborting script.")
+            return prizes
     except Exception as error:
         raise ScriptError(f"An error occurred: {error}")
 
@@ -105,7 +104,7 @@ def update_google_sheet():
         ).execute()
         logging.info(f"{response['updatedCells']} cells updated. Total prizes: {prizes[0]}.")
     except HttpError as error:
-        raise ScriptError(f"An error occurred: {error}")
+        raise HttpError(f"An error occurred: {error}")
 
 
 if __name__ == "__main__":
