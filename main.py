@@ -1,5 +1,6 @@
+import logging
+import tenacity
 import json
-import sys
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from googleapiclient.discovery import build
@@ -7,6 +8,10 @@ from googleapiclient.errors import HttpError
 from google.oauth2.service_account import Credentials
 from os import environ
 from time import sleep
+
+
+class ScriptError(Exception):
+    pass
 
 
 def get_chrome_options():
@@ -30,6 +35,7 @@ def get_chrome_options():
     return chrome_options
 
 
+@tenacity.retry(wait=tenacity.wait_exponential(), stop=tenacity.stop_after_attempt(3))
 def scrape_polla():
     """
     Scrape polla.cl for prize information.
@@ -47,18 +53,10 @@ def scrape_polla():
         driver.close()
         prizes = [int(prize.text.strip("$").replace(".", "")) * 1000000 for prize in prizes]
         if sum(prizes) == 0: # Everytime the website is updated, prizes show 0 for about 2 hours
-            for _ in range(3):
-                sleep(3600)
-                prizes = scrape_polla()
-                if sum(prizes) > 0:
-                    break
-            else:
-                print("Sum of prizes is still zero after 3 tries. Aborting script.")
-                sys.exit(1)
+            raise ScriptError("Sum of prizes is still zero after 3 tries. Aborting script.")
         return prizes
     except Exception as error:
-        print(f"An error occurred: {error}")
-        sys.exit(1)
+        raise ScriptError(f"An error occurred: {error}")
 
 
 def get_credentials():
@@ -76,11 +74,9 @@ def get_credentials():
         creds = Credentials.from_service_account_info(credentials_json)
         return creds
     except KeyError:
-        print("Error: CREDENTIALS environment variable not set.")
-        sys.exit(1)
+        raise ScriptError("Error: CREDENTIALS environment variable not set.")
     except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+        raise ScriptError(f"Error: {e}")
 
 
 def update_google_sheet():
@@ -107,10 +103,13 @@ def update_google_sheet():
             valueInputOption="RAW",
             body=body
         ).execute()
-        print(f"{response['updatedCells']} cells updated. Total prizes: {prizes[0]}.")
+        logging.info(f"{response['updatedCells']} cells updated. Total prizes: {prizes[0]}.")
     except HttpError as error:
-        print(f"An error occurred: {error}")
+        raise ScriptError(f"An error occurred: {error}")
 
 
 if __name__ == "__main__":
-    update_google_sheet()
+    try:
+        update_google_sheet()
+    except ScriptError as error:
+        logging.error(f"Script Error: {error}")
