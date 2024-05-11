@@ -3,6 +3,7 @@ selenium
 google-auth 
 google-auth-oauthlib 
 google-api-python-client
+tenacity
 certifi>=2023.7.22 # not directly required, pinned by Snyk to avoid a vulnerability
 protobuf>=3.18.3 # not directly required, pinned by Snyk to avoid a vulnerability
 requests>=2.31.0 # not directly required, pinned by Snyk to avoid a vulnerability
