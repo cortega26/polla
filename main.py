@@ -27,9 +27,8 @@ def get_chrome_options():
     }
     chrome_options = webdriver.chrome.options.Options()
     for key, value in options.items():
-        if isinstance(value, bool):
-            if value:
-                chrome_options.add_argument(f"--{key}")
+        if value:
+            chrome_options.add_argument(f"--{key}")
         else:
             chrome_options.add_argument(f"--{key}={value}")
     return chrome_options
