@@ -10,7 +10,7 @@ jobs:
     env:
       CREDENTIALS: ${{ secrets.CREDENTIALS }}
     steps:
-    - uses: actions/checkout@v3.4.0
+    - uses: actions/checkout@v4
     - name: Set up JSON key
       run: echo "${{ secrets.CREDENTIALS }}" > service-account.json
     - run: pip install -r requirements.txt
