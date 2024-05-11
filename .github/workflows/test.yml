@@ -1,8 +1,8 @@
-name: Test
+name: Update Prizes
 
 on:
   schedule:
-    - cron: '0 1 * * Mon,Wed,Fri'
+    - cron: '0 1 * * *'
 
 jobs:
   test:
@@ -15,5 +15,3 @@ jobs:
       run: echo "${{ secrets.CREDENTIALS }}" > service-account.json
     - run: pip install -r requirements.txt
     - run: python main.py
-
-
