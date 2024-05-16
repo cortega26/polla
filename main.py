@@ -34,7 +34,7 @@ def get_chrome_options():
     return chrome_options
 
 
-@tenacity.retry(wait=tenacity.wait_exponential(), stop=tenacity.stop_after_attempt(3))
+@tenacity.retry(wait=tenacity.wait_exponential(multiplier=1, min=30*60), stop=tenacity.stop_after_attempt(4))
 def scrape_polla():
     """
     Scrape polla.cl for prize information.
