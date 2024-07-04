@@ -9,6 +9,9 @@ from google.oauth2.service_account import Credentials
 from os import environ
 from typing import List
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 class ScriptError(Exception):
     """Custom exception for script errors"""
     pass
@@ -36,6 +39,9 @@ def scrape_polla() -> List[int]:
     
     Returns:
     List: List of prizes in Chilean pesos.
+
+    Raises:
+    ScriptError: If an error occurs during scraping or if the sum of prizes is zero.
     """
     try:
         options = get_chrome_options()
@@ -46,10 +52,10 @@ def scrape_polla() -> List[int]:
             prizes = soup.find_all("span", class_="prize")
             prize_values = [int(prize.text.strip("$").replace(".", "")) * 1000000 for prize in prizes]
             if sum(prize_values) == 0:
-                raise ScriptError("Sum of prizes is still zero after 3 tries. Aborting script.")
+                raise ScriptError("Sum of prizes is zero after 3 tries. Aborting script.")
             return prize_values
     except Exception as error:
-        raise ScriptError(f"An error occurred: {error}")
+        raise ScriptError(f"Error occurred while scraping: {error}")
 
 def get_credentials() -> Credentials:
     """
@@ -66,22 +72,29 @@ def get_credentials() -> Credentials:
         creds = Credentials.from_service_account_info(credentials_json)
         return creds
     except KeyError:
-        raise ScriptError("Error: CREDENTIALS environment variable not set.")
+        raise ScriptError("CREDENTIALS environment variable not set.")
+    except json.JSONDecodeError:
+        raise ScriptError("Invalid JSON in CREDENTIALS environment variable.")
     except Exception as e:
-        raise ScriptError(f"Error: {e}")
+        raise ScriptError(f"Error retrieving credentials: {e}")
 
 def update_google_sheet() -> None:
-    """Update a Google Sheet with the latest prize information from polla.cl."""
+    """
+    Update a Google Sheet with the latest prize information from polla.cl.
+
+    Raises:
+    ScriptError: If an error occurs during the update process.
+    """
     try:
         creds = get_credentials()
         service = build("sheets", "v4", credentials=creds)
         spreadsheet_id = "16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc"
         range_name = "Sheet1!A1:A7"
         prizes = scrape_polla()
-        
+
         if len(prizes) < 9:
             raise ScriptError("Insufficient prize data retrieved.")
-        
+
         values = [
             [prizes[1]],
             [prizes[2]],
@@ -100,11 +113,15 @@ def update_google_sheet() -> None:
         ).execute()
         logging.info(f"{response['updatedCells']} cells updated. Total prizes: {prizes[0]}.")
     except HttpError as error:
-        logging.error(f"Google Sheets API error: {error}")
-        raise ScriptError(f"An error occurred: {error}")
+        raise ScriptError(f"Google Sheets API error: {error}")
+    except Exception as error:
+        raise ScriptError(f"Error updating Google Sheet: {error}")
+
 
 if __name__ == "__main__":
     try:
         update_google_sheet()
     except ScriptError as error:
         logging.error(f"Script Error: {error}")
+    except Exception as error:
+        logging.error(f"Unexpected error: {error}")
