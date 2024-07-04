@@ -7,16 +7,15 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.oauth2.service_account import Credentials
 from os import environ
-from time import sleep
-
+from typing import List
 
 class ScriptError(Exception):
+    """Custom exception for script errors"""
     pass
 
-
-def get_chrome_options():
+def get_chrome_options() -> webdriver.ChromeOptions:
     """Returns a ChromeOptions object with various options set."""
-    options = {
+    options_dict = {
         "headless": True,
         "no-sandbox": True,
         "disable-dev-shm-usage": True,
@@ -25,17 +24,13 @@ def get_chrome_options():
         "incognito": True,
         "disable-blink-features": "AutomationControlled"
     }
-    chrome_options = webdriver.chrome.options.Options()
-    for key, value in options.items():
-        if value:
-            chrome_options.add_argument(f"--{key}")
-        else:
-            chrome_options.add_argument(f"--{key}={value}")
+    chrome_options = webdriver.ChromeOptions()
+    for key, value in options_dict.items():
+        chrome_options.add_argument(f"--{key}={value}" if value is not True else f"--{key}")
     return chrome_options
 
-
 @tenacity.retry(wait=tenacity.wait_exponential(), stop=tenacity.stop_after_attempt(3))
-def scrape_polla():
+def scrape_polla() -> List[int]:
     """
     Scrape polla.cl for prize information.
     
@@ -47,17 +42,16 @@ def scrape_polla():
         with webdriver.Chrome(options=options) as driver:
             driver.get("http://www.polla.cl/es")
             driver.find_element("xpath", "//div[3]/div/div/div/img").click()
-            text = BeautifulSoup(driver.page_source, "html.parser")
-            prizes = text.find_all("span", class_="prize")
-            prizes = [int(prize.text.strip("$").replace(".", "")) * 1000000 for prize in prizes]
-            if sum(prizes) == 0:
+            soup = BeautifulSoup(driver.page_source, "html.parser")
+            prizes = soup.find_all("span", class_="prize")
+            prize_values = [int(prize.text.strip("$").replace(".", "")) * 1000000 for prize in prizes]
+            if sum(prize_values) == 0:
                 raise ScriptError("Sum of prizes is still zero after 3 tries. Aborting script.")
-            return prizes
+            return prize_values
     except Exception as error:
         raise ScriptError(f"An error occurred: {error}")
 
-
-def get_credentials():
+def get_credentials() -> Credentials:
     """
     Retrieves Google OAuth2 service account credentials from an environment variable.
 
@@ -65,7 +59,7 @@ def get_credentials():
     Credentials: An object containing the service account credentials.
 
     Raises:
-    KeyError: If the CREDENTIALS environment variable is not set.
+    ScriptError: If the CREDENTIALS environment variable is not set or credentials are invalid.
     """
     try:
         credentials_json = json.loads(environ["CREDENTIALS"])
@@ -76,8 +70,7 @@ def get_credentials():
     except Exception as e:
         raise ScriptError(f"Error: {e}")
 
-
-def update_google_sheet():
+def update_google_sheet() -> None:
     """Update a Google Sheet with the latest prize information from polla.cl."""
     try:
         creds = get_credentials()
@@ -85,6 +78,10 @@ def update_google_sheet():
         spreadsheet_id = "16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc"
         range_name = "Sheet1!A1:A7"
         prizes = scrape_polla()
+        
+        if len(prizes) < 9:
+            raise ScriptError("Insufficient prize data retrieved.")
+        
         values = [
             [prizes[1]],
             [prizes[2]],
@@ -103,8 +100,8 @@ def update_google_sheet():
         ).execute()
         logging.info(f"{response['updatedCells']} cells updated. Total prizes: {prizes[0]}.")
     except HttpError as error:
-        raise HttpError(f"An error occurred: {error}")
-
+        logging.error(f"Google Sheets API error: {error}")
+        raise ScriptError(f"An error occurred: {error}")
 
 if __name__ == "__main__":
     try:

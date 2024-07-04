@@ -9,23 +9,56 @@ This script is designed to scrape the prize information from [polla.cl](http://w
 - `googleapiclient`: Used to interact with the Google Sheets API.
 - `google.oauth2.service_account`: Used to authenticate the script with the Google Sheets API.
 - `os`: Used to retrieve an environment variable.
-- `sys`: Used to exit the script if necessary.
-- `time`: Used to introduce a sleep period in case of temporary errors.
 - `logging`: Used for improved error reporting and logging.
+- `tenacity`: Implements retry logic for robust web scraping.
 
 ## Usage
 
-1. Download and install the required libraries.
-2. Download and install ChromeDriver.
-3. Create a service account JSON file and save it as `service-account.json` in the same directory as the script.
-4. Get the Google Sheets spreadsheet ID and update the `SPREADSHEET_ID` variable in the script.
-5. Set the `CREDENTIALS` environment variable to the contents of your service account JSON file.
-6. Run the script: `python main.py`
+1. **Install the required libraries:**
+
+```sh
+pip install bs4 selenium google-api-python-client google-auth tenacity
+```
+
+2. **Install ChromeDriver:**
+
+- Download and install ChromeDriver.
+- Ensure ChromeDriver is in your PATH or specify its location in the script.
+
+1. **Set Up Google Service Account:**
+
+- Create a service account in the Google Cloud Console.
+- Download the service account JSON file.
+
+4. **Set Environment Variable:**
+
+Set the CREDENTIALS environment variable to the contents of your service account JSON file.
+
+```sh
+export CREDENTIALS=$(cat path/to/service-account.json)
+```
+
+5. **Update Spreadsheet ID:**
+
+- Update the `SPREADSHEET_ID` variable in the script with your Google Sheets spreadsheet ID.
+
+6. **Run the script:**
+
+- `python main.py`
 
 ## Notes
 
-- The script is set up to use a specific Google Sheet and range. This can be adjusted in the code as necessary.
-- The script is set up to run after every draw of the lottery, which occurs three times a week: using GitHub Actions and cron the script is set to run at a specified time, ensuring that the data in the spreadsheet is always up to date.
-- The script is set up to run in headless mode, meaning that the Chrome window will not be visible. This can be adjusted in the code as necessary.
-- Detailed error messages are logged to `app.log` using Python's built-in logging module for improved error reporting and debugging.
-- The script gracefully handles exceptions during web scraping and Google Sheets update operations, ensuring robustness and reliability.
+- **Google Sheet Configuration:**
+  - The script is set up to use a specific Google Sheet and range. Adjust the `SPREADSHEET_ID` and range variables as necessary.
+  
+- **Scheduling:**
+  - The script can be scheduled to run after every lottery draw using GitHub Actions or cron jobs to ensure data in the spreadsheet is always up to date.
+
+- **Headless Mode:**
+  - The script runs in headless mode by default, meaning the Chrome window will not be visible. This can be adjusted in the `get_chrome_options` function if necessary.
+
+- **Logging:**
+  - Detailed error messages are logged to `app.log` using Python's built-in logging module for improved error reporting and debugging.
+
+- **Robustness:**
+  - The script gracefully handles exceptions during web scraping and Google Sheets update operations, ensuring robustness and reliability.
