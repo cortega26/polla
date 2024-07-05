@@ -14,37 +14,37 @@ This script is designed to scrape the prize information from [polla.cl](http://w
 
 ## Usage
 
-1. **Install the required libraries:**
+- **Install the required libraries:**
 
-```sh
-pip install bs4 selenium google-api-python-client google-auth tenacity
-```
+  ```sh
+  pip install bs4 selenium google-api-python-client google-auth tenacity
+  ```
 
-2. **Install ChromeDriver:**
+- **Install ChromeDriver:**
 
-- Download and install ChromeDriver.
-- Ensure ChromeDriver is in your PATH or specify its location in the script.
+  - Download and install ChromeDriver.
+  - Ensure ChromeDriver is in your PATH or specify its location in the script.
 
-1. **Set Up Google Service Account:**
+- **Set Up Google Service Account:**
 
-- Create a service account in the Google Cloud Console.
-- Download the service account JSON file.
+  - Create a service account in the Google Cloud Console.
+  - Download the service account JSON file.
 
-4. **Set Environment Variable:**
+- **Set Environment Variable:**
 
-Set the CREDENTIALS environment variable to the contents of your service account JSON file.
+  Set the CREDENTIALS environment variable to the contents of your service account JSON file.
 
-```sh
-export CREDENTIALS=$(cat path/to/service-account.json)
-```
+  ```sh
+  export CREDENTIALS=$(cat path/to/service-account.json)
+  ```
 
-5. **Update Spreadsheet ID:**
+- **Update Spreadsheet ID:**
 
-- Update the `SPREADSHEET_ID` variable in the script with your Google Sheets spreadsheet ID.
+  - Update the `SPREADSHEET_ID` variable in the script with your Google Sheets spreadsheet ID.
 
-6. **Run the script:**
+- **Run the script:**
 
-- `python main.py`
+  - `python main.py`
 
 ## Notes
 
