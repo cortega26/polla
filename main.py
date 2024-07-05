@@ -14,7 +14,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 class ScriptError(Exception):
     """Custom exception for script errors"""
-    pass
 
 def get_chrome_options() -> webdriver.ChromeOptions:
     """Returns a ChromeOptions object with various options set."""
