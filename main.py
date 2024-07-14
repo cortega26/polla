@@ -6,9 +6,11 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from google.oauth2.service_account import Credentials
 from os import environ
 from typing import List, Dict
 
@@ -101,7 +103,10 @@ def get_credentials() -> Credentials:
         credentials_json = json.loads(environ.get("CREDENTIALS", ""))
         if not credentials_json:
             raise ScriptError("CREDENTIALS environment variable is empty.")
-        creds = Credentials.from_service_account_info(credentials_json)
+        creds = service_account.Credentials.from_service_account_info(
+            credentials_json,
+            scopes=['https://www.googleapis.com/auth/spreadsheets']
+        )
         return creds
     except KeyError:
         raise ScriptError("CREDENTIALS environment variable not set.")
