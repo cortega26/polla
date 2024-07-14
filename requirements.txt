@@ -1,5 +1,5 @@
 bs4
-selenium
+selenium >= 4.22.0
 google-auth 
 google-auth-oauthlib 
 google-api-python-client
