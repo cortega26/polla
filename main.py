@@ -3,14 +3,18 @@ import tenacity
 import json
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.oauth2.service_account import Credentials
 from os import environ
-from typing import List
+from typing import List, Dict
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class ScriptError(Exception):
     """Custom exception for script errors"""
@@ -31,7 +35,12 @@ def get_chrome_options() -> webdriver.ChromeOptions:
         chrome_options.add_argument(f"--{key}={value}" if value is not True else f"--{key}")
     return chrome_options
 
-@tenacity.retry(wait=tenacity.wait_exponential(multiplier=1, min=30*60), stop=tenacity.stop_after_attempt(4))
+@tenacity.retry(
+    wait=tenacity.wait_exponential(multiplier=1, min=30*60),
+    stop=tenacity.stop_after_attempt(4),
+    retry=tenacity.retry_if_exception_type(ScriptError),
+    before_sleep=lambda retry_state: logger.warning(f"Retrying in {retry_state.next_action.sleep} seconds...")
+)
 def scrape_polla() -> List[int]:
     """
     Scrape polla.cl for prize information.
@@ -46,12 +55,34 @@ def scrape_polla() -> List[int]:
         options = get_chrome_options()
         with webdriver.Chrome(options=options) as driver:
             driver.get("http://www.polla.cl/es")
-            driver.find_element("xpath", "//div[3]/div/div/div/img").click()
+            try:
+                element = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//div[3]/div/div/div/img"))
+                )
+                element.click()
+            except Exception as e:
+                raise ScriptError(f"Failed to click element: {e}")
+
             soup = BeautifulSoup(driver.page_source, "html.parser")
             prizes = soup.find_all("span", class_="prize")
-            prize_values = [int(prize.text.strip("$").replace(".", "")) * 1000000 for prize in prizes]
+            
+            if not prizes:
+                raise ScriptError("No prize elements found on the page.")
+
+            prize_values = []
+            for prize in prizes:
+                try:
+                    value = int(prize.text.strip("$").replace(".", "")) * 1000000
+                    prize_values.append(value)
+                except ValueError as e:
+                    logger.warning(f"Failed to parse prize value: {prize.text}. Error: {e}")
+
+            if not prize_values:
+                raise ScriptError("Failed to parse any prize values.")
+
             if sum(prize_values) == 0:
-                raise ScriptError("Sum of prizes is zero after 3 tries. Aborting script.")
+                raise ScriptError("Sum of prizes is zero. This may indicate an issue with the data.")
+
             return prize_values
     except Exception as error:
         raise ScriptError(f"Error occurred while scraping: {error}")
@@ -67,13 +98,15 @@ def get_credentials() -> Credentials:
     ScriptError: If the CREDENTIALS environment variable is not set or credentials are invalid.
     """
     try:
-        credentials_json = json.loads(environ["CREDENTIALS"])
+        credentials_json = json.loads(environ.get("CREDENTIALS", ""))
+        if not credentials_json:
+            raise ScriptError("CREDENTIALS environment variable is empty.")
         creds = Credentials.from_service_account_info(credentials_json)
         return creds
     except KeyError:
         raise ScriptError("CREDENTIALS environment variable not set.")
-    except json.JSONDecodeError:
-        raise ScriptError("Invalid JSON in CREDENTIALS environment variable.")
+    except json.JSONDecodeError as e:
+        raise ScriptError(f"Invalid JSON in CREDENTIALS environment variable: {e}")
     except Exception as e:
         raise ScriptError(f"Error retrieving credentials: {e}")
 
@@ -92,7 +125,7 @@ def update_google_sheet() -> None:
         prizes = scrape_polla()
 
         if len(prizes) < 9:
-            raise ScriptError("Insufficient prize data retrieved.")
+            raise ScriptError(f"Insufficient prize data retrieved. Expected at least 9, got {len(prizes)}.")
 
         values = [
             [prizes[1]],
@@ -104,23 +137,33 @@ def update_google_sheet() -> None:
             [prizes[7] + prizes[8]]
         ]
         body = {"values": values}
-        response = service.spreadsheets().values().update(
-            spreadsheetId=spreadsheet_id,
-            range=range_name,
-            valueInputOption="RAW",
-            body=body
-        ).execute()
-        logging.info(f"{response['updatedCells']} cells updated. Total prizes: {prizes[0]}.")
-    except HttpError as error:
-        raise ScriptError(f"Google Sheets API error: {error}")
+        
+        try:
+            response = service.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id,
+                range=range_name,
+                valueInputOption="RAW",
+                body=body
+            ).execute()
+            logger.info(f"{response.get('updatedCells', 0)} cells updated. Total prizes: {prizes[0]}.")
+        except HttpError as error:
+            if error.resp.status == 403:
+                raise ScriptError("Permission denied. Check if the service account has write access to the sheet.")
+            elif error.resp.status == 404:
+                raise ScriptError("Spreadsheet not found. Check if the spreadsheet ID is correct.")
+            else:
+                raise ScriptError(f"Google Sheets API error: {error}")
     except Exception as error:
         raise ScriptError(f"Error updating Google Sheet: {error}")
 
-
-if __name__ == "__main__":
+def main() -> None:
+    """Main function to run the script with comprehensive error handling."""
     try:
         update_google_sheet()
     except ScriptError as error:
-        logging.error(f"Script Error: {error}")
+        logger.error(f"Script Error: {error}")
     except Exception as error:
-        logging.error(f"Unexpected error: {error}")
+        logger.exception(f"Unexpected error: {error}")
+
+if __name__ == "__main__":
+    main()
