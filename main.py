@@ -1,6 +1,4 @@
-import logging
 import tenacity
-import json
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -10,12 +8,13 @@ from google.oauth2.credentials import Credentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from logging import getLogger, basicConfig, INFO
 from os import environ
 from typing import List
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+basicConfig(level=INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = getLogger(__name__)
 
 class ScriptError(Exception):
     """Custom exception for script errors"""
@@ -99,7 +98,7 @@ def get_credentials() -> Credentials:
     ScriptError: If the CREDENTIALS environment variable is not set or credentials are invalid.
     """
     try:
-        credentials_json = json.loads(environ.get("CREDENTIALS", ""))
+        credentials_json = environ.get("CREDENTIALS", "")
         if not credentials_json:
             raise ScriptError("CREDENTIALS environment variable is empty.")
         creds = service_account.Credentials.from_service_account_info(
@@ -109,8 +108,8 @@ def get_credentials() -> Credentials:
         return creds
     except KeyError:
         raise ScriptError("CREDENTIALS environment variable not set.")
-    except json.JSONDecodeError as e:
-        raise ScriptError(f"Invalid JSON in CREDENTIALS environment variable: {e}")
+    #except json.JSONDecodeError as e:
+    #    raise ScriptError(f"Invalid JSON in CREDENTIALS environment variable: {e}")
     except Exception as e:
         raise ScriptError(f"Error retrieving credentials: {e}")
 
