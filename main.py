@@ -6,13 +6,12 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from os import environ
-from typing import List, Dict
+from typing import List
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -142,7 +141,7 @@ def update_google_sheet() -> None:
             [prizes[7] + prizes[8]]
         ]
         body = {"values": values}
-        
+
         try:
             response = service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
@@ -169,6 +168,7 @@ def main() -> None:
         logger.error(f"Script Error: {error}")
     except Exception as error:
         logger.exception(f"Unexpected error: {error}")
+
 
 if __name__ == "__main__":
     main()
