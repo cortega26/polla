@@ -106,12 +106,8 @@ def get_credentials() -> Credentials:
             scopes=['https://www.googleapis.com/auth/spreadsheets']
         )
         return creds
-    except KeyError:
-        raise ScriptError("CREDENTIALS environment variable not set.")
-    #except json.JSONDecodeError as e:
-    #    raise ScriptError(f"Invalid JSON in CREDENTIALS environment variable: {e}")
-    except Exception as e:
-        raise ScriptError(f"Error retrieving credentials: {e}")
+    except Exception as error:
+        raise ScriptError(f"Error retrieving credentials: {error}")
 
 def update_google_sheet() -> None:
     """
