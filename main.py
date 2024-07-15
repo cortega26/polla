@@ -66,7 +66,7 @@ def scrape_polla() -> List[int]:
 
             soup = BeautifulSoup(driver.page_source, "html.parser")
             prizes = soup.find_all("span", class_="prize")
-            
+
             if not prizes:
                 raise ScriptError("No prize elements found on the page.")
 
@@ -132,13 +132,13 @@ def update_google_sheet() -> None:
             raise ScriptError(f"Insufficient prize data retrieved. Expected at least 9, got {len(prizes)}.")
 
         values = [
-            [prizes[1]],
-            [prizes[2]],
-            [prizes[3]],
-            [prizes[4]],
-            [prizes[5] + prizes[6]],
-            [0],
-            [prizes[7] + prizes[8]]
+            [prizes[1]], # Loto
+            [prizes[2]], # Recargado
+            [prizes[3]], # Revancha
+            [prizes[4]], # Desquite
+            [prizes[5] + prizes[6]], # Jubizabo 1M y 500K 
+            [0], # Multiplicar
+            [prizes[7] + prizes[8]] # Jubilazo 1M y 500K 50 años
         ]
         body = {"values": values}
 
