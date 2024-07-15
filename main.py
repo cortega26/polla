@@ -131,7 +131,7 @@ def update_google_sheet() -> None:
             [prizes[2]], # Recargado
             [prizes[3]], # Revancha
             [prizes[4]], # Desquite
-            [prizes[5] + prizes[6]], # Jubizabo 1M y 500K 
+            [prizes[5] + prizes[6]], # Jubizabo 1M y 500K
             [0], # Multiplicar
             [prizes[7] + prizes[8]] # Jubilazo 1M y 500K 50 años
         ]
