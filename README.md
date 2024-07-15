@@ -1,3 +1,5 @@
+[![Update Prizes](https://github.com/cortega26/polla/actions/workflows/update.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/update.yml)
+
 # Prize Scraper for polla.cl
 
 This script is designed to scrape the prize information from [polla.cl](http://www.polla.cl/es), update the relevant values in a Google Sheet, and log the number of cells updated.
