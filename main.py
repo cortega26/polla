@@ -1,27 +1,64 @@
+import json
 import tenacity
+from dataclasses import dataclass
+from typing import List, Optional
+from datetime import datetime
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
 from google.oauth2.credentials import Credentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from logging import getLogger, basicConfig, INFO
 from os import environ
-from typing import List
 
-# Configure logging
-basicConfig(level=INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure logging with timestamp and log level
+basicConfig(
+    level=INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logger = getLogger(__name__)
 
 class ScriptError(Exception):
-    """Custom exception for script errors"""
+    """Custom exception for script errors with improved context."""
+    def __init__(self, message: str, original_error: Optional[Exception] = None):
+        self.message = message
+        self.original_error = original_error
+        super().__init__(self.get_error_message())
 
-def get_chrome_options() -> webdriver.ChromeOptions:
-    """Returns a ChromeOptions object with various options set."""
-    options_dict = {
+    def get_error_message(self) -> str:
+        """Formats the error message with the original error if present."""
+        if self.original_error:
+            return f"{self.message} Original error: {str(self.original_error)}"
+        return self.message
+
+@dataclass
+class PrizeData:
+    """Data class to store prize information."""
+    loto: int
+    recargado: int
+    revancha: int
+    desquite: int
+    jubilazo: int
+    multiplicar: int
+    jubilazo_50: int
+
+class Config:
+    """Configuration class to store constants and settings."""
+    BASE_URL = "http://www.polla.cl/es"
+    SPREADSHEET_ID = "16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc"
+    RANGE_NAME = "Sheet1!A1:A7"
+    TIMEOUT = 10
+    RETRY_MULTIPLIER = 1
+    MIN_RETRY_WAIT = 30 * 60
+    MAX_ATTEMPTS = 4
+    CHROME_OPTIONS = {
         "headless": True,
         "no-sandbox": True,
         "disable-dev-shm-usage": True,
@@ -30,140 +67,216 @@ def get_chrome_options() -> webdriver.ChromeOptions:
         "incognito": True,
         "disable-blink-features": "AutomationControlled"
     }
-    chrome_options = webdriver.ChromeOptions()
-    for key, value in options_dict.items():
-        chrome_options.add_argument(f"--{key}={value}" if value is not True else f"--{key}")
-    return chrome_options
 
-@tenacity.retry(
-    wait=tenacity.wait_exponential(multiplier=1, min=30*60),
-    stop=tenacity.stop_after_attempt(4),
-    retry=tenacity.retry_if_exception_type(ScriptError),
-    before_sleep=lambda retry_state: logger.warning(f"Retrying in {retry_state.next_action.sleep} seconds...")
-)
-def scrape_polla() -> List[int]:
+def get_chrome_options() -> webdriver.ChromeOptions:
     """
-    Scrape polla.cl for prize information.
+    Configure and return ChromeOptions with security and performance settings.
     
     Returns:
-    List: List of prizes in Chilean pesos.
-
-    Raises:
-    ScriptError: If an error occurs during scraping or if the sum of prizes is zero.
+        webdriver.ChromeOptions: Configured Chrome options
     """
-    try:
-        options = get_chrome_options()
-        with webdriver.Chrome(options=options) as driver:
-            driver.get("http://www.polla.cl/es")
-            try:
-                element = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.XPATH, "//div[3]/div/div/div/img"))
-                )
-                element.click()
-            except Exception as e:
-                raise ScriptError(f"Failed to click element: {e}")
-
-            soup = BeautifulSoup(driver.page_source, "html.parser")
-            prizes = soup.find_all("span", class_="prize")
-
-            if not prizes:
-                raise ScriptError("No prize elements found on the page.")
-
-            prize_values = []
-            for prize in prizes:
-                try:
-                    value = int(prize.text.strip("$").replace(".", "")) * 1000000
-                    prize_values.append(value)
-                except ValueError as e:
-                    logger.warning(f"Failed to parse prize value: {prize.text}. Error: {e}")
-
-            if not prize_values:
-                raise ScriptError("Failed to parse any prize values.")
-
-            if sum(prize_values) == 0:
-                raise ScriptError("Sum of prizes is zero. This may indicate an issue with the data.")
-
-            return prize_values
-    except Exception as error:
-        raise ScriptError(f"Error occurred while scraping: {error}")
+    chrome_options = webdriver.ChromeOptions()
+    for key, value in Config.CHROME_OPTIONS.items():
+        chrome_options.add_argument(f"--{key}={value}" if value is not True else f"--{key}")
+    
+    # Add additional security headers
+    chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument('--disable-software-rasterizer')
+    
+    return chrome_options
 
 def get_credentials() -> Credentials:
     """
-    Retrieves Google OAuth2 service account credentials from an environment variable.
-
+    Retrieve and validate Google OAuth2 service account credentials.
+    
     Returns:
-    Credentials: An object containing the service account credentials.
-
+        Credentials: Valid Google service account credentials
+        
     Raises:
-    ScriptError: If the CREDENTIALS environment variable is not set or credentials are invalid.
+        ScriptError: If credentials are invalid or missing
     """
     try:
-        credentials_json = environ.get("CREDENTIALS", "")
+        credentials_json = environ.get("CREDENTIALS")
         if not credentials_json:
-            raise ScriptError("CREDENTIALS environment variable is empty.")
-        creds = service_account.Credentials.from_service_account_info(
-            credentials_json,
+            raise ScriptError("CREDENTIALS environment variable is empty")
+        
+        try:
+            credentials_dict = json.loads(credentials_json)
+        except json.JSONDecodeError as e:
+            raise ScriptError("Invalid JSON in CREDENTIALS environment variable", e)
+            
+        return service_account.Credentials.from_service_account_info(
+            credentials_dict,
             scopes=['https://www.googleapis.com/auth/spreadsheets']
         )
-        return creds
     except Exception as error:
-        raise ScriptError(f"Error retrieving credentials: {error}")
+        raise ScriptError("Error retrieving credentials", error)
 
-def update_google_sheet() -> None:
+class PollaScraper:
+    """Class to handle web scraping operations for polla.cl."""
+    
+    def __init__(self, driver: WebDriver):
+        self.driver = driver
+        self._wait = WebDriverWait(driver, Config.TIMEOUT)
+
+    def _wait_and_click(self, xpath: str) -> Optional[WebElement]:
+        """Wait for and click an element, with proper error handling."""
+        try:
+            element = self._wait.until(
+                EC.element_to_be_clickable((By.XPATH, xpath))
+            )
+            element.click()
+            return element
+        except Exception as e:
+            logger.warning(f"Failed to click element {xpath}: {e}")
+            return None
+
+    def _parse_prize(self, text: str) -> int:
+        """
+        Parse prize value from text.
+        
+        Args:
+            text: Prize text to parse
+            
+        Returns:
+            int: Parsed prize value in pesos
+        """
+        try:
+            return int(text.strip("$").replace(".", "")) * 1000000
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"Failed to parse prize value: {text}. Error: {e}")
+            return 0
+
+    def _validate_prizes(self, prizes: List[int]) -> None:
+        """
+        Validate scraped prize data.
+        
+        Args:
+            prizes: List of prize values to validate
+            
+        Raises:
+            ScriptError: If validation fails
+        """
+        if not prizes or len(prizes) < 9:
+            raise ScriptError(f"Invalid prize data: expected 9+ prizes, got {len(prizes)}")
+        if sum(prizes) == 0:
+            raise ScriptError("All prizes are zero - possible scraping error")
+
+    @tenacity.retry(
+        wait=tenacity.wait_exponential(multiplier=Config.RETRY_MULTIPLIER, min=Config.MIN_RETRY_WAIT),
+        stop=tenacity.stop_after_attempt(Config.MAX_ATTEMPTS),
+        retry=tenacity.retry_if_exception_type(ScriptError),
+        before_sleep=lambda retry_state: logger.warning(
+            f"Retrying in {retry_state.next_action.sleep} seconds..."
+        )
+    )
+    def scrape(self) -> PrizeData:
+        """
+        Scrape prize information from polla.cl.
+        
+        Returns:
+            PrizeData: Structured prize information
+            
+        Raises:
+            ScriptError: If scraping fails
+        """
+        try:
+            self.driver.get(Config.BASE_URL)
+            self._wait_and_click("//div[3]/div/div/div/img")
+            
+            soup = BeautifulSoup(self.driver.page_source, "html.parser")
+            prizes = [
+                self._parse_prize(prize.text)
+                for prize in soup.find_all("span", class_="prize")
+            ]
+            
+            self._validate_prizes(prizes)
+            
+            return PrizeData(
+                loto=prizes[1],
+                recargado=prizes[2],
+                revancha=prizes[3],
+                desquite=prizes[4],
+                jubilazo=prizes[5] + prizes[6],
+                multiplicar=0,
+                jubilazo_50=prizes[7] + prizes[8]
+            )
+            
+        except Exception as error:
+            raise ScriptError("Scraping failed", error)
+
+def update_google_sheet(prize_data: PrizeData) -> None:
     """
-    Update a Google Sheet with the latest prize information from polla.cl.
-
+    Update Google Sheet with prize information.
+    
+    Args:
+        prize_data: Prize data to update in the sheet
+        
     Raises:
-    ScriptError: If an error occurs during the update process.
+        ScriptError: If update fails
     """
     try:
         creds = get_credentials()
         service = build("sheets", "v4", credentials=creds)
-        spreadsheet_id = "16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc"
-        range_name = "Sheet1!A1:A7"
-        prizes = scrape_polla()
-
-        if len(prizes) < 9:
-            raise ScriptError(f"Insufficient prize data retrieved. Expected at least 9, got {len(prizes)}.")
-
+        
         values = [
-            [prizes[1]], # Loto
-            [prizes[2]], # Recargado
-            [prizes[3]], # Revancha
-            [prizes[4]], # Desquite
-            [prizes[5] + prizes[6]], # Jubizabo 1M y 500K
-            [0], # Multiplicar
-            [prizes[7] + prizes[8]] # Jubilazo 1M y 500K 50 años
+            [prize_data.loto],
+            [prize_data.recargado],
+            [prize_data.revancha],
+            [prize_data.desquite],
+            [prize_data.jubilazo],
+            [prize_data.multiplicar],
+            [prize_data.jubilazo_50]
         ]
+        
         body = {"values": values}
 
         try:
             response = service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id,
-                range=range_name,
+                spreadsheetId=Config.SPREADSHEET_ID,
+                range=Config.RANGE_NAME,
                 valueInputOption="RAW",
                 body=body
             ).execute()
-            logger.info(f"{response.get('updatedCells', 0)} cells updated. Total prizes: {prizes[0]}.")
+            
+            logger.info(
+                f"Update successful - {response.get('updatedCells', 0)} cells updated. "
+                f"Timestamp: {datetime.now().isoformat()}"
+            )
+            
         except HttpError as error:
             if error.resp.status == 403:
-                raise ScriptError("Permission denied. Check if the service account has write access to the sheet.")
+                raise ScriptError("Permission denied - check service account permissions")
             elif error.resp.status == 404:
-                raise ScriptError("Spreadsheet not found. Check if the spreadsheet ID is correct.")
+                raise ScriptError("Spreadsheet not found - check spreadsheet ID")
             else:
-                raise ScriptError(f"Google Sheets API error: {error}")
+                raise ScriptError(f"Google Sheets API error: {error.resp.status}", error)
+                
     except Exception as error:
-        raise ScriptError(f"Error updating Google Sheet: {error}")
+        raise ScriptError("Error updating Google Sheet", error)
 
 def main() -> None:
-    """Main function to run the script with comprehensive error handling."""
+    """
+    Main function to run the script with comprehensive error handling.
+    """
+    start_time = datetime.now()
+    logger.info(f"Script started at {start_time.isoformat()}")
+    
     try:
-        update_google_sheet()
+        options = get_chrome_options()
+        with webdriver.Chrome(options=options) as driver:
+            scraper = PollaScraper(driver)
+            prize_data = scraper.scrape()
+            update_google_sheet(prize_data)
+            
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        logger.info(f"Script completed successfully in {duration:.2f} seconds")
+        
     except ScriptError as error:
         logger.error(f"Script Error: {error}")
     except Exception as error:
         logger.exception(f"Unexpected error: {error}")
-
 
 if __name__ == "__main__":
     main()
