@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
     
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -30,9 +31,22 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
+    - name: Debug Environment
+      run: |
+        echo "Checking for CREDENTIALS environment variable..."
+        if [ -n "$CREDENTIALS" ]; then
+          echo "CREDENTIALS is set"
+          echo "First few characters: ${CREDENTIALS:0:50}..."
+        else
+          echo "CREDENTIALS is NOT set"
+        fi
+      env:
+        CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+    
     - name: Run script
       env:
-        CREDENTIALS: ${{ toJSON(secrets.GOOGLE_CREDENTIALS) }}
+        CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
       run: |
+        echo "Running main.py with debug output enabled..."
         python -u main.py
       timeout-minutes: 5
