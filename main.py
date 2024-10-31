@@ -87,22 +87,37 @@ def get_chrome_options() -> webdriver.ChromeOptions:
 
 def get_credentials() -> Credentials:
     """
-    Retrieve and validate Google OAuth2 service account credentials.
+    Retrieves Google OAuth2 service account credentials from an environment variable.
     
     Returns:
-        Credentials: Valid Google service account credentials
-        
+        Credentials: An object containing the service account credentials.
+    
     Raises:
-        ScriptError: If credentials are invalid or missing
+        ScriptError: If the CREDENTIALS environment variable is not set or credentials are invalid.
     """
     try:
         credentials_json = environ.get("CREDENTIALS")
         if not credentials_json:
             raise ScriptError("CREDENTIALS environment variable is empty")
         
+        # Add debug logging
+        logger.info("Attempting to parse credentials JSON")
+        
+        # Handle potential string escaping
+        credentials_json = credentials_json.replace('\n', '').replace('\r', '')
+        if credentials_json.startswith('"') and credentials_json.endswith('"'):
+            credentials_json = credentials_json[1:-1]
+        
         try:
             credentials_dict = json.loads(credentials_json)
+            # Verify required fields are present
+            required_fields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email']
+            missing_fields = [field for field in required_fields if field not in credentials_dict]
+            if missing_fields:
+                raise ScriptError(f"Credentials JSON missing required fields: {', '.join(missing_fields)}")
+            
         except json.JSONDecodeError as e:
+            logger.error(f"Raw credentials string: {credentials_json[:100]}...") # Log first 100 chars
             raise ScriptError("Invalid JSON in CREDENTIALS environment variable", e)
             
         return service_account.Credentials.from_service_account_info(
