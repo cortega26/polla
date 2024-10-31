@@ -32,7 +32,7 @@ jobs:
     
     - name: Run script
       env:
-        CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+        CREDENTIALS: ${{ toJSON(secrets.GOOGLE_CREDENTIALS) }}
       run: |
         python -u main.py
       timeout-minutes: 5
