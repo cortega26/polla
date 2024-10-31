@@ -96,35 +96,45 @@ def get_credentials() -> Credentials:
         ScriptError: If the CREDENTIALS environment variable is not set or credentials are invalid.
     """
     try:
+        # Debug: Print all environment variables (excluding their values for security)
+        logger.info("Available environment variables: %s", ", ".join(environ.keys()))
+        
+        # Get credentials from environment
         credentials_json = environ.get("CREDENTIALS")
+        
         if not credentials_json:
-            raise ScriptError("CREDENTIALS environment variable is empty")
+            logger.error("CREDENTIALS environment variable is not set")
+            logger.info("Please ensure the GOOGLE_CREDENTIALS secret is properly set in GitHub Actions")
+            raise ScriptError("CREDENTIALS environment variable is empty.")
+            
+        logger.info("Credentials variable found with length: %d", len(credentials_json))
         
-        # Add debug logging
-        logger.info("Attempting to parse credentials JSON")
-        
-        # Handle potential string escaping
-        credentials_json = credentials_json.replace('\n', '').replace('\r', '')
-        if credentials_json.startswith('"') and credentials_json.endswith('"'):
-            credentials_json = credentials_json[1:-1]
-        
+        # Try to parse the JSON
         try:
             credentials_dict = json.loads(credentials_json)
-            # Verify required fields are present
+            logger.info("Successfully parsed credentials JSON")
+            
+            # Verify required fields
             required_fields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email']
             missing_fields = [field for field in required_fields if field not in credentials_dict]
-            if missing_fields:
-                raise ScriptError(f"Credentials JSON missing required fields: {', '.join(missing_fields)}")
             
+            if missing_fields:
+                logger.error("Missing required fields in credentials: %s", ", ".join(missing_fields))
+                raise ScriptError(f"Missing required fields in credentials: {', '.join(missing_fields)}")
+            
+            logger.info("All required credential fields present")
+            
+            return service_account.Credentials.from_service_account_info(
+                credentials_dict,
+                scopes=['https://www.googleapis.com/auth/spreadsheets']
+            )
         except json.JSONDecodeError as e:
-            logger.error(f"Raw credentials string: {credentials_json[:100]}...") # Log first 100 chars
+            logger.error("Failed to parse credentials JSON: %s", str(e))
+            logger.error("First 100 characters of credentials: %s", credentials_json[:100])
             raise ScriptError("Invalid JSON in CREDENTIALS environment variable", e)
             
-        return service_account.Credentials.from_service_account_info(
-            credentials_dict,
-            scopes=['https://www.googleapis.com/auth/spreadsheets']
-        )
     except Exception as error:
+        logger.error("Error in get_credentials: %s", str(error))
         raise ScriptError("Error retrieving credentials", error)
 
 class PollaScraper:
