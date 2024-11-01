@@ -16,17 +16,8 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-
-    # Optimized caching strategy
-    - name: Cache pip packages
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cache/pip
-          !~/.cache/pip/log
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+        cache: 'pip'  # Use built-in pip caching
+        cache-dependency-path: 'requirements.txt'
     
     - name: Install Chrome
       run: |
@@ -38,7 +29,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt --no-cache-dir
+        pip install --no-cache-dir -r requirements.txt
     
     - name: Run script
       env:
@@ -46,9 +37,3 @@ jobs:
       run: |
         python -u main.py
       timeout-minutes: 5
-
-    # Clean up caches if they get too big
-    - name: Cleanup caches
-      run: |
-        rm -rf ~/.cache/pip/log
-        find ~/.cache/pip -type f -atime +30 -delete
