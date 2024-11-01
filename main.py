@@ -21,25 +21,41 @@ from google.oauth2.credentials import Credentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from logging import getLogger, basicConfig, INFO, FileHandler
+from logging import getLogger, INFO, FileHandler, StreamHandler, Formatter
 from os import environ
 import traceback
 
-# Configure logging with both file and console handlers
-log_dir = Path("logs")
-log_dir.mkdir(exist_ok=True)
-log_file = log_dir / f"polla_{datetime.now().strftime('%Y%m%d')}.log"
+# Create logger
+logger = getLogger(__name__)
+logger.setLevel(INFO)
 
-basicConfig(
-    level=INFO,
-    format='%(asctime)s - %(levelname)s - [%(name)s] - %(message)s',
+# Create formatter
+formatter = Formatter(
+    '%(asctime)s - %(levelname)s - [%(name)s] - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
-logger = getLogger(__name__)
-file_handler = FileHandler(log_file)
-file_handler.setFormatter(logger.handlers[0].formatter)
-logger.addHandler(file_handler)
+# Create and configure console handler first (this will always work)
+console_handler = StreamHandler()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+# Try to set up file logging, but don't fail if it's not possible
+try:
+    # Create logs directory
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / f"polla_{datetime.now().strftime('%Y%m%d')}.log"
+
+    # Create and configure file handler
+    file_handler = FileHandler(log_file)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+except Exception as e:
+    logger.warning(f"Could not set up file logging: {e}")
+
+# Prevent logging from propagating to the root logger
+logger.propagate = False
 
 @dataclass(frozen=True)
 class ChromeConfig:
@@ -442,13 +458,17 @@ class CredentialManager:
         """
         try:
             # Log available environment variables (excluding sensitive ones)
-            env_vars = [k for k in environ.keys() if not k.lower().contains(('key', 'secret', 'password', 'token'))]
-            logger.info("Available environment variables: %s", ", ".join(env_vars))
+            sensitive_terms = {'key', 'secret', 'password', 'token', 'credential'}
+            env_vars = [k for k in environ.keys() 
+                       if not any(term in k.lower() for term in sensitive_terms)]
+            logger.info("Available environment variables: %s", ", ".join(sorted(env_vars)))
             
             # Get credentials from environment
             credentials_json = environ.get("CREDENTIALS")
             
             if not credentials_json:
+                logger.error("CREDENTIALS environment variable is not set")
+                logger.info("Please ensure the GOOGLE_CREDENTIALS secret is properly set in GitHub Actions")
                 raise ScriptError(
                     "CREDENTIALS environment variable is empty",
                     error_code="MISSING_CREDENTIALS"
@@ -471,6 +491,11 @@ class CredentialManager:
                 
             except json.JSONDecodeError as e:
                 logger.error("Failed to parse credentials JSON: %s", str(e))
+                # Log the first few characters of the credentials for debugging
+                # Be careful not to log sensitive information
+                if credentials_json:
+                    preview = credentials_json[:10] + "..." if len(credentials_json) > 10 else "EMPTY"
+                    logger.error("First few characters of credentials: %s", preview)
                 raise ScriptError(
                     "Invalid JSON in CREDENTIALS environment variable",
                     e,
@@ -478,6 +503,8 @@ class CredentialManager:
                 )
                 
         except Exception as error:
+            if isinstance(error, ScriptError):
+                raise  # Re-raise ScriptError without wrapping
             raise ScriptError(
                 "Error retrieving credentials",
                 error,
