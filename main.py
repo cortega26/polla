@@ -79,7 +79,7 @@ class ScraperConfig:
     base_url: str = "http://www.polla.cl/es"
     timeout: int = 10
     retry_multiplier: int = 1
-    min_retry_wait: int = 30 * 60
+    min_retry_wait: int = 60
     max_attempts: int = 4
     element_timeout: int = 5
     page_load_timeout: int = 30
