@@ -12,6 +12,7 @@ from pathlib import Path
 import asyncio
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -368,6 +369,9 @@ class PollaScraper:
             # Load the page
             logger.info(f"Accessing URL: {self.config.scraper.base_url}")
             self._driver.get(self.config.scraper.base_url)
+
+            # Attempt to close the holiday popup if it appears
+            self._close_holiday_popup()
             
             # Click necessary elements
             if not self._wait_and_click("//div[3]/div/div/div/img"):
@@ -412,6 +416,19 @@ class PollaScraper:
         finally:
             # Don't close the browser here as it's managed by BrowserManager
             pass
+
+    def _close_holiday_popup(self) -> None:
+        """
+        Attempts to close the holiday popup if it is present.
+        """
+        try:
+            close_button = self._wait.until(
+                EC.element_to_be_clickable((By.XPATH, "//span[@class='close']"))
+            )
+            close_button.click()
+            logger.info("Closed holiday popup.")
+        except TimeoutException:
+            logger.info("No holiday popup found (or not clickable). Proceeding.")
 
 class CredentialManager:
     """Manages Google API credentials."""
