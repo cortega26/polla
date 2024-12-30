@@ -421,33 +421,30 @@ class PollaScraper:
         """
         Attempts to close the holiday popup if it is present.
         """
+        from selenium.common.exceptions import TimeoutException, NoSuchElementException
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.wait import WebDriverWait
+
+        # We'll do a short, separate WebDriverWait just for the popup.
+        short_wait = WebDriverWait(self._driver, 10)  # or 15, etc.
+
         try:
-            # Wait for the modal to be visible (up to 3 seconds, for example).
-            self._wait = WebDriverWait(self._driver, 3)  
-            
-            # Wait for the popup container *or* the close button to be visible
-            popup_container = self._wait.until(
+            # 1) Wait up to 10s for the modal container to be visible:
+            popup_container = short_wait.until(
                 EC.visibility_of_element_located((By.CSS_SELECTOR, "div.modal.bannerPopup"))
             )
             logger.info("Popup container is visible, proceeding to close it...")
 
-            # Now wait specifically for the close <span> to be clickable
-            close_btn = self._wait.until(
+            # 2) Wait for the close <span> to be clickable:
+            close_btn = short_wait.until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "span.close"))
             )
             close_btn.click()
-
             logger.info("Closed holiday popup.")
-            
-            # Optionally restore your original self._wait with your config
-            self._wait = WebDriverWait(self._driver, self.config.scraper.element_timeout)
-
         except (TimeoutException, NoSuchElementException):
-            # If we never find it or can't click it quickly, no big deal; continue
             logger.info("No holiday popup found (or not clickable). Proceeding.")
-            
-            # Also restore the wait time if needed
-            self._wait = WebDriverWait(self._driver, self.config.scraper.element_timeout)
+
 
 class CredentialManager:
     """Manages Google API credentials."""
