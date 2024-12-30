@@ -421,29 +421,33 @@ class PollaScraper:
         """
         Attempts to close the holiday popup if it is present.
         """
-        from selenium.common.exceptions import TimeoutException, NoSuchElementException
-        from selenium.webdriver.support import expected_conditions as EC
-        from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.wait import WebDriverWait
-
-        # We'll do a short, separate WebDriverWait just for the popup.
-        short_wait = WebDriverWait(self._driver, 10)  # or 15, etc.
-
         try:
-            # 1) Wait up to 10s for the modal container to be visible:
+            short_wait = WebDriverWait(self._driver, 8)
+
+            # 1) Wait up to 8s for the modal container (popup) to be visible
             popup_container = short_wait.until(
                 EC.visibility_of_element_located((By.CSS_SELECTOR, "div.modal.bannerPopup"))
             )
             logger.info("Popup container is visible, proceeding to close it...")
 
-            # 2) Wait for the close <span> to be clickable:
+            # 2) Wait specifically for the close <span> to be clickable
             close_btn = short_wait.until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "span.close"))
             )
+            
+            # 3) Attempt the normal click
+            #    If you keep getting "element is not clickable," try JS click:
+            #    self._driver.execute_script("arguments[0].click();", close_btn)
             close_btn.click()
-            logger.info("Closed holiday popup.")
+            
+            # 4) Wait for the bannerPopup to vanish from the DOM or become invisible
+            short_wait.until(
+                EC.invisibility_of_element_located((By.CSS_SELECTOR, "div.modal.bannerPopup"))
+            )
+            logger.info("Popup is now closed or invisible.")
+            
         except (TimeoutException, NoSuchElementException):
-            logger.info("No holiday popup found (or not clickable). Proceeding.")
+            logger.info("No holiday popup found (or not clickable). Proceeding anyway.")
 
 
 class CredentialManager:
