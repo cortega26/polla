@@ -349,7 +349,7 @@ class PollaScraper:
         ),
         after=lambda retry_state: logger.info(
             f"Attempt {retry_state.attempt_number} "
-            f"{'successful' if not retry_state.failed else 'failed'}"
+            f"{'successful' if not retry_state.outcome.failed else 'failed'}"
         )
     )
     def scrape(self) -> PrizeData:
