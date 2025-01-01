@@ -113,7 +113,10 @@ class AppConfig:
         }
 
 class ScriptError(Exception):
-    """Custom exception for script errors with improved context and tracking."""
+    """
+    Custom exception for script errors with improved context and tracking.
+    Allows for consistent handling and logging of errors throughout the script.
+    """
     
     def __init__(
         self, 
@@ -164,7 +167,10 @@ class PrizeData:
                 raise ValueError(f"Prize amount cannot be negative: {field_name}={value}")
 
     def to_sheet_values(self) -> List[List[int]]:
-        """Converts prize data to format required by Google Sheets."""
+        """
+        Converts prize data to a 2D list format required by Google Sheets.
+        Each sublist represents a row in the target sheet range.
+        """
         return [
             [self.loto],
             [self.recargado],
@@ -218,7 +224,7 @@ class BrowserManager:
 
     def get_driver(self) -> WebDriver:
         """
-        Creates and configures a new WebDriver instance.
+        Creates and configures a new WebDriver instance if not already created.
         
         Returns:
             WebDriver: Configured Chrome WebDriver instance
@@ -231,7 +237,6 @@ class BrowserManager:
                 options = self._configure_chrome_options()
                 self._driver = webdriver.Chrome(options=options)
                 self._driver.set_page_load_timeout(self.config.scraper.page_load_timeout)
-                
             return self._driver
         except Exception as e:
             raise ScriptError("Failed to create browser instance", e, "BROWSER_INIT_ERROR")
@@ -246,7 +251,11 @@ class BrowserManager:
             logger.warning(f"Error closing browser: {e}")
 
 class PollaScraper:
-    """Class to handle web scraping operations for polla.cl."""
+    """
+    Class to handle web scraping operations for polla.cl.
+    Assumes the site returns at least 9 'prize' elements in a specific order.
+    Index usage in `scrape()` is based on that assumption.
+    """
     
     def __init__(self, config: AppConfig, browser_manager: BrowserManager):
         self.config = config
@@ -267,7 +276,7 @@ class PollaScraper:
         Waits for an element to be clickable and clicks it.
         
         Args:
-            xpath: XPath selector for the element
+            xpath (str): XPath selector for the element
             
         Returns:
             WebElement if clicked successfully, None otherwise
@@ -289,19 +298,16 @@ class PollaScraper:
 
     def _parse_prize(self, text: str) -> int:
         """
-        Parses prize value from text.
+        Parses prize text as a value in millions of pesos.
         
-        Args:
-            text: Prize text to parse
-            
+        For example, if the text is '$900', we interpret that as 900 (millions).
+        This function removes any '$' and '.' characters, converts to int,
+        and multiplies by 1,000,000 to get the final peso value.
+        
         Returns:
-            int: Parsed prize value in pesos
-            
-        Raises:
-            ValueError: If text cannot be parsed as a number
+            int: Parsed prize value in pesos, or 0 if parsing fails.
         """
         try:
-            # Remove currency symbol and dots, then convert to integer
             cleaned_text = text.strip("$").replace(".", "")
             if not cleaned_text:
                 raise ValueError("Empty prize value")
@@ -314,8 +320,10 @@ class PollaScraper:
         """
         Validates scraped prize data.
         
+        Ensures there are enough prizes and that not all are zero.
+        
         Args:
-            prizes: List of prize values to validate
+            prizes (List[int]): List of prize values to validate
             
         Raises:
             ScriptError: If validation fails
@@ -325,13 +333,11 @@ class PollaScraper:
                 "No prizes found", 
                 error_code="NO_PRIZES_ERROR"
             )
-            
         if len(prizes) < 9:
             raise ScriptError(
                 f"Invalid prize data: expected 9+ prizes, got {len(prizes)}", 
                 error_code="INSUFFICIENT_PRIZES_ERROR"
             )
-            
         if all(prize == 0 for prize in prizes):
             raise ScriptError(
                 "All prizes are zero - possible scraping error",
@@ -355,11 +361,17 @@ class PollaScraper:
     )
     def scrape(self) -> PrizeData:
         """
-        Scrapes prize information from polla.cl.
+        Scrapes prize information from polla.cl and maps them to PrizeData.
+        
+        We assume the page provides at least 9 span.prize elements.
+        The second through ninth elements correspond to:
+          [1]->Loto, [2]->Recargado, [3]->Revancha, [4]->Desquite,
+          [5] and [6] combined -> Jubilazo, [7] and [8] combined -> Jubilazo_50,
+        ignoring [0] for site-specific reasons.
         
         Returns:
             PrizeData: Structured prize information
-            
+        
         Raises:
             ScriptError: If scraping fails
         """
@@ -374,6 +386,7 @@ class PollaScraper:
             self._close_holiday_popup()
             
             # Click necessary elements
+            # XPATH might need to be updated if the site changes structure
             if not self._wait_and_click("//div[3]/div/div/div/img"):
                 raise ScriptError(
                     "Failed to interact with required elements",
@@ -390,11 +403,13 @@ class PollaScraper:
                     error_code="NO_ELEMENTS_ERROR"
                 )
             
-            # Extract prizes
+            # Extract prizes (ignoring the 0th element per site structure)
             prizes = [self._parse_prize(prize.text) for prize in prize_elements]
             self._validate_prizes(prizes)
             
             # Create PrizeData object
+            # Note: We skip prizes[0], as that's the total of all prizes and it's not used
+            # based on the current site. If the site changes, this indexing may need to be updated.
             return PrizeData(
                 loto=prizes[1],
                 recargado=prizes[2],
@@ -404,7 +419,6 @@ class PollaScraper:
                 multiplicar=0,
                 jubilazo_50=prizes[7] + prizes[8]
             )
-            
         except ScriptError:
             raise
         except Exception as error:
@@ -435,9 +449,7 @@ class PollaScraper:
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "span.close"))
             )
             
-            # 3) Attempt the normal click
-            #    If you keep getting "element is not clickable," try JS click:
-            #    self._driver.execute_script("arguments[0].click();", close_btn)
+            # 3) Normal click; use JS click if the normal click fails
             close_btn.click()
             
             # 4) Wait for the bannerPopup to vanish from the DOM or become invisible
@@ -448,7 +460,6 @@ class PollaScraper:
             
         except (TimeoutException, NoSuchElementException):
             logger.info("No holiday popup found (or not clickable). Proceeding anyway.")
-
 
 class CredentialManager:
     """Manages Google API credentials."""
@@ -496,8 +507,10 @@ class CredentialManager:
         try:
             # Log available environment variables (excluding sensitive ones)
             sensitive_terms = {'key', 'secret', 'password', 'token', 'credential'}
-            env_vars = [k for k in environ.keys() 
-                       if not any(term in k.lower() for term in sensitive_terms)]
+            env_vars = [
+                k for k in environ.keys() 
+                if not any(term in k.lower() for term in sensitive_terms)
+            ]
             logger.info("Available environment variables: %s", ", ".join(sorted(env_vars)))
             
             # Get credentials from environment
@@ -529,7 +542,6 @@ class CredentialManager:
             except json.JSONDecodeError as e:
                 logger.error("Failed to parse credentials JSON: %s", str(e))
                 # Log the first few characters of the credentials for debugging
-                # Be careful not to log sensitive information
                 if credentials_json:
                     preview = credentials_json[:10] + "..." if len(credentials_json) > 10 else "EMPTY"
                     logger.error("First few characters of credentials: %s", preview)
@@ -557,7 +569,7 @@ class GoogleSheetsManager:
         self._service = None
 
     def _initialize_service(self):
-        """Initializes the Google Sheets service."""
+        """Initializes the Google Sheets service if it is not already initialized."""
         if not self._service:
             creds = self.credential_manager.get_credentials()
             self._service = build("sheets", "v4", credentials=creds)
@@ -572,7 +584,7 @@ class GoogleSheetsManager:
         Updates Google Sheet with prize information.
         
         Args:
-            prize_data: Prize data to update in the sheet
+            prize_data (PrizeData): Prize data to update in the sheet
             
         Raises:
             ScriptError: If update fails
@@ -645,6 +657,10 @@ class PollaApp:
     async def run(self) -> None:
         """
         Main execution flow with proper resource management.
+        
+        1. Scrapes the prize data from the website.
+        2. Updates the Google Sheet with the scraped values.
+        3. Logs execution details.
         """
         start_time = datetime.now()
         logger.info("Script started at %s", start_time.isoformat())
@@ -674,6 +690,7 @@ class PollaApp:
 def main() -> None:
     """
     Entry point with asyncio support.
+    Initializes PollaApp and runs the asynchronous flow.
     """
     try:
         app = PollaApp()
