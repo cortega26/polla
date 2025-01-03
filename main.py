@@ -367,7 +367,7 @@ class PollaScraper:
         The second through ninth elements correspond to:
           [1]->Loto, [2]->Recargado, [3]->Revancha, [4]->Desquite,
           [5] and [6] combined -> Jubilazo, [7] and [8] combined -> Jubilazo_50,
-        ignoring [0] for site-specific reasons.
+        ignoring [0] because it's the total sum of prizes and we don't need it.
         
         Returns:
             PrizeData: Structured prize information
@@ -408,8 +408,6 @@ class PollaScraper:
             self._validate_prizes(prizes)
             
             # Create PrizeData object
-            # Note: We skip prizes[0], as that's the total of all prizes and it's not used
-            # based on the current site. If the site changes, this indexing may need to be updated.
             return PrizeData(
                 loto=prizes[1],
                 recargado=prizes[2],
