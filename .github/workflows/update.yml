@@ -2,51 +2,49 @@ name: Polla.cl Prize Updater
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # 02:00 UTC daily
+    - cron: '0 2 * * *'  # 2 AM UTC
   workflow_dispatch:
 
 jobs:
-  update-prizes:
+  update:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Free up disk space
+      run: |
+        sudo rm -rf /usr/local/lib/android /opt/ghc
+        sudo apt-get clean
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget gnupg
+        wget -qO- https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/googlechrome.gpg
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          google-chrome-stable \
+          libnss3 libx11-6 libxcb1 libx11-xcb1 libxcomposite1 \
+          libxcursor1 libxdamage1 libxext6 libxi6 libxtst6 \
+          libxrandr2 libxss1 libasound2 libatk-bridge2.0-0 \
+          libgtk-3-0 libgbm1
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-
-    - name: Install Chrome and dependencies
-      run: |
-        # First update package lists
-        sudo apt-get update -qq
-
-        # Install Chrome dependencies first
-        sudo apt-get install -y --no-install-recommends \
-          libnss3 \
-          libgbm1 \
-          libxdamage1 \
-          libxcomposite1 \
-          libxcursor1 \
-          libxi6 \
-          libxtst6
-
-        # Install Chrome
-        sudo apt-get install -y wget
-        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/googlechrome.gpg
-        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-        sudo apt-get update -qq
-        sudo apt-get install -y google-chrome-stable
+        cache: 'pip'
 
     - name: Install Python packages
       run: |
         python -m pip install --upgrade pip
-        pip install selenium==4.10.0 google-api-python-client==2.92.0 tenacity==8.2.3
+        pip install --no-cache-dir -r requirements.txt
 
-    - name: Run prize updater
+    - name: Run updater
       env:
         CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
       run: |
