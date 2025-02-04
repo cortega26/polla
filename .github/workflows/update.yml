@@ -21,6 +21,7 @@ jobs:
 
       - name: Install Chrome
         run: |
+          # Note: apt-key is deprecated but still works for now.
           wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
           sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
           sudo apt-get update
@@ -28,17 +29,21 @@ jobs:
 
       - name: Install Chromedriver
         run: |
-          # Get the installed Google Chrome version (e.g., "Google Chrome 114.0.5735.133")
+          # Get the installed Google Chrome version (e.g., "Google Chrome 133.0.6943.53")
           CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
           echo "Chrome version: $CHROME_VERSION"
-          # Extract the major version (e.g., "114")
+          # Extract the major version (e.g., "133")
           CHROME_MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d '.' -f 1)
           echo "Chrome major version: $CHROME_MAJOR_VERSION"
           # Get the latest Chromedriver version for the installed major version
-          LATEST_DRIVER=$(wget -qO- https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_MAJOR_VERSION)
+          LATEST_DRIVER=$(wget -qO- "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}" || true)
+          if [ -z "$LATEST_DRIVER" ]; then
+            echo "Error: Could not determine Chromedriver version for Chrome major version $CHROME_MAJOR_VERSION" >&2
+            exit 1
+          fi
           echo "Latest Chromedriver version: $LATEST_DRIVER"
           # Download and unzip Chromedriver
-          wget -N https://chromedriver.storage.googleapis.com/${LATEST_DRIVER}/chromedriver_linux64.zip -P /tmp
+          wget -N "https://chromedriver.storage.googleapis.com/${LATEST_DRIVER}/chromedriver_linux64.zip" -P /tmp
           unzip -o /tmp/chromedriver_linux64.zip -d /tmp
           sudo mv /tmp/chromedriver /usr/local/bin/chromedriver
           sudo chmod +x /usr/local/bin/chromedriver
