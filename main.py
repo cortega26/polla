@@ -24,6 +24,7 @@ from googleapiclient.errors import HttpError
 from logging import getLogger, INFO, FileHandler, StreamHandler, Formatter
 from os import environ
 import traceback
+import chromedriver_autoinstaller  # New dependency for auto-installing Chromedriver
 
 # Module-level constants for retry settings (adjusted for CI/CD timeout)
 SCRAPER_RETRY_MULTIPLIER = 1
@@ -224,6 +225,8 @@ class BrowserManager:
         """
         try:
             if not self._driver:
+                # Automatically install the matching Chromedriver if needed.
+                chromedriver_autoinstaller.install()  
                 options = self._configure_chrome_options()
                 self._driver = webdriver.Chrome(options=options)
                 self._driver.set_page_load_timeout(self.config.scraper.page_load_timeout)

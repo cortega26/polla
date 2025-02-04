@@ -27,27 +27,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
 
-      - name: Install Chromedriver
-        run: |
-          # Get the installed Google Chrome version (e.g., "Google Chrome 133.0.6943.53")
-          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
-          echo "Chrome version: $CHROME_VERSION"
-          # Extract the major version (e.g., "133")
-          CHROME_MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d '.' -f 1)
-          echo "Chrome major version: $CHROME_MAJOR_VERSION"
-          # Get the latest Chromedriver version for the installed major version
-          LATEST_DRIVER=$(wget -qO- "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}" || true)
-          if [ -z "$LATEST_DRIVER" ]; then
-            echo "Error: Could not determine Chromedriver version for Chrome major version $CHROME_MAJOR_VERSION" >&2
-            exit 1
-          fi
-          echo "Latest Chromedriver version: $LATEST_DRIVER"
-          # Download and unzip Chromedriver
-          wget -N "https://chromedriver.storage.googleapis.com/${LATEST_DRIVER}/chromedriver_linux64.zip" -P /tmp
-          unzip -o /tmp/chromedriver_linux64.zip -d /tmp
-          sudo mv /tmp/chromedriver /usr/local/bin/chromedriver
-          sudo chmod +x /usr/local/bin/chromedriver
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
