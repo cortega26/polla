@@ -1,7 +1,6 @@
-selenium==4.10.0
-beautifulsoup4==4.12.2
-google-api-python-client==2.92.0
-google-auth-oauthlib==1.0.0
-tenacity==8.2.3
-webdriver-manager==3.8.6
-python-dotenv==1.0.0
+tenacity>=8.0.1
+beautifulsoup4>=4.11.1
+selenium>=4.9.1
+google-api-python-client>=2.70.0
+google-auth>=2.16.0
+google-auth-httplib2>=0.1.0

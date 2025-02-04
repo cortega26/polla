@@ -1,57 +1,41 @@
-name: Polla.cl Prize Updater
+name: Update Prizes
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # 2 AM UTC
-  workflow_dispatch:
+    - cron: '0 2 * * *'  # Run at 2 AM UTC daily
+  workflow_dispatch:  # Allow manual triggers
 
 jobs:
-  update:
+  update-prizes:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Free up disk space
-      run: |
-        sudo rm -rf /usr/local/lib/android /opt/ghc
-        sudo apt-get clean
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
 
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget gnupg
-        wget -qO- https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/googlechrome.gpg
-        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends \
-          google-chrome-stable \
-          libnss3 libx11-6 libxcb1 libx11-xcb1 libxcomposite1 \
-          libxcursor1 libxdamage1 libxext6 libxi6 libxtst6 \
-          libxrandr2 libxss1 libatk-bridge2.0-0 \
-          libgtk-3-0 libgbm1
+      - name: Install Chrome
+        run: |
+          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-        cache: 'pip'
+      - name: Install Chromedriver
+        run: sudo apt-get install -y chromedriver
 
-    - name: Install Python packages
-      run: |
-        python -m pip install --upgrade pip
-        pip install --no-cache-dir -r requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir -r requirements.txt
 
-    - name: Run updater
-      env:
-        CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
-      run: |
-        python -u main.py
-
-    - name: Cleanup
-      if: always()
-      run: |
-        sudo pkill -f chrome || true
-        sudo rm -rf /tmp/.com.google.Chrome.* || true
+      - name: Run script
+        env:
+          CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+        run: python -u main.py
+        timeout-minutes: 5
