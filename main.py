@@ -4,12 +4,14 @@ Scrapes lottery prize information and updates a Google Sheet with the results.
 """
 
 import json
-import tenacity
+import traceback
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
 from datetime import datetime
 from pathlib import Path
-import asyncio
+from typing import List, Optional, Dict, Any
+from os import environ
+
+import tenacity
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -22,11 +24,9 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from logging import getLogger, INFO, FileHandler, StreamHandler, Formatter
-from os import environ
-import traceback
-import chromedriver_autoinstaller  # New dependency for auto-installing Chromedriver
+import chromedriver_autoinstaller
 
-# Module-level constants for retry settings (adjusted for CI/CD timeout)
+# Module-level constants for retry settings
 SCRAPER_RETRY_MULTIPLIER = 1
 SCRAPER_MIN_RETRY_WAIT = 5   # seconds
 SCRAPER_MAX_ATTEMPTS = 3
@@ -53,7 +53,7 @@ try:
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 except Exception as e:
-    logger.warning(f"Could not set up file logging: {e}")
+    logger.warning("Could not set up file logging: %s", e)
 
 logger.propagate = False
 
@@ -136,16 +136,16 @@ class ScriptError(Exception):
             return f"{base_msg} Original error: {str(self.original_error)}"
         return base_msg
 
-    def log_error(self, logger):
+    def log_error(self, logger) -> None:
         """Logs the error with full context."""
-        logger.error(f"Error occurred at {self.timestamp.isoformat()}")
-        logger.error(f"Message: {self.message}")
+        logger.error("Error occurred at %s", self.timestamp.isoformat())
+        logger.error("Message: %s", self.message)
         if self.error_code:
-            logger.error(f"Error code: {self.error_code}")
+            logger.error("Error code: %s", self.error_code)
         if self.original_error:
-            logger.error(f"Original error: {str(self.original_error)}")
+            logger.error("Original error: %s", str(self.original_error), exc_info=True)
         if self.traceback:
-            logger.error(f"Traceback:\n{self.traceback}")
+            logger.error("Traceback:\n%s", self.traceback)
 
 
 @dataclass(frozen=True)
@@ -159,7 +159,7 @@ class PrizeData:
     multiplicar: int
     jubilazo_50: int
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validates prize data after initialization."""
         for field_name, value in self.__dict__.items():
             if value < 0:
@@ -190,7 +190,7 @@ class PrizeData:
 class BrowserManager:
     """Manages browser instance and configuration."""
     
-    def __init__(self, config: AppConfig):
+    def __init__(self, config: AppConfig) -> None:
         self.config = config
         self._driver: Optional[WebDriver] = None
 
@@ -198,14 +198,15 @@ class BrowserManager:
         """
         Configures Chrome options with security and performance settings.
         Returns:
-            webdriver.ChromeOptions: Configured Chrome options
+            webdriver.ChromeOptions: Configured Chrome options.
         """
         chrome_options = webdriver.ChromeOptions()
-        # Convert underscores to dashes for command-line arguments
+        # Iterate over the chrome configuration. For booleans, add the flag only if True.
         for key, value in self.config.get_chrome_options().items():
             flag = f"--{key.replace('_', '-')}"
             if isinstance(value, bool):
                 if value:
+                    # Special handling for headless: use standard flag (or consider '--headless=new' if needed)
                     chrome_options.add_argument(flag)
             else:
                 chrome_options.add_argument(f"{flag}={value}")
@@ -219,13 +220,12 @@ class BrowserManager:
         """
         Creates and configures a new WebDriver instance.
         Returns:
-            WebDriver: Configured Chrome WebDriver instance
+            WebDriver: Configured Chrome WebDriver instance.
         Raises:
-            ScriptError: If driver creation fails
+            ScriptError: If driver creation fails.
         """
         try:
             if not self._driver:
-                # Automatically install the matching Chromedriver if needed.
                 chromedriver_autoinstaller.install()  
                 options = self._configure_chrome_options()
                 self._driver = webdriver.Chrome(options=options)
@@ -234,33 +234,33 @@ class BrowserManager:
         except Exception as e:
             raise ScriptError("Failed to create browser instance", e, "BROWSER_INIT_ERROR")
 
-    def close(self):
+    def close(self) -> None:
         """Safely closes the browser instance."""
         try:
             if self._driver:
                 self._driver.quit()
                 self._driver = None
         except Exception as e:
-            logger.warning(f"Error closing browser: {e}")
+            logger.warning("Error closing browser: %s", e, exc_info=True)
 
-    def __enter__(self):
+    def __enter__(self) -> 'BrowserManager':
         self.get_driver()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
 
 
 class PollaScraper:
-    """Class to handle web scraping operations for polla.cl."""
+    """Handles web scraping operations for polla.cl."""
     
-    def __init__(self, config: AppConfig, browser_manager: BrowserManager):
+    def __init__(self, config: AppConfig, browser_manager: BrowserManager) -> None:
         self.config = config
         self.browser_manager = browser_manager
-        self._driver = None
-        self._wait = None
+        self._driver: Optional[WebDriver] = None
+        self._wait: Optional[WebDriverWait] = None
 
-    def _initialize_driver(self):
+    def _initialize_driver(self) -> None:
         """Initializes WebDriver and WebDriverWait instances."""
         self._driver = self.browser_manager.get_driver()
         self._wait = WebDriverWait(self._driver, self.config.scraper.element_timeout)
@@ -269,9 +269,9 @@ class PollaScraper:
         """
         Waits for an element to be clickable and clicks it.
         Args:
-            xpath: XPath selector for the element
+            xpath: XPath selector for the element.
         Returns:
-            WebElement if clicked successfully, None otherwise
+            WebElement if clicked successfully, None otherwise.
         """
         try:
             element = self._wait.until(
@@ -279,37 +279,40 @@ class PollaScraper:
             )
             self._driver.execute_script("arguments[0].scrollIntoView(true);", element)
             element.click()
+            logger.info("Clicked element with XPath: %s", xpath)
             return element
         except Exception as e:
-            logger.warning(f"Failed to click element {xpath}: {e}")
+            logger.warning("Failed to click element %s: %s", xpath, e, exc_info=True)
             return None
 
     def _parse_prize(self, text: str) -> int:
         """
         Parses prize value from text.
         Args:
-            text: Prize text to parse
+            text: Prize text to parse.
         Returns:
-            int: Parsed prize value in pesos
+            int: Parsed prize value in pesos.
         Raises:
-            ScriptError: If text cannot be parsed as a number
+            ScriptError: If text cannot be parsed as a number.
         """
         try:
-            cleaned_text = text.strip("$").replace(".", "")
+            # Remove dollar signs, dots, and commas then trim whitespace.
+            cleaned_text = text.strip("$").replace(".", "").replace(",", "").strip()
             if not cleaned_text:
                 raise ValueError("Empty prize value")
+            # Multiply by 1,000,000 assuming the scraped number is in millions.
             return int(cleaned_text) * 1000000
         except (ValueError, AttributeError) as e:
-            logger.error(f"Failed to parse prize value: '{text}'", exc_info=e)
+            logger.error("Failed to parse prize value: '%s'", text, exc_info=True)
             raise ScriptError(f"Parsing error for prize value: '{text}'", e, "PRIZE_PARSING_ERROR")
 
     def _validate_prizes(self, prizes: List[int]) -> None:
         """
         Validates scraped prize data.
         Args:
-            prizes: List of prize values to validate
+            prizes: List of prize values to validate.
         Raises:
-            ScriptError: If validation fails
+            ScriptError: If validation fails.
         """
         if not prizes:
             raise ScriptError("No prizes found", error_code="NO_PRIZES_ERROR")
@@ -332,30 +335,34 @@ class PollaScraper:
         stop=tenacity.stop_after_attempt(SCRAPER_MAX_ATTEMPTS),
         retry=tenacity.retry_if_exception_type(ScriptError),
         before_sleep=lambda retry_state: logger.warning(
-            f"Retrying in {retry_state.next_action.sleep} seconds..."
+            "Scraper: Retrying in %.2f seconds (attempt %d)...",
+            retry_state.next_action.sleep, retry_state.attempt_number
         ),
         after=lambda retry_state: logger.info(
-            f"Attempt {retry_state.attempt_number} "
-            f"{'successful' if not retry_state.failed else 'failed'}"
+            "Scraper: Attempt %d %s", 
+            retry_state.attempt_number,
+            "succeeded" if not retry_state.outcome.failed else "failed"
         )
     )
     def scrape(self) -> PrizeData:
         """
         Scrapes prize information from polla.cl.
         Returns:
-            PrizeData: Structured prize information
+            PrizeData: Structured prize information.
         Raises:
-            ScriptError: If scraping fails
+            ScriptError: If scraping fails.
         """
         try:
             self._initialize_driver()
-            logger.info(f"Accessing URL: {self.config.scraper.base_url}")
+            logger.info("Accessing URL: %s", self.config.scraper.base_url)
             self._driver.get(self.config.scraper.base_url)
+            # Click on the required element; adjust the XPath if needed.
             if not self._wait_and_click("//div[3]/div/div/div/img"):
                 raise ScriptError(
                     "Failed to interact with required elements",
                     error_code="ELEMENT_INTERACTION_ERROR"
                 )
+            # Parse page source with BeautifulSoup.
             soup = BeautifulSoup(self._driver.page_source, "html.parser")
             prize_elements = soup.find_all("span", class_="prize")
             if not prize_elements:
@@ -363,8 +370,10 @@ class PollaScraper:
                     "No prize elements found on page",
                     error_code="NO_ELEMENTS_ERROR"
                 )
+            # Parse each prize element.
             prizes = [self._parse_prize(prize.text) for prize in prize_elements]
             self._validate_prizes(prizes)
+            # Note: prizes[0] is skipped per original logic.
             return PrizeData(
                 loto=prizes[1],
                 recargado=prizes[2],
@@ -379,14 +388,14 @@ class PollaScraper:
         except Exception as error:
             raise ScriptError("Scraping failed", error, "SCRAPE_ERROR")
         finally:
-            # Browser cleanup is handled by BrowserManager's context manager
+            # Browser cleanup is handled by BrowserManager's context manager.
             pass
 
 
 class CredentialManager:
     """Manages Google API credentials."""
     
-    def __init__(self, config: AppConfig):
+    def __init__(self, config: AppConfig) -> None:
         self.config = config
         
     @staticmethod
@@ -394,9 +403,9 @@ class CredentialManager:
         """
         Validates the credential dictionary has required fields.
         Args:
-            creds_dict: Dictionary containing credentials
+            creds_dict: Dictionary containing credentials.
         Raises:
-            ScriptError: If required fields are missing
+            ScriptError: If required fields are missing.
         """
         required_fields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email']
         missing_fields = [field for field in required_fields if field not in creds_dict]
@@ -410,36 +419,29 @@ class CredentialManager:
         """
         Retrieves and validates Google OAuth2 service account credentials.
         Returns:
-            Credentials: Valid Google service account credentials
+            Credentials: Valid Google service account credentials.
         Raises:
-            ScriptError: If credentials are invalid or missing
+            ScriptError: If credentials are invalid or missing.
         """
         try:
-            sensitive_terms = {'key', 'secret', 'password', 'token', 'credential'}
-            env_vars = [k for k in environ.keys() if not any(term in k.lower() for term in sensitive_terms)]
-            logger.info("Available environment variables: %s", ", ".join(sorted(env_vars)))
             credentials_json = environ.get("CREDENTIALS")
             if not credentials_json:
                 logger.error("CREDENTIALS environment variable is not set")
-                logger.info("Please ensure the GOOGLE_CREDENTIALS secret is properly set in GitHub Actions")
                 raise ScriptError(
                     "CREDENTIALS environment variable is empty",
                     error_code="MISSING_CREDENTIALS"
                 )
-            logger.info("Credentials variable found with length: %d", len(credentials_json))
             try:
                 credentials_dict = json.loads(credentials_json)
-                logger.info("Successfully parsed credentials JSON")
                 self._validate_credentials_dict(credentials_dict)
-                logger.info("All required credential fields present")
+                logger.info("Google credentials successfully loaded and validated.")
                 return service_account.Credentials.from_service_account_info(
                     credentials_dict,
                     scopes=self.config.google.scopes
                 )
             except json.JSONDecodeError as e:
-                logger.error("Failed to parse credentials JSON: %s", str(e))
                 preview = credentials_json[:10] + "..." if len(credentials_json) > 10 else "EMPTY"
-                logger.error("First few characters of credentials: %s", preview)
+                logger.error("Failed to parse credentials JSON. Preview: %s", preview, exc_info=True)
                 raise ScriptError(
                     "Invalid JSON in CREDENTIALS environment variable",
                     e,
@@ -448,21 +450,18 @@ class CredentialManager:
         except Exception as error:
             if isinstance(error, ScriptError):
                 raise
-            raise ScriptError(
-                "Error retrieving credentials",
-                error,
-                "CREDENTIAL_ERROR"
-            )
+            raise ScriptError("Error retrieving credentials", error, "CREDENTIAL_ERROR")
+
 
 class GoogleSheetsManager:
     """Manages Google Sheets operations."""
     
-    def __init__(self, config: AppConfig, credential_manager: CredentialManager):
+    def __init__(self, config: AppConfig, credential_manager: CredentialManager) -> None:
         self.config = config
         self.credential_manager = credential_manager
         self._service = None
 
-    def _initialize_service(self):
+    def _initialize_service(self) -> None:
         """Initializes the Google Sheets service."""
         if not self._service:
             creds = self.credential_manager.get_credentials()
@@ -471,20 +470,30 @@ class GoogleSheetsManager:
     @tenacity.retry(
         wait=tenacity.wait_exponential(multiplier=1, min=5),
         stop=tenacity.stop_after_attempt(3),
-        retry=tenacity.retry_if_exception_type((HttpError, ScriptError))
+        retry=tenacity.retry_if_exception_type((HttpError, ScriptError)),
+        before_sleep=lambda retry_state: logger.warning(
+            "Google Sheets update: Retrying in %.2f seconds (attempt %d)...",
+            retry_state.next_action.sleep, retry_state.attempt_number
+        ),
+        after=lambda retry_state: logger.info(
+            "Google Sheets update: Attempt %d %s",
+            retry_state.attempt_number,
+            "succeeded" if not retry_state.outcome.failed else "failed"
+        )
     )
     def update_sheet(self, prize_data: PrizeData) -> None:
         """
         Updates Google Sheet with prize information.
         Args:
-            prize_data: Prize data to update in the sheet
+            prize_data: Prize data to update in the sheet.
         Raises:
-            ScriptError: If update fails
+            ScriptError: If update fails.
         """
         try:
             self._initialize_service()
             values = prize_data.to_sheet_values()
             body = {"values": values}
+            logger.info("Updating Google Sheet with prize data...")
             try:
                 response = self._service.spreadsheets().values().update(
                     spreadsheetId=self.config.google.spreadsheet_id,
@@ -492,9 +501,10 @@ class GoogleSheetsManager:
                     valueInputOption="RAW",
                     body=body
                 ).execute()
+                updated = response.get('updatedCells', 0)
                 logger.info(
                     "Update successful - %d cells updated. Total prizes: %d. Timestamp: %s",
-                    response.get('updatedCells', 0),
+                    updated,
                     prize_data.total_prize_money,
                     datetime.now().isoformat()
                 )
@@ -519,35 +529,32 @@ class GoogleSheetsManager:
                         "SHEETS_API_ERROR"
                     )
         except Exception as error:
-            raise ScriptError(
-                "Error updating Google Sheet",
-                error,
-                "UPDATE_ERROR"
-            )
+            raise ScriptError("Error updating Google Sheet", error, "UPDATE_ERROR")
+
 
 class PollaApp:
     """Main application class orchestrating the scraping and updating process."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.config = AppConfig.create_default()
         self.browser_manager = BrowserManager(self.config)
         self.credential_manager = CredentialManager(self.config)
         self.sheets_manager = GoogleSheetsManager(self.config, self.credential_manager)
         self.scraper = PollaScraper(self.config, self.browser_manager)
 
-    async def run(self) -> None:
+    def run(self) -> None:
         """
         Main execution flow with proper resource management.
         """
         start_time = datetime.now()
         logger.info("Script started at %s", start_time.isoformat())
         try:
-            # Use the browser manager as a context manager to ensure proper cleanup
+            # Use the browser manager as a context manager to ensure proper cleanup.
             with self.browser_manager:
                 prize_data = self.scraper.scrape()
-                logger.info("Successfully scraped prize data")
+                logger.info("Successfully scraped prize data.")
                 self.sheets_manager.update_sheet(prize_data)
-                logger.info("Successfully updated Google Sheet")
+                logger.info("Successfully updated Google Sheet.")
         except ScriptError as error:
             error.log_error(logger)
         except Exception as error:
@@ -558,16 +565,18 @@ class PollaApp:
             duration = (end_time - start_time).total_seconds()
             logger.info("Script completed in %.2f seconds", duration)
 
+
 def main() -> None:
     """
-    Entry point with asyncio support.
+    Entry point.
     """
     try:
         app = PollaApp()
-        asyncio.run(app.run())
+        app.run()
     except Exception as error:
-        logger.critical("Fatal error occurred: %s", str(error))
+        logger.critical("Fatal error occurred: %s", str(error), exc_info=True)
         raise
+
 
 if __name__ == "__main__":
     main()
