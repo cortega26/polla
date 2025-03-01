@@ -282,6 +282,9 @@ class PollaScraper:
             logger.info("Clicked element with XPath: %s", xpath)
             return element
         except Exception as e:
+            page_source = self._driver.page_source
+            with open("error_page_source.html", "w", encoding="utf-8") as f:
+                f.write(page_source)
             logger.warning("Failed to click element %s: %s", xpath, e, exc_info=True)
             return None
 
