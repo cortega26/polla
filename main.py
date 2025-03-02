@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from os import environ
+from selenium.webdriver import ActionChains
 
 import tenacity
 from bs4 import BeautifulSoup
@@ -265,28 +266,29 @@ class PollaScraper:
         self._driver = self.browser_manager.get_driver()
         self._wait = WebDriverWait(self._driver, self.config.scraper.element_timeout)
 
-    def _wait_and_click(self, xpath: str) -> Optional[WebElement]:
+    def _wait_and_click(self, css_selector: str) -> Optional[WebElement]:
         """
-        Waits for an element to be present, scrolls it into view, and then clicks it via JavaScript.
-        Args:
-            xpath: XPath selector for the element.
-        Returns:
-            WebElement if clicked successfully, None otherwise.
+        Waits for the element specified by the CSS selector to be visible,
+        scrolls it into view, and clicks it using ActionChains.
+        Captures a screenshot if the element isn’t found for debugging purposes.
         """
         try:
-            # Wait for the element to be present (you can also try visibility_of_element_located)
-            element = self._wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
-            # Scroll into view
+            # Wait for the element to be visible using the CSS selector
+            element = self._wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, css_selector)))
+            
+            # Scroll the element into view
             self._driver.execute_script("arguments[0].scrollIntoView(true);", element)
-            # Use JavaScript to click the element
-            self._driver.execute_script("arguments[0].click();", element)
-            logger.info("Clicked element with XPath: %s", xpath)
+            
+            # Use ActionChains to click the element
+            ActionChains(self._driver).move_to_element(element).click().perform()
+            
+            logger.info("Clicked element with CSS selector: %s", css_selector)
             return element
         except Exception as e:
-            page_source = self._driver.page_source
-            with open("error_page_source.html", "w", encoding="utf-8") as f:
-                f.write(page_source)
-            logger.warning("Failed to click element %s: %s", xpath, e, exc_info=True)
+            # Save a screenshot for debugging if needed
+            screenshot_path = "debug_screenshot.png"
+            self._driver.save_screenshot(screenshot_path)
+            logger.warning("Failed to click element %s: %s. Screenshot saved to %s", css_selector, e, screenshot_path, exc_info=True)
             return None
 
     def _parse_prize(self, text: str) -> int:
@@ -361,7 +363,7 @@ class PollaScraper:
             logger.info("Accessing URL: %s", self.config.scraper.base_url)
             self._driver.get(self.config.scraper.base_url)
             # Click on the required element; adjust the XPath if needed.
-            if not self._wait_and_click("/html/body/div[1]/div[1]/div[3]/div/div/div/img"):
+            if not self._wait_and_click(".expanse-controller > img:nth-child(1)"):
                 raise ScriptError(
                     "Failed to interact with required elements",
                     error_code="ELEMENT_INTERACTION_ERROR"
