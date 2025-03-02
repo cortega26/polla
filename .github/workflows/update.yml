@@ -40,7 +40,7 @@ jobs:
 
       - name: Upload debug screenshot artifact
         if: always()  # Upload artifact even if previous steps fail.
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: debug-screenshot
           path: debug_screenshot.png
