@@ -270,26 +270,39 @@ class PollaScraper:
         """
         Waits for the element specified by the CSS selector to be visible,
         scrolls it into view, and clicks it using ActionChains.
-        Captures a screenshot if the element isn’t found for debugging purposes.
+        Logs debug information to help pinpoint issues.
         """
         try:
-            # Wait for the element to be visible using the CSS selector
+            logger.debug("Current URL: %s", self._driver.current_url)
+            # Log a snippet of the page source to see if it looks as expected.
+            page_source = self._driver.page_source
+            logger.debug("Page source snippet (first 500 chars): %s", page_source[:500])
+            
+            # Immediately check how many elements match the selector.
+            elements = self._driver.find_elements(By.CSS_SELECTOR, css_selector)
+            logger.debug("Found %d elements matching CSS selector '%s'", len(elements), css_selector)
+            
+            # Wait for the element to be visible.
             element = self._wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, css_selector)))
+            logger.debug("Element located and visible: %s", element)
             
-            # Scroll the element into view
+            # Scroll the element into view.
             self._driver.execute_script("arguments[0].scrollIntoView(true);", element)
+            logger.debug("Scrolled element into view.")
             
-            # Use ActionChains to click the element
+            # Attempt to click using ActionChains.
             ActionChains(self._driver).move_to_element(element).click().perform()
-            
             logger.info("Clicked element with CSS selector: %s", css_selector)
             return element
         except Exception as e:
-            # Save a screenshot for debugging if needed
+            # Log full exception details.
+            logger.exception("Exception in _wait_and_click for selector '%s'", css_selector)
+            # Save screenshot for debugging.
             screenshot_path = "debug_screenshot.png"
             self._driver.save_screenshot(screenshot_path)
-            logger.warning("Failed to click element %s: %s. Screenshot saved to %s", css_selector, e, screenshot_path, exc_info=True)
-            return None
+            logger.error("Screenshot saved to %s", screenshot_path)
+            raise
+
 
     def _parse_prize(self, text: str) -> int:
         """
@@ -351,24 +364,21 @@ class PollaScraper:
         )
     )
     def scrape(self) -> PrizeData:
-        """
-        Scrapes prize information from polla.cl.
-        Returns:
-            PrizeData: Structured prize information.
-        Raises:
-            ScriptError: If scraping fails.
-        """
         try:
             self._initialize_driver()
             logger.info("Accessing URL: %s", self.config.scraper.base_url)
             self._driver.get(self.config.scraper.base_url)
-            # Click on the required element; adjust the XPath if needed.
+            logger.debug("Page loaded. Current URL: %s", self._driver.current_url)
+            logger.debug("Page source snippet (first 500 chars): %s", self._driver.page_source[:500])
+            
+            # Use the CSS selector to click the required element.
             if not self._wait_and_click(".expanse-controller > img:nth-child(1)"):
                 raise ScriptError(
                     "Failed to interact with required elements",
                     error_code="ELEMENT_INTERACTION_ERROR"
                 )
-            # Parse page source with BeautifulSoup.
+            
+            # Continue with your parsing...
             soup = BeautifulSoup(self._driver.page_source, "html.parser")
             prize_elements = soup.find_all("span", class_="prize")
             if not prize_elements:
@@ -376,10 +386,8 @@ class PollaScraper:
                     "No prize elements found on page",
                     error_code="NO_ELEMENTS_ERROR"
                 )
-            # Parse each prize element.
             prizes = [self._parse_prize(prize.text) for prize in prize_elements]
             self._validate_prizes(prizes)
-            # Note: prizes[0] is skipped per original logic.
             return PrizeData(
                 loto=prizes[1],
                 recargado=prizes[2],
@@ -393,9 +401,7 @@ class PollaScraper:
             raise
         except Exception as error:
             raise ScriptError("Scraping failed", error, "SCRAPE_ERROR")
-        finally:
-            # Browser cleanup is handled by BrowserManager's context manager.
-            pass
+
 
 
 class CredentialManager:
