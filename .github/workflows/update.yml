@@ -15,7 +15,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
           cache: 'pip'
           cache-dependency-path: 'requirements.txt'
 
@@ -37,6 +37,10 @@ jobs:
           CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
         run: python -u main.py
         timeout-minutes: 5
+
+      - name: List workspace files (debug)
+        if: always()
+        run: ls -la
 
       - name: Upload debug screenshot artifact
         if: always()  # Upload artifact even if previous steps fail.
