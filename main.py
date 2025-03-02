@@ -360,7 +360,7 @@ class PollaScraper:
             logger.info("Accessing URL: %s", self.config.scraper.base_url)
             self._driver.get(self.config.scraper.base_url)
             # Click on the required element; adjust the XPath if needed.
-            if not self._wait_and_click("//div[3]/div/div/div/img"):
+            if not self._wait_and_click("/html/body/div[1]/div[1]/div[3]/div/div/div/img"):
                 raise ScriptError(
                     "Failed to interact with required elements",
                     error_code="ELEMENT_INTERACTION_ERROR"
