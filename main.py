@@ -267,18 +267,19 @@ class PollaScraper:
 
     def _wait_and_click(self, xpath: str) -> Optional[WebElement]:
         """
-        Waits for an element to be clickable and clicks it.
+        Waits for an element to be present, scrolls it into view, and then clicks it via JavaScript.
         Args:
             xpath: XPath selector for the element.
         Returns:
             WebElement if clicked successfully, None otherwise.
         """
         try:
-            element = self._wait.until(
-                EC.element_to_be_clickable((By.XPATH, xpath))
-            )
+            # Wait for the element to be present (you can also try visibility_of_element_located)
+            element = self._wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
+            # Scroll into view
             self._driver.execute_script("arguments[0].scrollIntoView(true);", element)
-            element.click()
+            # Use JavaScript to click the element
+            self._driver.execute_script("arguments[0].click();", element)
             logger.info("Clicked element with XPath: %s", xpath)
             return element
         except Exception as e:
