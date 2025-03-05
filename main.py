@@ -4,17 +4,19 @@ Scrapes lottery prize information and updates a Google Sheet with the results.
 """
 
 import json
+import random
+import time
 import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from os import environ
-from selenium.webdriver import ActionChains
 
 import tenacity
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -83,7 +85,7 @@ class ScraperConfig:
     retry_multiplier: int = SCRAPER_RETRY_MULTIPLIER
     min_retry_wait: int = SCRAPER_MIN_RETRY_WAIT
     max_attempts: int = SCRAPER_MAX_ATTEMPTS
-    element_timeout: int = 5
+    element_timeout: int = 10  # Increased timeout for slower pages
     page_load_timeout: int = 30
 
 
@@ -198,23 +200,52 @@ class BrowserManager:
     def _configure_chrome_options(self) -> webdriver.ChromeOptions:
         """
         Configures Chrome options with security and performance settings.
+        Also adds options to bypass bot detection.
         Returns:
             webdriver.ChromeOptions: Configured Chrome options.
         """
         chrome_options = webdriver.ChromeOptions()
-        # Iterate over the chrome configuration. For booleans, add the flag only if True.
+        # Add options from config
         for key, value in self.config.get_chrome_options().items():
             flag = f"--{key.replace('_', '-')}"
             if isinstance(value, bool):
                 if value:
-                    # Special handling for headless: use standard flag (or consider '--headless=new' if needed)
                     chrome_options.add_argument(flag)
             else:
                 chrome_options.add_argument(f"{flag}={value}")
-        chrome_options.add_argument('--disable-infobars')
-        chrome_options.add_argument('--disable-notifications')
-        chrome_options.add_experimental_option('excludeSwitches', ['enable-automation'])
-        chrome_options.add_experimental_option('useAutomationExtension', False)
+        
+        # Additional options to bypass bot detection
+        chrome_options.add_argument("--disable-infobars")
+        chrome_options.add_argument("--disable-notifications")
+        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option("useAutomationExtension", False)
+        
+        # Expanded diverse user-agent list
+        USER_AGENTS = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:90.0) Gecko/20100101 Firefox/90.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:45.0) Gecko/20100101 Firefox/45.0",
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0",
+            "Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.117 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.2 Safari/605.1.15",
+            "Mozilla/5.0 (iPad; CPU OS 13_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.2 Mobile/15E148 Safari/604.1"
+        ]
+        chosen_user_agent = random.choice(USER_AGENTS)
+        chrome_options.add_argument(f"user-agent={chosen_user_agent}")
+        logger.info("Using user-agent: %s", chosen_user_agent)
+        
+        # Optionally disable headless mode for debugging based on env variable DISABLE_HEADLESS
+        if environ.get("DISABLE_HEADLESS", "false").lower() == "true":
+            logger.info("DISABLE_HEADLESS set to true; running in non-headless mode.")
+        else:
+            if not any("headless" in arg for arg in chrome_options.arguments):
+                chrome_options.add_argument("--headless")
+        
+        logger.debug("Chrome options: %s", chrome_options.arguments)
         return chrome_options
 
     def get_driver(self) -> WebDriver:
@@ -269,57 +300,65 @@ class PollaScraper:
     def _wait_and_click(self, css_selector: str) -> Optional[WebElement]:
         """
         Waits for the element specified by the CSS selector to be visible,
-        scrolls it into view, and clicks it using ActionChains.
-        Logs debug information to help pinpoint issues.
+        logs debug information, scrolls it into view, and clicks it using ActionChains.
+        If the primary selector fails, attempts a fallback using an alternative selector.
+        Mimics human behavior by adding a short delay.
         """
         try:
             logger.debug("Current URL: %s", self._driver.current_url)
-            # Log a snippet of the page source to see if it looks as expected.
             page_source = self._driver.page_source
             logger.debug("Page source snippet (first 500 chars): %s", page_source[:500])
             
-            # Immediately check how many elements match the selector.
             elements = self._driver.find_elements(By.CSS_SELECTOR, css_selector)
             logger.debug("Found %d elements matching CSS selector '%s'", len(elements), css_selector)
             
-            # Wait for the element to be visible.
             element = self._wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, css_selector)))
-            logger.debug("Element located and visible: %s", element)
+            logger.debug("Primary element located and visible: %s", element)
             
-            # Scroll the element into view.
             self._driver.execute_script("arguments[0].scrollIntoView(true);", element)
-            logger.debug("Scrolled element into view.")
-            
-            # Attempt to click using ActionChains.
+            logger.debug("Scrolled primary element into view.")
+            time.sleep(2)
             ActionChains(self._driver).move_to_element(element).click().perform()
-            logger.info("Clicked element with CSS selector: %s", css_selector)
+            logger.info("Clicked element with primary CSS selector: %s", css_selector)
             return element
         except Exception as e:
-            # Log full exception details.
-            logger.exception("Exception in _wait_and_click for selector '%s'", css_selector)
-            # Save screenshot for debugging.
-            screenshot_path = "debug_screenshot.png"
-            self._driver.save_screenshot(screenshot_path)
-            logger.error("Screenshot saved to %s", screenshot_path)
-            raise
-
-
+            logger.exception("Primary selector '%s' failed.", css_selector)
+            # Fallback logic: try an alternative CSS selector.
+            fallback_selector = "div.expanse-controller img"
+            try:
+                logger.info("Attempting fallback selector: '%s'", fallback_selector)
+                elements_fb = self._driver.find_elements(By.CSS_SELECTOR, fallback_selector)
+                logger.debug("Found %d elements matching fallback selector '%s'", len(elements_fb), fallback_selector)
+                element_fb = self._wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, fallback_selector)))
+                logger.debug("Fallback element located and visible: %s", element_fb)
+                self._driver.execute_script("arguments[0].scrollIntoView(true);", element_fb)
+                logger.debug("Scrolled fallback element into view.")
+                time.sleep(2)
+                ActionChains(self._driver).move_to_element(element_fb).click().perform()
+                logger.info("Clicked element with fallback CSS selector: %s", fallback_selector)
+                return element_fb
+            except Exception as fb_e:
+                logger.exception("Fallback selector '%s' also failed.", fallback_selector)
+                screenshot_path = "debug_screenshot.png"
+                try:
+                    self._driver.save_screenshot(screenshot_path)
+                    logger.error("Screenshot saved to %s", screenshot_path)
+                except Exception as se:
+                    logger.error("Failed to save screenshot: %s", se)
+                raise ScriptError("Both primary and fallback clickable elements not found", fb_e, "ELEMENT_INTERACTION_ERROR")
+    
     def _parse_prize(self, text: str) -> int:
         """
         Parses prize value from text.
-        Args:
-            text: Prize text to parse.
         Returns:
             int: Parsed prize value in pesos.
         Raises:
-            ScriptError: If text cannot be parsed as a number.
+            ScriptError: If text cannot be parsed.
         """
         try:
-            # Remove dollar signs, dots, and commas then trim whitespace.
             cleaned_text = text.strip("$").replace(".", "").replace(",", "").strip()
             if not cleaned_text:
                 raise ValueError("Empty prize value")
-            # Multiply by 1,000,000 assuming the scraped number is in millions.
             return int(cleaned_text) * 1000000
         except (ValueError, AttributeError) as e:
             logger.error("Failed to parse prize value: '%s'", text, exc_info=True)
@@ -328,42 +367,33 @@ class PollaScraper:
     def _validate_prizes(self, prizes: List[int]) -> None:
         """
         Validates scraped prize data.
-        Args:
-            prizes: List of prize values to validate.
         Raises:
             ScriptError: If validation fails.
         """
         if not prizes:
             raise ScriptError("No prizes found", error_code="NO_PRIZES_ERROR")
         if len(prizes) < 9:
-            raise ScriptError(
-                f"Invalid prize data: expected 9+ prizes, got {len(prizes)}",
-                error_code="INSUFFICIENT_PRIZES_ERROR"
-            )
+            raise ScriptError(f"Invalid prize data: expected 9+ prizes, got {len(prizes)}", error_code="INSUFFICIENT_PRIZES_ERROR")
         if all(prize == 0 for prize in prizes):
-            raise ScriptError(
-                "All prizes are zero - possible scraping error",
-                error_code="ZERO_PRIZES_ERROR"
-            )
+            raise ScriptError("All prizes are zero - possible scraping error", error_code="ZERO_PRIZES_ERROR")
 
     @tenacity.retry(
-        wait=tenacity.wait_exponential(
-            multiplier=SCRAPER_RETRY_MULTIPLIER,
-            min=SCRAPER_MIN_RETRY_WAIT
-        ),
+        wait=tenacity.wait_exponential(multiplier=SCRAPER_RETRY_MULTIPLIER, min=SCRAPER_MIN_RETRY_WAIT),
         stop=tenacity.stop_after_attempt(SCRAPER_MAX_ATTEMPTS),
         retry=tenacity.retry_if_exception_type(ScriptError),
         before_sleep=lambda retry_state: logger.warning(
-            "Scraper: Retrying in %.2f seconds (attempt %d)...",
-            retry_state.next_action.sleep, retry_state.attempt_number
-        ),
-        after=lambda retry_state: logger.info(
-            "Scraper: Attempt %d %s", 
-            retry_state.attempt_number,
-            "succeeded" if not retry_state.outcome.failed else "failed"
-        )
+            "Scraper: Retrying in %.2f seconds (attempt %d)...", retry_state.next_action.sleep, retry_state.attempt_number),
+        after=lambda retry_state: logger.info("Scraper: Attempt %d %s", retry_state.attempt_number,
+                                               "succeeded" if not retry_state.outcome.failed else "failed")
     )
     def scrape(self) -> PrizeData:
+        """
+        Scrapes prize information from polla.cl.
+        Returns:
+            PrizeData: Structured prize data.
+        Raises:
+            ScriptError: If scraping fails.
+        """
         try:
             self._initialize_driver()
             logger.info("Accessing URL: %s", self.config.scraper.base_url)
@@ -371,21 +401,13 @@ class PollaScraper:
             logger.debug("Page loaded. Current URL: %s", self._driver.current_url)
             logger.debug("Page source snippet (first 500 chars): %s", self._driver.page_source[:500])
             
-            # Use the CSS selector to click the required element.
             if not self._wait_and_click(".expanse-controller > img:nth-child(1)"):
-                raise ScriptError(
-                    "Failed to interact with required elements",
-                    error_code="ELEMENT_INTERACTION_ERROR"
-                )
+                raise ScriptError("Failed to interact with required elements", error_code="ELEMENT_INTERACTION_ERROR")
             
-            # Continue with your parsing...
             soup = BeautifulSoup(self._driver.page_source, "html.parser")
             prize_elements = soup.find_all("span", class_="prize")
             if not prize_elements:
-                raise ScriptError(
-                    "No prize elements found on page",
-                    error_code="NO_ELEMENTS_ERROR"
-                )
+                raise ScriptError("No prize elements found on page", error_code="NO_ELEMENTS_ERROR")
             prizes = [self._parse_prize(prize.text) for prize in prize_elements]
             self._validate_prizes(prizes)
             return PrizeData(
@@ -401,7 +423,8 @@ class PollaScraper:
             raise
         except Exception as error:
             raise ScriptError("Scraping failed", error, "SCRAPE_ERROR")
-
+        finally:
+            pass
 
 
 class CredentialManager:
@@ -412,53 +435,26 @@ class CredentialManager:
         
     @staticmethod
     def _validate_credentials_dict(creds_dict: Dict[str, Any]) -> None:
-        """
-        Validates the credential dictionary has required fields.
-        Args:
-            creds_dict: Dictionary containing credentials.
-        Raises:
-            ScriptError: If required fields are missing.
-        """
         required_fields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email']
         missing_fields = [field for field in required_fields if field not in creds_dict]
         if missing_fields:
-            raise ScriptError(
-                f"Missing required credential fields: {', '.join(missing_fields)}",
-                error_code="INVALID_CREDENTIALS"
-            )
+            raise ScriptError(f"Missing required credential fields: {', '.join(missing_fields)}", error_code="INVALID_CREDENTIALS")
 
     def get_credentials(self) -> Credentials:
-        """
-        Retrieves and validates Google OAuth2 service account credentials.
-        Returns:
-            Credentials: Valid Google service account credentials.
-        Raises:
-            ScriptError: If credentials are invalid or missing.
-        """
         try:
             credentials_json = environ.get("CREDENTIALS")
             if not credentials_json:
                 logger.error("CREDENTIALS environment variable is not set")
-                raise ScriptError(
-                    "CREDENTIALS environment variable is empty",
-                    error_code="MISSING_CREDENTIALS"
-                )
+                raise ScriptError("CREDENTIALS environment variable is empty", error_code="MISSING_CREDENTIALS")
             try:
                 credentials_dict = json.loads(credentials_json)
                 self._validate_credentials_dict(credentials_dict)
                 logger.info("Google credentials successfully loaded and validated.")
-                return service_account.Credentials.from_service_account_info(
-                    credentials_dict,
-                    scopes=self.config.google.scopes
-                )
+                return service_account.Credentials.from_service_account_info(credentials_dict, scopes=self.config.google.scopes)
             except json.JSONDecodeError as e:
                 preview = credentials_json[:10] + "..." if len(credentials_json) > 10 else "EMPTY"
                 logger.error("Failed to parse credentials JSON. Preview: %s", preview, exc_info=True)
-                raise ScriptError(
-                    "Invalid JSON in CREDENTIALS environment variable",
-                    e,
-                    "INVALID_JSON"
-                )
+                raise ScriptError("Invalid JSON in CREDENTIALS environment variable", e, "INVALID_JSON")
         except Exception as error:
             if isinstance(error, ScriptError):
                 raise
@@ -474,7 +470,6 @@ class GoogleSheetsManager:
         self._service = None
 
     def _initialize_service(self) -> None:
-        """Initializes the Google Sheets service."""
         if not self._service:
             creds = self.credential_manager.get_credentials()
             self._service = build("sheets", "v4", credentials=creds)
@@ -483,24 +478,10 @@ class GoogleSheetsManager:
         wait=tenacity.wait_exponential(multiplier=1, min=5),
         stop=tenacity.stop_after_attempt(3),
         retry=tenacity.retry_if_exception_type((HttpError, ScriptError)),
-        before_sleep=lambda retry_state: logger.warning(
-            "Google Sheets update: Retrying in %.2f seconds (attempt %d)...",
-            retry_state.next_action.sleep, retry_state.attempt_number
-        ),
-        after=lambda retry_state: logger.info(
-            "Google Sheets update: Attempt %d %s",
-            retry_state.attempt_number,
-            "succeeded" if not retry_state.outcome.failed else "failed"
-        )
+        before_sleep=lambda retry_state: logger.warning("Google Sheets update: Retrying in %.2f seconds (attempt %d)...", retry_state.next_action.sleep, retry_state.attempt_number),
+        after=lambda retry_state: logger.info("Google Sheets update: Attempt %d %s", retry_state.attempt_number, "succeeded" if not retry_state.outcome.failed else "failed")
     )
     def update_sheet(self, prize_data: PrizeData) -> None:
-        """
-        Updates Google Sheet with prize information.
-        Args:
-            prize_data: Prize data to update in the sheet.
-        Raises:
-            ScriptError: If update fails.
-        """
         try:
             self._initialize_service()
             values = prize_data.to_sheet_values()
@@ -514,32 +495,15 @@ class GoogleSheetsManager:
                     body=body
                 ).execute()
                 updated = response.get('updatedCells', 0)
-                logger.info(
-                    "Update successful - %d cells updated. Total prizes: %d. Timestamp: %s",
-                    updated,
-                    prize_data.total_prize_money,
-                    datetime.now().isoformat()
-                )
+                logger.info("Update successful - %d cells updated. Total prizes: %d. Timestamp: %s", updated, prize_data.total_prize_money, datetime.now().isoformat())
             except HttpError as error:
                 status = getattr(error.resp, 'status', None)
                 if status == 403:
-                    raise ScriptError(
-                        "Permission denied - check service account permissions",
-                        error,
-                        "PERMISSION_DENIED"
-                    )
+                    raise ScriptError("Permission denied - check service account permissions", error, "PERMISSION_DENIED")
                 elif status == 404:
-                    raise ScriptError(
-                        "Spreadsheet not found - check spreadsheet ID",
-                        error,
-                        "SPREADSHEET_NOT_FOUND"
-                    )
+                    raise ScriptError("Spreadsheet not found - check spreadsheet ID", error, "SPREADSHEET_NOT_FOUND")
                 else:
-                    raise ScriptError(
-                        f"Google Sheets API error: {status}",
-                        error,
-                        "SHEETS_API_ERROR"
-                    )
+                    raise ScriptError(f"Google Sheets API error: {status}", error, "SHEETS_API_ERROR")
         except Exception as error:
             raise ScriptError("Error updating Google Sheet", error, "UPDATE_ERROR")
 
@@ -555,13 +519,9 @@ class PollaApp:
         self.scraper = PollaScraper(self.config, self.browser_manager)
 
     def run(self) -> None:
-        """
-        Main execution flow with proper resource management.
-        """
         start_time = datetime.now()
         logger.info("Script started at %s", start_time.isoformat())
         try:
-            # Use the browser manager as a context manager to ensure proper cleanup.
             with self.browser_manager:
                 prize_data = self.scraper.scrape()
                 logger.info("Successfully scraped prize data.")
@@ -579,9 +539,6 @@ class PollaApp:
 
 
 def main() -> None:
-    """
-    Entry point.
-    """
     try:
         app = PollaApp()
         app.run()
