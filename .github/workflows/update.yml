@@ -42,8 +42,8 @@ jobs:
         run: ls -la
 
       - name: Upload debug screenshot artifacts
-        if: always()  # Upload artifacts even if previous steps fail.
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: debug-screenshots
-          path: debug_screenshot*.png
+          path: "*_failure_*.png"

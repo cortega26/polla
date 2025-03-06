@@ -77,7 +77,7 @@ class ScraperConfig:
     retry_multiplier: int = SCRAPER_RETRY_MULTIPLIER
     min_retry_wait: int = SCRAPER_MIN_RETRY_WAIT
     max_attempts: int = SCRAPER_MAX_ATTEMPTS
-    element_timeout: int = 10  # increased timeout
+    element_timeout: int = 10  # increased timeout for slower pages
     page_load_timeout: int = 30
 
 @dataclass(frozen=True)
@@ -101,7 +101,7 @@ class AppConfig:
     def get_chrome_options(self) -> Dict[str, Any]:
         return {k: v for k, v in self.chrome.__dict__.items() if not k.startswith('_')}
 
-# Custom exception
+# Custom exception for our script
 class ScriptError(Exception):
     def __init__(self, message: str, original_error: Optional[Exception] = None, error_code: Optional[str] = None):
         self.message = message
@@ -158,7 +158,7 @@ class PrizeData:
     def total_prize_money(self) -> int:
         return sum([self.loto, self.recargado, self.revancha, self.desquite, self.jubilazo, self.multiplicar, self.jubilazo_50])
 
-# Browser manager handles driver configuration and cleanup
+# Browser manager handles driver creation and cleanup
 class BrowserManager:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
@@ -166,7 +166,7 @@ class BrowserManager:
     
     def _configure_chrome_options(self) -> webdriver.ChromeOptions:
         chrome_options = webdriver.ChromeOptions()
-        # Add base options from config
+        # Add base options
         for key, value in self.config.get_chrome_options().items():
             flag = f"--{key.replace('_', '-')}"
             if isinstance(value, bool):
@@ -182,7 +182,7 @@ class BrowserManager:
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option("useAutomationExtension", False)
         
-        # Expanded diverse user agents list
+        # Expanded diverse user-agent list
         USER_AGENTS = [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:90.0) Gecko/20100101 Firefox/90.0",
@@ -248,7 +248,6 @@ class PollaScraper:
         self._wait = WebDriverWait(self._driver, self.config.scraper.element_timeout)
     
     def _save_screenshot(self, driver: WebDriver, prefix: str = "debug_screenshot") -> str:
-        """Save a screenshot with a unique filename based on timestamp."""
         timestamp = int(time.time() * 1000)
         filename = f"{prefix}_{timestamp}.png"
         try:
@@ -259,10 +258,6 @@ class PollaScraper:
         return filename
 
     def _wait_and_click(self, css_selector: str) -> Optional[WebElement]:
-        """
-        Waits for an element via CSS selector, logs details, and attempts a click.
-        On failure, saves a uniquely named screenshot and then tries a fallback selector.
-        """
         try:
             logger.debug("Current URL: %s", self._driver.current_url)
             page_source = self._driver.page_source
@@ -273,7 +268,7 @@ class PollaScraper:
             logger.debug("Primary element located and visible: %s", element)
             self._driver.execute_script("arguments[0].scrollIntoView(true);", element)
             logger.debug("Scrolled primary element into view.")
-            time.sleep(2)  # Mimic human delay
+            time.sleep(2)
             ActionChains(self._driver).move_to_element(element).click().perform()
             logger.info("Clicked element with primary CSS selector: %s", css_selector)
             return element
