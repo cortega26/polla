@@ -21,7 +21,6 @@ jobs:
 
       - name: Install Chrome
         run: |
-          # Note: apt-key is deprecated but still works for now.
           wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
           sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
           sudo apt-get update
@@ -42,9 +41,9 @@ jobs:
         if: always()
         run: ls -la
 
-      - name: Upload debug screenshot artifact
-        if: always()  # Upload artifact even if previous steps fail.
+      - name: Upload debug screenshot artifacts
+        if: always()  # Upload artifacts even if previous steps fail.
         uses: actions/upload-artifact@v4
         with:
-          name: debug-screenshot
-          path: debug_screenshot.png
+          name: debug-screenshots
+          path: debug_screenshot*.png

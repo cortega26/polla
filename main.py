@@ -29,25 +29,21 @@ from googleapiclient.errors import HttpError
 from logging import getLogger, INFO, FileHandler, StreamHandler, Formatter
 import chromedriver_autoinstaller
 
-# Module-level constants for retry settings
+# Constants for retry settings
 SCRAPER_RETRY_MULTIPLIER = 1
 SCRAPER_MIN_RETRY_WAIT = 5   # seconds
 SCRAPER_MAX_ATTEMPTS = 3
 
-# Create logger
+# Logger configuration
 logger = getLogger(__name__)
 logger.setLevel(INFO)
 formatter = Formatter(
     '%(asctime)s - %(levelname)s - [%(name)s] - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-
-# Console handler
 console_handler = StreamHandler()
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
-
-# File handler setup (with fallback if issues occur)
 try:
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
@@ -57,13 +53,11 @@ try:
     logger.addHandler(file_handler)
 except Exception as e:
     logger.warning("Could not set up file logging: %s", e)
-
 logger.propagate = False
 
-
+# Configuration classes
 @dataclass(frozen=True)
 class ChromeConfig:
-    """Chrome browser configuration settings."""
     headless: bool = True
     no_sandbox: bool = True
     disable_dev_shm_usage: bool = True
@@ -76,71 +70,54 @@ class ChromeConfig:
     window_size: str = "1920,1080"
     user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
-
 @dataclass(frozen=True)
 class ScraperConfig:
-    """Scraper configuration settings."""
     base_url: str = "http://www.polla.cl/es"
     timeout: int = 10
     retry_multiplier: int = SCRAPER_RETRY_MULTIPLIER
     min_retry_wait: int = SCRAPER_MIN_RETRY_WAIT
     max_attempts: int = SCRAPER_MAX_ATTEMPTS
-    element_timeout: int = 10  # Increased timeout for slower pages
+    element_timeout: int = 10  # increased timeout
     page_load_timeout: int = 30
-
 
 @dataclass(frozen=True)
 class GoogleConfig:
-    """Google Sheets configuration settings."""
     spreadsheet_id: str = "16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc"
     range_name: str = "Sheet1!A1:A7"
     scopes: tuple[str, ...] = ("https://www.googleapis.com/auth/spreadsheets",)
     retry_attempts: int = 3
     retry_delay: int = 5
 
-
 @dataclass(frozen=True)
 class AppConfig:
-    """Application configuration container."""
     chrome: ChromeConfig = field(default_factory=ChromeConfig)
     scraper: ScraperConfig = field(default_factory=ScraperConfig)
     google: GoogleConfig = field(default_factory=GoogleConfig)
     
     @classmethod
     def create_default(cls) -> 'AppConfig':
-        """Creates a default configuration instance."""
         return cls()
-
+    
     def get_chrome_options(self) -> Dict[str, Any]:
-        """Returns Chrome options as a dictionary."""
         return {k: v for k, v in self.chrome.__dict__.items() if not k.startswith('_')}
 
-
+# Custom exception
 class ScriptError(Exception):
-    """Custom exception for script errors with improved context and tracking."""
-    
-    def __init__(
-        self, 
-        message: str, 
-        original_error: Optional[Exception] = None,
-        error_code: Optional[str] = None
-    ):
+    def __init__(self, message: str, original_error: Optional[Exception] = None, error_code: Optional[str] = None):
         self.message = message
         self.original_error = original_error
         self.error_code = error_code
         self.timestamp = datetime.now()
         self.traceback = traceback.format_exc() if original_error else None
         super().__init__(self.get_error_message())
-
+    
     def get_error_message(self) -> str:
-        """Formats the error message with context."""
         base_msg = f"[{self.error_code}] {self.message}" if self.error_code else self.message
         if self.original_error:
             return f"{base_msg} Original error: {str(self.original_error)}"
         return base_msg
-
+    
     def log_error(self, logger) -> None:
-        """Logs the error with full context."""
         logger.error("Error occurred at %s", self.timestamp.isoformat())
         logger.error("Message: %s", self.message)
         if self.error_code:
@@ -150,10 +127,9 @@ class ScriptError(Exception):
         if self.traceback:
             logger.error("Traceback:\n%s", self.traceback)
 
-
+# Prize data model
 @dataclass(frozen=True)
 class PrizeData:
-    """Immutable data class to store prize information."""
     loto: int
     recargado: int
     revancha: int
@@ -161,15 +137,13 @@ class PrizeData:
     jubilazo: int
     multiplicar: int
     jubilazo_50: int
-
+    
     def __post_init__(self) -> None:
-        """Validates prize data after initialization."""
         for field_name, value in self.__dict__.items():
             if value < 0:
                 raise ValueError(f"Prize amount cannot be negative: {field_name}={value}")
-
+    
     def to_sheet_values(self) -> List[List[int]]:
-        """Converts prize data to format required by Google Sheets."""
         return [
             [self.loto],
             [self.recargado],
@@ -179,33 +153,20 @@ class PrizeData:
             [self.multiplicar],
             [self.jubilazo_50]
         ]
-
+    
     @property
     def total_prize_money(self) -> int:
-        """Calculates total prize money across all categories."""
-        return sum([
-            self.loto, self.recargado, self.revancha, 
-            self.desquite, self.jubilazo, self.multiplicar, 
-            self.jubilazo_50
-        ])
+        return sum([self.loto, self.recargado, self.revancha, self.desquite, self.jubilazo, self.multiplicar, self.jubilazo_50])
 
-
+# Browser manager handles driver configuration and cleanup
 class BrowserManager:
-    """Manages browser instance and configuration."""
-    
     def __init__(self, config: AppConfig) -> None:
         self.config = config
         self._driver: Optional[WebDriver] = None
-
+    
     def _configure_chrome_options(self) -> webdriver.ChromeOptions:
-        """
-        Configures Chrome options with security and performance settings.
-        Also adds options to bypass bot detection.
-        Returns:
-            webdriver.ChromeOptions: Configured Chrome options.
-        """
         chrome_options = webdriver.ChromeOptions()
-        # Add options from config
+        # Add base options from config
         for key, value in self.config.get_chrome_options().items():
             flag = f"--{key.replace('_', '-')}"
             if isinstance(value, bool):
@@ -221,7 +182,7 @@ class BrowserManager:
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option("useAutomationExtension", False)
         
-        # Expanded diverse user-agent list
+        # Expanded diverse user agents list
         USER_AGENTS = [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:90.0) Gecko/20100101 Firefox/90.0",
@@ -238,7 +199,7 @@ class BrowserManager:
         chrome_options.add_argument(f"user-agent={chosen_user_agent}")
         logger.info("Using user-agent: %s", chosen_user_agent)
         
-        # Optionally disable headless mode for debugging based on env variable DISABLE_HEADLESS
+        # Optionally disable headless mode via env variable
         if environ.get("DISABLE_HEADLESS", "false").lower() == "true":
             logger.info("DISABLE_HEADLESS set to true; running in non-headless mode.")
         else:
@@ -249,16 +210,9 @@ class BrowserManager:
         return chrome_options
 
     def get_driver(self) -> WebDriver:
-        """
-        Creates and configures a new WebDriver instance.
-        Returns:
-            WebDriver: Configured Chrome WebDriver instance.
-        Raises:
-            ScriptError: If driver creation fails.
-        """
         try:
             if not self._driver:
-                chromedriver_autoinstaller.install()  
+                chromedriver_autoinstaller.install()
                 options = self._configure_chrome_options()
                 self._driver = webdriver.Chrome(options=options)
                 self._driver.set_page_load_timeout(self.config.scraper.page_load_timeout)
@@ -267,7 +221,6 @@ class BrowserManager:
             raise ScriptError("Failed to create browser instance", e, "BROWSER_INIT_ERROR")
 
     def close(self) -> None:
-        """Safely closes the browser instance."""
         try:
             if self._driver:
                 self._driver.quit()
@@ -282,10 +235,8 @@ class BrowserManager:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
 
-
+# Scraper class handles page interactions and parsing
 class PollaScraper:
-    """Handles web scraping operations for polla.cl."""
-    
     def __init__(self, config: AppConfig, browser_manager: BrowserManager) -> None:
         self.config = config
         self.browser_manager = browser_manager
@@ -293,37 +244,42 @@ class PollaScraper:
         self._wait: Optional[WebDriverWait] = None
 
     def _initialize_driver(self) -> None:
-        """Initializes WebDriver and WebDriverWait instances."""
         self._driver = self.browser_manager.get_driver()
         self._wait = WebDriverWait(self._driver, self.config.scraper.element_timeout)
+    
+    def _save_screenshot(self, driver: WebDriver, prefix: str = "debug_screenshot") -> str:
+        """Save a screenshot with a unique filename based on timestamp."""
+        timestamp = int(time.time() * 1000)
+        filename = f"{prefix}_{timestamp}.png"
+        try:
+            driver.save_screenshot(filename)
+            logger.info("Screenshot saved to %s", filename)
+        except Exception as se:
+            logger.error("Failed to save screenshot: %s", se)
+        return filename
 
     def _wait_and_click(self, css_selector: str) -> Optional[WebElement]:
         """
-        Waits for the element specified by the CSS selector to be visible,
-        logs debug information, scrolls it into view, and clicks it using ActionChains.
-        If the primary selector fails, attempts a fallback using an alternative selector.
-        Mimics human behavior by adding a short delay.
+        Waits for an element via CSS selector, logs details, and attempts a click.
+        On failure, saves a uniquely named screenshot and then tries a fallback selector.
         """
         try:
             logger.debug("Current URL: %s", self._driver.current_url)
             page_source = self._driver.page_source
             logger.debug("Page source snippet (first 500 chars): %s", page_source[:500])
-            
             elements = self._driver.find_elements(By.CSS_SELECTOR, css_selector)
             logger.debug("Found %d elements matching CSS selector '%s'", len(elements), css_selector)
-            
             element = self._wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, css_selector)))
             logger.debug("Primary element located and visible: %s", element)
-            
             self._driver.execute_script("arguments[0].scrollIntoView(true);", element)
             logger.debug("Scrolled primary element into view.")
-            time.sleep(2)
+            time.sleep(2)  # Mimic human delay
             ActionChains(self._driver).move_to_element(element).click().perform()
             logger.info("Clicked element with primary CSS selector: %s", css_selector)
             return element
         except Exception as e:
             logger.exception("Primary selector '%s' failed.", css_selector)
-            # Fallback logic: try an alternative CSS selector.
+            self._save_screenshot(self._driver, prefix="primary_failure")
             fallback_selector = "div.expanse-controller img"
             try:
                 logger.info("Attempting fallback selector: '%s'", fallback_selector)
@@ -339,22 +295,10 @@ class PollaScraper:
                 return element_fb
             except Exception as fb_e:
                 logger.exception("Fallback selector '%s' also failed.", fallback_selector)
-                screenshot_path = "debug_screenshot.png"
-                try:
-                    self._driver.save_screenshot(screenshot_path)
-                    logger.error("Screenshot saved to %s", screenshot_path)
-                except Exception as se:
-                    logger.error("Failed to save screenshot: %s", se)
+                self._save_screenshot(self._driver, prefix="fallback_failure")
                 raise ScriptError("Both primary and fallback clickable elements not found", fb_e, "ELEMENT_INTERACTION_ERROR")
-    
+
     def _parse_prize(self, text: str) -> int:
-        """
-        Parses prize value from text.
-        Returns:
-            int: Parsed prize value in pesos.
-        Raises:
-            ScriptError: If text cannot be parsed.
-        """
         try:
             cleaned_text = text.strip("$").replace(".", "").replace(",", "").strip()
             if not cleaned_text:
@@ -365,11 +309,6 @@ class PollaScraper:
             raise ScriptError(f"Parsing error for prize value: '{text}'", e, "PRIZE_PARSING_ERROR")
 
     def _validate_prizes(self, prizes: List[int]) -> None:
-        """
-        Validates scraped prize data.
-        Raises:
-            ScriptError: If validation fails.
-        """
         if not prizes:
             raise ScriptError("No prizes found", error_code="NO_PRIZES_ERROR")
         if len(prizes) < 9:
@@ -383,27 +322,19 @@ class PollaScraper:
         retry=tenacity.retry_if_exception_type(ScriptError),
         before_sleep=lambda retry_state: logger.warning(
             "Scraper: Retrying in %.2f seconds (attempt %d)...", retry_state.next_action.sleep, retry_state.attempt_number),
-        after=lambda retry_state: logger.info("Scraper: Attempt %d %s", retry_state.attempt_number,
-                                               "succeeded" if not retry_state.outcome.failed else "failed")
+        after=lambda retry_state: logger.info(
+            "Scraper: Attempt %d %s", retry_state.attempt_number,
+            "succeeded" if not retry_state.outcome.failed else "failed")
     )
     def scrape(self) -> PrizeData:
-        """
-        Scrapes prize information from polla.cl.
-        Returns:
-            PrizeData: Structured prize data.
-        Raises:
-            ScriptError: If scraping fails.
-        """
         try:
             self._initialize_driver()
             logger.info("Accessing URL: %s", self.config.scraper.base_url)
             self._driver.get(self.config.scraper.base_url)
             logger.debug("Page loaded. Current URL: %s", self._driver.current_url)
             logger.debug("Page source snippet (first 500 chars): %s", self._driver.page_source[:500])
-            
             if not self._wait_and_click(".expanse-controller > img:nth-child(1)"):
                 raise ScriptError("Failed to interact with required elements", error_code="ELEMENT_INTERACTION_ERROR")
-            
             soup = BeautifulSoup(self._driver.page_source, "html.parser")
             prize_elements = soup.find_all("span", class_="prize")
             if not prize_elements:
@@ -426,10 +357,7 @@ class PollaScraper:
         finally:
             pass
 
-
 class CredentialManager:
-    """Manages Google API credentials."""
-    
     def __init__(self, config: AppConfig) -> None:
         self.config = config
         
@@ -460,10 +388,7 @@ class CredentialManager:
                 raise
             raise ScriptError("Error retrieving credentials", error, "CREDENTIAL_ERROR")
 
-
 class GoogleSheetsManager:
-    """Manages Google Sheets operations."""
-    
     def __init__(self, config: AppConfig, credential_manager: CredentialManager) -> None:
         self.config = config
         self.credential_manager = credential_manager
@@ -495,7 +420,8 @@ class GoogleSheetsManager:
                     body=body
                 ).execute()
                 updated = response.get('updatedCells', 0)
-                logger.info("Update successful - %d cells updated. Total prizes: %d. Timestamp: %s", updated, prize_data.total_prize_money, datetime.now().isoformat())
+                logger.info("Update successful - %d cells updated. Total prizes: %d. Timestamp: %s",
+                            updated, prize_data.total_prize_money, datetime.now().isoformat())
             except HttpError as error:
                 status = getattr(error.resp, 'status', None)
                 if status == 403:
@@ -507,10 +433,7 @@ class GoogleSheetsManager:
         except Exception as error:
             raise ScriptError("Error updating Google Sheet", error, "UPDATE_ERROR")
 
-
 class PollaApp:
-    """Main application class orchestrating the scraping and updating process."""
-    
     def __init__(self) -> None:
         self.config = AppConfig.create_default()
         self.browser_manager = BrowserManager(self.config)
@@ -537,7 +460,6 @@ class PollaApp:
             duration = (end_time - start_time).total_seconds()
             logger.info("Script completed in %.2f seconds", duration)
 
-
 def main() -> None:
     try:
         app = PollaApp()
@@ -545,7 +467,6 @@ def main() -> None:
     except Exception as error:
         logger.critical("Fatal error occurred: %s", str(error), exc_info=True)
         raise
-
 
 if __name__ == "__main__":
     main()
