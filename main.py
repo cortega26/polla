@@ -160,7 +160,7 @@ class PrizeData:
 
 # --- Helper: Fetch Proxy via API ---
 def fetch_proxy_from_api(api_url: str) -> Optional[str]:
-    token = environ.get("PROXY_API_TOKEN")
+    token = environ.get("PROXY_API_TOKEN", "").strip()
     if not token:
         logger.warning("No PROXY_API_TOKEN found in environment.")
         return None
@@ -169,10 +169,11 @@ def fetch_proxy_from_api(api_url: str) -> Optional[str]:
         logger.info("Fetching proxy list from API: %s", api_url)
         response = requests.get(api_url, headers=headers)
         data = response.json()
+        logger.debug("Full proxy API response: %s", data)
         results = data.get("results", [])
         if results:
             chosen = random.choice(results)
-            # Assuming each proxy object has keys: ip, port, and optionally protocol (default "http")
+            # Assuming each proxy object has keys: "ip", "port", and optionally "protocol" (defaulting to "http")
             ip = chosen.get("ip")
             port = chosen.get("port")
             protocol = chosen.get("protocol", "http")
@@ -189,6 +190,7 @@ def fetch_proxy_from_api(api_url: str) -> Optional[str]:
     except Exception as e:
         logger.warning("Failed to fetch or parse proxy list from API: %s", e)
         return None
+
 
 # --- Browser Manager ---
 class BrowserManager:
