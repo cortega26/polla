@@ -1,7 +1,7 @@
 """
-Polla.cl Prize Scraper and Google Sheets Updater
-Scrapes lottery prize information and updates a Google Sheet with the results.
-This version is designed to run in GitHub Actions.
+Polla.cl Prize Scraper (Local Test Version)
+Scrapes lottery prize information.
+Run locally with: python main_local.py
 """
 
 import json
@@ -14,6 +14,13 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 from os import environ
 
+# Load environment variables from .env if available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 import tenacity
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -23,23 +30,21 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
-from google.oauth2.credentials import Credentials
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 from logging import getLogger, INFO, FileHandler, StreamHandler, Formatter
 import chromedriver_autoinstaller
 
-# --- Constants for retry settings ---
+# --- Constants ---
 SCRAPER_RETRY_MULTIPLIER = 1
-SCRAPER_MIN_RETRY_WAIT = 5   # seconds
+SCRAPER_MIN_RETRY_WAIT = 5  # seconds
 SCRAPER_MAX_ATTEMPTS = 3
 
-# --- Logger configuration ---
+# --- Logger Setup ---
 logger = getLogger(__name__)
 logger.setLevel(INFO)
-formatter = Formatter('%(asctime)s - %(levelname)s - [%(name)s] - %(message)s',
-                      datefmt='%Y-%m-%d %H:%M:%S')
+formatter = Formatter(
+    '%(asctime)s - %(levelname)s - [%(name)s] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 console_handler = StreamHandler()
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
@@ -76,22 +81,13 @@ class ScraperConfig:
     retry_multiplier: int = SCRAPER_RETRY_MULTIPLIER
     min_retry_wait: int = SCRAPER_MIN_RETRY_WAIT
     max_attempts: int = SCRAPER_MAX_ATTEMPTS
-    element_timeout: int = 10  # increased timeout for slower pages
+    element_timeout: int = 10
     page_load_timeout: int = 30
-
-@dataclass(frozen=True)
-class GoogleConfig:
-    spreadsheet_id: str = "16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc"
-    range_name: str = "Sheet1!A1:A7"
-    scopes: tuple[str, ...] = ("https://www.googleapis.com/auth/spreadsheets",)
-    retry_attempts: int = 3
-    retry_delay: int = 5
 
 @dataclass(frozen=True)
 class AppConfig:
     chrome: ChromeConfig = field(default_factory=ChromeConfig)
     scraper: ScraperConfig = field(default_factory=ScraperConfig)
-    google: GoogleConfig = field(default_factory=GoogleConfig)
     
     @classmethod
     def create_default(cls) -> 'AppConfig':
@@ -102,7 +98,8 @@ class AppConfig:
 
 # --- Custom Exception ---
 class ScriptError(Exception):
-    def __init__(self, message: str, original_error: Optional[Exception] = None, error_code: Optional[str] = None):
+    def __init__(self, message: str, original_error: Optional[Exception] = None,
+                 error_code: Optional[str] = None):
         self.message = message
         self.original_error = original_error
         self.error_code = error_code
@@ -142,20 +139,9 @@ class PrizeData:
             if value < 0:
                 raise ValueError(f"Prize amount cannot be negative: {field_name}={value}")
     
-    def to_sheet_values(self) -> List[List[int]]:
-        return [
-            [self.loto],
-            [self.recargado],
-            [self.revancha],
-            [self.desquite],
-            [self.jubilazo],
-            [self.multiplicar],
-            [self.jubilazo_50]
-        ]
-    
-    @property
-    def total_prize_money(self) -> int:
-        return sum([self.loto, self.recargado, self.revancha, self.desquite, self.jubilazo, self.multiplicar, self.jubilazo_50])
+    def to_list(self) -> List[int]:
+        return [self.loto, self.recargado, self.revancha, self.desquite,
+                self.jubilazo, self.multiplicar, self.jubilazo_50]
 
 # --- Browser Manager ---
 class BrowserManager:
@@ -173,7 +159,7 @@ class BrowserManager:
             else:
                 chrome_options.add_argument(f"{flag}={value}")
         
-        # Additional options to bypass bot detection
+        # Options to reduce bot detection
         chrome_options.add_argument("--disable-infobars")
         chrome_options.add_argument("--disable-notifications")
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
@@ -262,8 +248,9 @@ class PollaScraper:
             raise ScriptError("Access Denied - The website blocked the automated request.", error_code="ACCESS_DENIED")
 
     def _close_popup(self) -> None:
-        """Close the popup banner if it appears."""
+        """Closes the popup banner if present."""
         try:
+            # Wait up to 5 seconds for the popup to become clickable
             popup = WebDriverWait(self._driver, 5).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'span.close[data-bind="click: hideBanner"]'))
             )
@@ -330,8 +317,8 @@ class PollaScraper:
         wait=tenacity.wait_exponential(multiplier=SCRAPER_RETRY_MULTIPLIER, min=SCRAPER_MIN_RETRY_WAIT),
         stop=tenacity.stop_after_attempt(SCRAPER_MAX_ATTEMPTS),
         retry=tenacity.retry_if_exception_type(ScriptError),
-        before_sleep=lambda retry_state: logger.warning("Scraper: Retrying in %.2f seconds (attempt %d)...",
-                                                        retry_state.next_action.sleep, retry_state.attempt_number),
+        before_sleep=lambda retry_state: logger.warning(
+            "Scraper: Retrying in %.2f seconds (attempt %d)...", retry_state.next_action.sleep, retry_state.attempt_number),
         after=lambda retry_state: logger.info("Scraper: Attempt %d %s", retry_state.attempt_number,
                                                "succeeded" if not retry_state.outcome.failed else "failed")
     )
@@ -341,13 +328,13 @@ class PollaScraper:
             logger.info("Accessing URL: %s", self.config.scraper.base_url)
             self._driver.get(self.config.scraper.base_url)
             logger.debug("Page loaded. Current URL: %s", self._driver.current_url)
-            self._close_popup()  # Close popup if present
+            self._close_popup()  # Close the popup if present
             self._check_access_denied()
             logger.debug("Page source snippet (first 500 chars): %s", self._driver.page_source[:500])
             if not self._wait_and_click(".expanse-controller > img:nth-child(1)"):
                 raise ScriptError("Failed to interact with required elements", error_code="ELEMENT_INTERACTION_ERROR")
             self._check_access_denied()
-            # Wait for prize elements to load (expecting at least 9 elements)
+            # Wait for prize elements to load (expect at least 9 elements)
             try:
                 WebDriverWait(self._driver, 15).until(
                     lambda d: len(d.find_elements(By.CSS_SELECTOR, "span.prize")) >= 9
@@ -377,93 +364,11 @@ class PollaScraper:
         finally:
             pass
 
-# --- Credential and Sheets Managers ---
-class CredentialManager:
-    def __init__(self, config: AppConfig) -> None:
-        self.config = config
-        
-    @staticmethod
-    def _validate_credentials_dict(creds_dict: Dict[str, Any]) -> None:
-        required_fields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email']
-        missing_fields = [field for field in required_fields if field not in creds_dict]
-        if missing_fields:
-            raise ScriptError(f"Missing required credential fields: {', '.join(missing_fields)}", error_code="INVALID_CREDENTIALS")
-
-    def get_credentials(self) -> Credentials:
-        try:
-            credentials_json = environ.get("CREDENTIALS")
-            if not credentials_json:
-                logger.error("CREDENTIALS environment variable is not set")
-                raise ScriptError("CREDENTIALS environment variable is empty", error_code="MISSING_CREDENTIALS")
-            try:
-                credentials_dict = json.loads(credentials_json)
-                self._validate_credentials_dict(credentials_dict)
-                logger.info("Google credentials successfully loaded and validated.")
-                return service_account.Credentials.from_service_account_info(credentials_dict, scopes=self.config.google.scopes)
-            except json.JSONDecodeError as e:
-                preview = credentials_json[:10] + "..." if len(credentials_json) > 10 else "EMPTY"
-                logger.error("Failed to parse credentials JSON. Preview: %s", preview, exc_info=True)
-                raise ScriptError("Invalid JSON in CREDENTIALS environment variable", e, "INVALID_JSON")
-        except Exception as error:
-            if isinstance(error, ScriptError):
-                raise
-            raise ScriptError("Error retrieving credentials", error, "CREDENTIAL_ERROR")
-
-class GoogleSheetsManager:
-    def __init__(self, config: AppConfig, credential_manager: CredentialManager) -> None:
-        self.config = config
-        self.credential_manager = credential_manager
-        self._service = None
-
-    def _initialize_service(self) -> None:
-        if not self._service:
-            creds = self.credential_manager.get_credentials()
-            self._service = build("sheets", "v4", credentials=creds)
-
-    @tenacity.retry(
-        wait=tenacity.wait_exponential(multiplier=1, min=5),
-        stop=tenacity.stop_after_attempt(3),
-        retry=tenacity.retry_if_exception_type((HttpError, ScriptError)),
-        before_sleep=lambda retry_state: logger.warning(
-            "Google Sheets update: Retrying in %.2f seconds (attempt %d)...", retry_state.next_action.sleep, retry_state.attempt_number),
-        after=lambda retry_state: logger.info(
-            "Google Sheets update: Attempt %d %s", retry_state.attempt_number,
-            "succeeded" if not retry_state.outcome.failed else "failed")
-    )
-    def update_sheet(self, prize_data: PrizeData) -> None:
-        try:
-            self._initialize_service()
-            values = prize_data.to_sheet_values()
-            body = {"values": values}
-            logger.info("Updating Google Sheet with prize data...")
-            try:
-                response = self._service.spreadsheets().values().update(
-                    spreadsheetId=self.config.google.spreadsheet_id,
-                    range=self.config.google.range_name,
-                    valueInputOption="RAW",
-                    body=body
-                ).execute()
-                updated = response.get('updatedCells', 0)
-                logger.info("Update successful - %d cells updated. Total prizes: %d. Timestamp: %s",
-                            updated, prize_data.total_prize_money, datetime.now().isoformat())
-            except HttpError as error:
-                status = getattr(error.resp, 'status', None)
-                if status == 403:
-                    raise ScriptError("Permission denied - check service account permissions", error, "PERMISSION_DENIED")
-                elif status == 404:
-                    raise ScriptError("Spreadsheet not found - check spreadsheet ID", error, "SPREADSHEET_NOT_FOUND")
-                else:
-                    raise ScriptError(f"Google Sheets API error: {status}", error, "SHEETS_API_ERROR")
-        except Exception as error:
-            raise ScriptError("Error updating Google Sheet", error, "UPDATE_ERROR")
-
 # --- Main Application ---
 class PollaApp:
     def __init__(self) -> None:
         self.config = AppConfig.create_default()
         self.browser_manager = BrowserManager(self.config)
-        self.credential_manager = CredentialManager(self.config)
-        self.sheets_manager = GoogleSheetsManager(self.config, self.credential_manager)
         self.scraper = PollaScraper(self.config, self.browser_manager)
 
     def run(self) -> None:
@@ -473,10 +378,7 @@ class PollaApp:
             with self.browser_manager:
                 prize_data = self.scraper.scrape()
                 logger.info("Successfully scraped prize data.")
-                logger.info("Prize Data: %s", prize_data.to_sheet_values())
-                # Update Google Sheet (if running in GitHub, credentials must be set)
-                self.sheets_manager.update_sheet(prize_data)
-                logger.info("Successfully updated Google Sheet.")
+                logger.info("Prize Data: %s", prize_data.to_list())
         except ScriptError as error:
             error.log_error(logger)
         except Exception as error:

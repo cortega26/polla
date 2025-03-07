@@ -1,0 +1,178 @@
+2025-03-07 16:02:10 - INFO - [__main__] - Script started at 2025-03-07T16:02:10.719203
+2025-03-07 16:02:12 - INFO - [__main__] - Using user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15
+2025-03-07 16:02:14 - INFO - [__main__] - Accessing URL: http://www.polla.cl/es
+2025-03-07 16:02:20 - INFO - [__main__] - Clicked element with primary CSS selector: .expanse-controller > img:nth-child(1)
+2025-03-07 16:02:20 - INFO - [__main__] - Scraper: Attempt 1 failed
+2025-03-07 16:02:20 - WARNING - [__main__] - Scraper: Retrying in 5.00 seconds (attempt 1)...
+2025-03-07 16:02:25 - INFO - [__main__] - Accessing URL: http://www.polla.cl/es
+2025-03-07 16:02:29 - INFO - [__main__] - Clicked element with primary CSS selector: .expanse-controller > img:nth-child(1)
+2025-03-07 16:02:30 - INFO - [__main__] - Scraper: Attempt 2 failed
+2025-03-07 16:02:30 - WARNING - [__main__] - Scraper: Retrying in 5.00 seconds (attempt 2)...
+2025-03-07 16:02:35 - INFO - [__main__] - Accessing URL: http://www.polla.cl/es
+2025-03-07 16:02:39 - INFO - [__main__] - Clicked element with primary CSS selector: .expanse-controller > img:nth-child(1)
+2025-03-07 16:02:39 - INFO - [__main__] - Scraper: Attempt 3 failed
+2025-03-07 16:02:44 - ERROR - [__main__] - Unexpected error occurred
+Traceback (most recent call last):
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 478, in __call__
+    result = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test.py", line 362, in scrape
+    self._validate_prizes(prizes)
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test.py", line 333, in _validate_prizes
+    raise ScriptError(f"Invalid prize data: expected 9+ prizes, got {len(prizes)}", error_code="INSUFFICIENT_PRIZES_ERROR")
+ScriptError: [INSUFFICIENT_PRIZES_ERROR] Invalid prize data: expected 9+ prizes, got 1
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test.py", line 475, in run
+    prize_data = self.scraper.scrape()
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 336, in wrapped_f
+    return copy(f, *args, **kw)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 475, in __call__
+    do = self.iter(retry_state=retry_state)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 376, in iter
+    result = action(retry_state)
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 419, in exc_check
+    raise retry_exc from fut.exception()
+tenacity.RetryError: RetryError[<Future at 0x1c6b2486780 state=finished raised ScriptError>]
+2025-03-07 16:02:44 - INFO - [__main__] - Script completed in 33.73 seconds
+2025-03-07 16:02:44 - CRITICAL - [__main__] - Fatal error occurred: RetryError[<Future at 0x1c6b2486780 state=finished raised ScriptError>]
+Traceback (most recent call last):
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 478, in __call__
+    result = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test.py", line 362, in scrape
+    self._validate_prizes(prizes)
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test.py", line 333, in _validate_prizes
+    raise ScriptError(f"Invalid prize data: expected 9+ prizes, got {len(prizes)}", error_code="INSUFFICIENT_PRIZES_ERROR")
+ScriptError: [INSUFFICIENT_PRIZES_ERROR] Invalid prize data: expected 9+ prizes, got 1
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test.py", line 492, in main
+    app.run()
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test.py", line 475, in run
+    prize_data = self.scraper.scrape()
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 336, in wrapped_f
+    return copy(f, *args, **kw)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 475, in __call__
+    do = self.iter(retry_state=retry_state)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 376, in iter
+    result = action(retry_state)
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 419, in exc_check
+    raise retry_exc from fut.exception()
+tenacity.RetryError: RetryError[<Future at 0x1c6b2486780 state=finished raised ScriptError>]
+2025-03-07 16:08:11 - INFO - [__main__] - Script started at 2025-03-07T16:08:11.044118
+2025-03-07 16:08:11 - INFO - [__main__] - Using user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.2 Safari/605.1.15
+2025-03-07 16:08:13 - INFO - [__main__] - Accessing URL: http://www.polla.cl/es
+2025-03-07 16:08:18 - INFO - [__main__] - Clicked element with primary CSS selector: .expanse-controller > img:nth-child(1)
+2025-03-07 16:08:33 - ERROR - [__main__] - Timeout waiting for at least 9 prize elements. Found only 1 elements.
+2025-03-07 16:08:33 - INFO - [__main__] - Scraper: Attempt 1 failed
+2025-03-07 16:08:33 - WARNING - [__main__] - Scraper: Retrying in 5.00 seconds (attempt 1)...
+2025-03-07 16:08:38 - INFO - [__main__] - Accessing URL: http://www.polla.cl/es
+2025-03-07 16:08:43 - INFO - [__main__] - Clicked element with primary CSS selector: .expanse-controller > img:nth-child(1)
+2025-03-07 16:08:58 - ERROR - [__main__] - Timeout waiting for at least 9 prize elements. Found only 1 elements.
+2025-03-07 16:08:58 - INFO - [__main__] - Scraper: Attempt 2 failed
+2025-03-07 16:08:58 - WARNING - [__main__] - Scraper: Retrying in 5.00 seconds (attempt 2)...
+2025-03-07 16:09:03 - INFO - [__main__] - Accessing URL: http://www.polla.cl/es
+2025-03-07 16:09:08 - INFO - [__main__] - Clicked element with primary CSS selector: .expanse-controller > img:nth-child(1)
+2025-03-07 16:09:23 - ERROR - [__main__] - Timeout waiting for at least 9 prize elements. Found only 1 elements.
+2025-03-07 16:09:23 - INFO - [__main__] - Scraper: Attempt 3 failed
+2025-03-07 16:09:26 - ERROR - [__main__] - Unexpected error occurred
+Traceback (most recent call last):
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test2.py", line 324, in scrape
+    WebDriverWait(self._driver, 15).until(
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 478, in __call__
+    result = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test2.py", line 330, in scrape
+    raise ScriptError("Timeout waiting for sufficient prize elements", wait_exc, "NO_PRIZES_TIMEOUT")
+ScriptError: [NO_PRIZES_TIMEOUT] Timeout waiting for sufficient prize elements Original error: Message: 
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test2.py", line 364, in run
+    prize_data = self.scraper.scrape()
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 336, in wrapped_f
+    return copy(f, *args, **kw)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 475, in __call__
+    do = self.iter(retry_state=retry_state)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 376, in iter
+    result = action(retry_state)
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 419, in exc_check
+    raise retry_exc from fut.exception()
+tenacity.RetryError: RetryError[<Future at 0x2b6e7fae3c0 state=finished raised ScriptError>]
+2025-03-07 16:09:26 - INFO - [__main__] - Script completed in 75.80 seconds
+2025-03-07 16:09:26 - CRITICAL - [__main__] - Fatal error occurred: RetryError[<Future at 0x2b6e7fae3c0 state=finished raised ScriptError>]
+Traceback (most recent call last):
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test2.py", line 324, in scrape
+    WebDriverWait(self._driver, 15).until(
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 478, in __call__
+    result = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test2.py", line 330, in scrape
+    raise ScriptError("Timeout waiting for sufficient prize elements", wait_exc, "NO_PRIZES_TIMEOUT")
+ScriptError: [NO_PRIZES_TIMEOUT] Timeout waiting for sufficient prize elements Original error: Message: 
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test2.py", line 380, in main
+    app.run()
+  File "c:\Users\corte\OneDrive\Python scripts\polla\test\test2.py", line 364, in run
+    prize_data = self.scraper.scrape()
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 336, in wrapped_f
+    return copy(f, *args, **kw)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 475, in __call__
+    do = self.iter(retry_state=retry_state)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 376, in iter
+    result = action(retry_state)
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\corte\OneDrive\Python scripts\polla\.venv\Lib\site-packages\tenacity\__init__.py", line 419, in exc_check
+    raise retry_exc from fut.exception()
+tenacity.RetryError: RetryError[<Future at 0x2b6e7fae3c0 state=finished raised ScriptError>]
+2025-03-07 16:22:05 - INFO - [__main__] - Script started at 2025-03-07T16:22:05.701269
+2025-03-07 16:22:05 - INFO - [__main__] - Using user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:45.0) Gecko/20100101 Firefox/45.0
+2025-03-07 16:22:07 - INFO - [__main__] - Accessing URL: http://www.polla.cl/es
+2025-03-07 16:22:10 - INFO - [__main__] - Popup closed successfully.
+2025-03-07 16:22:13 - INFO - [__main__] - Clicked element with primary CSS selector: .expanse-controller > img:nth-child(1)
+2025-03-07 16:22:13 - INFO - [__main__] - Found 9 prize elements
+2025-03-07 16:22:13 - INFO - [__main__] - Successfully scraped prize data.
+2025-03-07 16:22:13 - INFO - [__main__] - Prize Data: [980000000, 260000000, 270000000, 420000000, 1320000000, 0, 1500000000]
+2025-03-07 16:22:16 - INFO - [__main__] - Script completed in 10.53 seconds

@@ -1,7 +1,7 @@
 """
-Polla.cl Prize Scraper and Google Sheets Updater
+Polla.cl Prize Scraper and Google Sheets Updater (Local Version)
 Scrapes lottery prize information and updates a Google Sheet with the results.
-This version is designed to run in GitHub Actions.
+Run this script locally with: python main_local.py
 """
 
 import json
@@ -13,6 +13,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from os import environ
+
+# Load environment variables from .env file if present
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 import tenacity
 from bs4 import BeautifulSoup
@@ -30,12 +37,12 @@ from googleapiclient.errors import HttpError
 from logging import getLogger, INFO, FileHandler, StreamHandler, Formatter
 import chromedriver_autoinstaller
 
-# --- Constants for retry settings ---
+# --- Constants ---
 SCRAPER_RETRY_MULTIPLIER = 1
-SCRAPER_MIN_RETRY_WAIT = 5   # seconds
+SCRAPER_MIN_RETRY_WAIT = 5  # seconds
 SCRAPER_MAX_ATTEMPTS = 3
 
-# --- Logger configuration ---
+# --- Logger Setup ---
 logger = getLogger(__name__)
 logger.setLevel(INFO)
 formatter = Formatter('%(asctime)s - %(levelname)s - [%(name)s] - %(message)s',
@@ -55,6 +62,7 @@ except Exception as e:
 logger.propagate = False
 
 # --- Configuration Classes ---
+
 @dataclass(frozen=True)
 class ChromeConfig:
     headless: bool = True
@@ -76,7 +84,7 @@ class ScraperConfig:
     retry_multiplier: int = SCRAPER_RETRY_MULTIPLIER
     min_retry_wait: int = SCRAPER_MIN_RETRY_WAIT
     max_attempts: int = SCRAPER_MAX_ATTEMPTS
-    element_timeout: int = 10  # increased timeout for slower pages
+    element_timeout: int = 10
     page_load_timeout: int = 30
 
 @dataclass(frozen=True)
@@ -101,8 +109,10 @@ class AppConfig:
         return {k: v for k, v in self.chrome.__dict__.items() if not k.startswith('_')}
 
 # --- Custom Exception ---
+
 class ScriptError(Exception):
-    def __init__(self, message: str, original_error: Optional[Exception] = None, error_code: Optional[str] = None):
+    def __init__(self, message: str, original_error: Optional[Exception] = None,
+                 error_code: Optional[str] = None):
         self.message = message
         self.original_error = original_error
         self.error_code = error_code
@@ -127,6 +137,7 @@ class ScriptError(Exception):
             logger.error("Traceback:\n%s", self.traceback)
 
 # --- Data Model ---
+
 @dataclass(frozen=True)
 class PrizeData:
     loto: int
@@ -155,9 +166,11 @@ class PrizeData:
     
     @property
     def total_prize_money(self) -> int:
-        return sum([self.loto, self.recargado, self.revancha, self.desquite, self.jubilazo, self.multiplicar, self.jubilazo_50])
+        return sum([self.loto, self.recargado, self.revancha, self.desquite,
+                    self.jubilazo, self.multiplicar, self.jubilazo_50])
 
 # --- Browser Manager ---
+
 class BrowserManager:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
@@ -173,14 +186,14 @@ class BrowserManager:
             else:
                 chrome_options.add_argument(f"{flag}={value}")
         
-        # Additional options to bypass bot detection
+        # Additional options to reduce bot detection
         chrome_options.add_argument("--disable-infobars")
         chrome_options.add_argument("--disable-notifications")
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option("useAutomationExtension", False)
         
-        # Diverse user agents
+        # Expanded user-agent list
         USER_AGENTS = [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:90.0) Gecko/20100101 Firefox/90.0",
@@ -197,7 +210,7 @@ class BrowserManager:
         chrome_options.add_argument(f"user-agent={chosen_user_agent}")
         logger.info("Using user-agent: %s", chosen_user_agent)
         
-        # Optionally disable headless mode via env variable
+        # Optionally disable headless mode via environment variable
         if environ.get("DISABLE_HEADLESS", "false").lower() == "true":
             logger.info("DISABLE_HEADLESS set to true; running in non-headless mode.")
         else:
@@ -234,6 +247,7 @@ class BrowserManager:
         self.close()
 
 # --- Scraper Class ---
+
 class PollaScraper:
     def __init__(self, config: AppConfig, browser_manager: BrowserManager) -> None:
         self.config = config
@@ -246,6 +260,7 @@ class PollaScraper:
         self._wait = WebDriverWait(self._driver, self.config.scraper.element_timeout)
     
     def _save_screenshot(self, driver: WebDriver, prefix: str = "debug_screenshot") -> str:
+        """Save a screenshot with a unique filename based on the current timestamp."""
         timestamp = int(time.time() * 1000)
         filename = f"{prefix}_{timestamp}.png"
         try:
@@ -256,24 +271,17 @@ class PollaScraper:
         return filename
 
     def _check_access_denied(self) -> None:
+        """Check if the page source indicates that access was denied."""
         page = self._driver.page_source
         if "Access Denied" in page or "Error 16" in page:
             logger.error("Access Denied detected in page source.")
             raise ScriptError("Access Denied - The website blocked the automated request.", error_code="ACCESS_DENIED")
 
-    def _close_popup(self) -> None:
-        """Close the popup banner if it appears."""
-        try:
-            popup = WebDriverWait(self._driver, 5).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, 'span.close[data-bind="click: hideBanner"]'))
-            )
-            popup.click()
-            logger.info("Popup closed successfully.")
-            time.sleep(1)  # Allow the page to update
-        except Exception as e:
-            logger.info("Popup not found or could not be closed; continuing. (%s)", e)
-
     def _wait_and_click(self, css_selector: str) -> Optional[WebElement]:
+        """
+        Waits for an element via CSS selector, logs details, and attempts a click.
+        On failure, saves uniquely named screenshots and then tries a fallback selector.
+        """
         try:
             logger.debug("Current URL: %s", self._driver.current_url)
             logger.debug("Page source snippet (first 500 chars): %s", self._driver.page_source[:500])
@@ -341,24 +349,15 @@ class PollaScraper:
             logger.info("Accessing URL: %s", self.config.scraper.base_url)
             self._driver.get(self.config.scraper.base_url)
             logger.debug("Page loaded. Current URL: %s", self._driver.current_url)
-            self._close_popup()  # Close popup if present
             self._check_access_denied()
             logger.debug("Page source snippet (first 500 chars): %s", self._driver.page_source[:500])
             if not self._wait_and_click(".expanse-controller > img:nth-child(1)"):
                 raise ScriptError("Failed to interact with required elements", error_code="ELEMENT_INTERACTION_ERROR")
             self._check_access_denied()
-            # Wait for prize elements to load (expecting at least 9 elements)
-            try:
-                WebDriverWait(self._driver, 15).until(
-                    lambda d: len(d.find_elements(By.CSS_SELECTOR, "span.prize")) >= 9
-                )
-            except Exception as wait_exc:
-                found = len(self._driver.find_elements(By.CSS_SELECTOR, "span.prize"))
-                logger.error("Timeout waiting for at least 9 prize elements. Found only %d elements.", found)
-                raise ScriptError("Timeout waiting for sufficient prize elements", wait_exc, "NO_PRIZES_TIMEOUT")
             soup = BeautifulSoup(self._driver.page_source, "html.parser")
             prize_elements = soup.find_all("span", class_="prize")
-            logger.info("Found %d prize elements", len(prize_elements))
+            if not prize_elements:
+                raise ScriptError("No prize elements found on page", error_code="NO_ELEMENTS_ERROR")
             prizes = [self._parse_prize(prize.text) for prize in prize_elements]
             self._validate_prizes(prizes)
             return PrizeData(
@@ -377,7 +376,8 @@ class PollaScraper:
         finally:
             pass
 
-# --- Credential and Sheets Managers ---
+# --- Credential & Sheets Managers ---
+
 class CredentialManager:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
@@ -424,11 +424,11 @@ class GoogleSheetsManager:
         wait=tenacity.wait_exponential(multiplier=1, min=5),
         stop=tenacity.stop_after_attempt(3),
         retry=tenacity.retry_if_exception_type((HttpError, ScriptError)),
-        before_sleep=lambda retry_state: logger.warning(
-            "Google Sheets update: Retrying in %.2f seconds (attempt %d)...", retry_state.next_action.sleep, retry_state.attempt_number),
-        after=lambda retry_state: logger.info(
-            "Google Sheets update: Attempt %d %s", retry_state.attempt_number,
-            "succeeded" if not retry_state.outcome.failed else "failed")
+        before_sleep=lambda retry_state: logger.warning("Google Sheets update: Retrying in %.2f seconds (attempt %d)...",
+                                                        retry_state.next_action.sleep, retry_state.attempt_number),
+        after=lambda retry_state: logger.info("Google Sheets update: Attempt %d %s",
+                                               retry_state.attempt_number,
+                                               "succeeded" if not retry_state.outcome.failed else "failed")
     )
     def update_sheet(self, prize_data: PrizeData) -> None:
         try:
@@ -458,6 +458,7 @@ class GoogleSheetsManager:
             raise ScriptError("Error updating Google Sheet", error, "UPDATE_ERROR")
 
 # --- Main Application ---
+
 class PollaApp:
     def __init__(self) -> None:
         self.config = AppConfig.create_default()
@@ -473,8 +474,6 @@ class PollaApp:
             with self.browser_manager:
                 prize_data = self.scraper.scrape()
                 logger.info("Successfully scraped prize data.")
-                logger.info("Prize Data: %s", prize_data.to_sheet_values())
-                # Update Google Sheet (if running in GitHub, credentials must be set)
                 self.sheets_manager.update_sheet(prize_data)
                 logger.info("Successfully updated Google Sheet.")
         except ScriptError as error:
