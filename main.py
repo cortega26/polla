@@ -1,7 +1,7 @@
 """
 Polla.cl Prize Scraper and Google Sheets Updater
 Scrapes lottery prize information and updates a Google Sheet with the results.
-This version is designed to run in GitHub Actions.
+This version is designed for GitHub Actions and now uses the Webshare.io API for proxies.
 """
 
 import json
@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 from os import environ
 
+import requests  # For fetching the proxy list from the API
 import tenacity
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -157,6 +158,38 @@ class PrizeData:
     def total_prize_money(self) -> int:
         return sum([self.loto, self.recargado, self.revancha, self.desquite, self.jubilazo, self.multiplicar, self.jubilazo_50])
 
+# --- Helper: Fetch Proxy via API ---
+def fetch_proxy_from_api(api_url: str) -> Optional[str]:
+    token = environ.get("PROXY_API_TOKEN")
+    if not token:
+        logger.warning("No PROXY_API_TOKEN found in environment.")
+        return None
+    headers = {"Authorization": f"Token {token}"}
+    try:
+        logger.info("Fetching proxy list from API: %s", api_url)
+        response = requests.get(api_url, headers=headers)
+        data = response.json()
+        results = data.get("results", [])
+        if results:
+            chosen = random.choice(results)
+            # Assuming each proxy object has keys: ip, port, and optionally protocol (default "http")
+            ip = chosen.get("ip")
+            port = chosen.get("port")
+            protocol = chosen.get("protocol", "http")
+            if ip and port:
+                proxy_str = f"{protocol}://{ip}:{port}"
+                logger.info("Selected proxy: %s", proxy_str)
+                return proxy_str
+            else:
+                logger.warning("Incomplete proxy details in chosen result: %s", chosen)
+                return None
+        else:
+            logger.warning("No proxies found in API response.")
+            return None
+    except Exception as e:
+        logger.warning("Failed to fetch or parse proxy list from API: %s", e)
+        return None
+
 # --- Browser Manager ---
 class BrowserManager:
     def __init__(self, config: AppConfig) -> None:
@@ -172,6 +205,17 @@ class BrowserManager:
                     chrome_options.add_argument(flag)
             else:
                 chrome_options.add_argument(f"{flag}={value}")
+        
+        # --- Proxy Integration via API ---
+        proxy_api_url = environ.get("PROXY_API_URL")
+        if proxy_api_url:
+            proxy_str = fetch_proxy_from_api(proxy_api_url)
+            if proxy_str:
+                chrome_options.add_argument(f"--proxy-server={proxy_str}")
+            else:
+                logger.warning("No valid proxy returned from API.")
+        else:
+            logger.info("No PROXY_API_URL defined; no proxy will be used.")
         
         # Additional options to bypass bot detection
         chrome_options.add_argument("--disable-infobars")
@@ -197,7 +241,7 @@ class BrowserManager:
         chrome_options.add_argument(f"user-agent={chosen_user_agent}")
         logger.info("Using user-agent: %s", chosen_user_agent)
         
-        # Optionally disable headless mode via env variable
+        # Optionally disable headless mode via environment variable
         if environ.get("DISABLE_HEADLESS", "false").lower() == "true":
             logger.info("DISABLE_HEADLESS set to true; running in non-headless mode.")
         else:
@@ -269,7 +313,7 @@ class PollaScraper:
             )
             popup.click()
             logger.info("Popup closed successfully.")
-            time.sleep(1)  # Allow the page to update
+            time.sleep(1)
         except Exception as e:
             logger.info("Popup not found or could not be closed; continuing. (%s)", e)
 
@@ -377,7 +421,7 @@ class PollaScraper:
         finally:
             pass
 
-# --- Credential and Sheets Managers ---
+# --- Credential & Google Sheets Managers (unchanged) ---
 class CredentialManager:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
@@ -424,11 +468,8 @@ class GoogleSheetsManager:
         wait=tenacity.wait_exponential(multiplier=1, min=5),
         stop=tenacity.stop_after_attempt(3),
         retry=tenacity.retry_if_exception_type((HttpError, ScriptError)),
-        before_sleep=lambda retry_state: logger.warning(
-            "Google Sheets update: Retrying in %.2f seconds (attempt %d)...", retry_state.next_action.sleep, retry_state.attempt_number),
-        after=lambda retry_state: logger.info(
-            "Google Sheets update: Attempt %d %s", retry_state.attempt_number,
-            "succeeded" if not retry_state.outcome.failed else "failed")
+        before_sleep=lambda retry_state: logger.warning("Google Sheets update: Retrying in %.2f seconds (attempt %d)...", retry_state.next_action.sleep, retry_state.attempt_number),
+        after=lambda retry_state: logger.info("Google Sheets update: Attempt %d %s", retry_state.attempt_number, "succeeded" if not retry_state.outcome.failed else "failed")
     )
     def update_sheet(self, prize_data: PrizeData) -> None:
         try:
@@ -474,7 +515,6 @@ class PollaApp:
                 prize_data = self.scraper.scrape()
                 logger.info("Successfully scraped prize data.")
                 logger.info("Prize Data: %s", prize_data.to_sheet_values())
-                # Update Google Sheet (if running in GitHub, credentials must be set)
                 self.sheets_manager.update_sheet(prize_data)
                 logger.info("Successfully updated Google Sheet.")
         except ScriptError as error:
