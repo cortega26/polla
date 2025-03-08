@@ -173,12 +173,12 @@ def fetch_proxy_from_api(api_url: str) -> Optional[str]:
         results = data.get("results", [])
         if results:
             chosen = random.choice(results)
-            # Assuming each proxy object has keys: "ip", "port", and optionally "protocol" (defaulting to "http")
-            ip = chosen.get("ip")
+            # Use "proxy_address" instead of "ip"
+            proxy_address = chosen.get("proxy_address")
             port = chosen.get("port")
-            protocol = chosen.get("protocol", "http")
-            if ip and port:
-                proxy_str = f"{protocol}://{ip}:{port}"
+            protocol = chosen.get("protocol", "http")  # if protocol is not provided, default to http
+            if proxy_address and port:
+                proxy_str = f"{protocol}://{proxy_address}:{port}"
                 logger.info("Selected proxy: %s", proxy_str)
                 return proxy_str
             else:
@@ -190,6 +190,7 @@ def fetch_proxy_from_api(api_url: str) -> Optional[str]:
     except Exception as e:
         logger.warning("Failed to fetch or parse proxy list from API: %s", e)
         return None
+
 
 
 # --- Browser Manager ---
