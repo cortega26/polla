@@ -311,6 +311,7 @@ class PollaScraper:
     def _close_popup(self) -> None:
         """Close the popup banner if it appears."""
         try:
+            time.sleep(10)
             popup = WebDriverWait(self._driver, 5).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'span.close[data-bind="click: hideBanner"]'))
             )
