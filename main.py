@@ -1064,7 +1064,7 @@ class PollaApp:
         logger.info("Script started at %s", start_time.isoformat())
         try:
             with self.browser_manager:
-                prize_data = self.scraper.scrape()
+                prize_data = self.scraper.scrape_prize_data()
                 logger.info("Successfully scraped prize data.")
                 logger.info("Prize Data: %s", prize_data.to_sheet_values())
                 self.sheets_manager.update_sheet(prize_data)
