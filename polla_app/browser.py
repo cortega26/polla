@@ -2,8 +2,16 @@
 
 import logging
 from pathlib import Path
+from types import TracebackType
 
-from playwright.async_api import Browser, BrowserContext, Page, Playwright, async_playwright
+from playwright.async_api import (
+    Browser,
+    BrowserContext,
+    Page,
+    Playwright,
+    Response,
+    async_playwright,
+)
 
 from .config import AppConfig
 from .exceptions import ScriptError
@@ -26,7 +34,12 @@ class PlaywrightManager:
         await self._initialize()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Async context manager exit."""
         await self.close()
 
@@ -68,7 +81,7 @@ class PlaywrightManager:
         except Exception as e:
             raise ScriptError("Failed to initialize browser", e, "BROWSER_INIT_ERROR") from e
 
-    def _log_response(self, response) -> None:
+    def _log_response(self, response: Response) -> None:
         """Log interesting responses for debugging."""
         if response.status >= 400:
             self.logger.warning("HTTP %d response from %s", response.status, response.url[:100])

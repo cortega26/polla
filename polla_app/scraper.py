@@ -195,7 +195,7 @@ class PollaScraper:
         stop=tenacity.stop_after_attempt(3),
         before_sleep=lambda retry_state: logging.getLogger("polla_app.scraper").info(
             "Retrying scrape in %.1f seconds (attempt %d)...",
-            retry_state.next_action.sleep,
+            retry_state.next_action.sleep if retry_state.next_action else 0,
             retry_state.attempt_number,
         ),
     )
