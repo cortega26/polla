@@ -4,12 +4,12 @@ import asyncio
 import json
 import logging
 from os import environ
-from typing import Any
+from typing import Any, cast
 
 import tenacity
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
+from googleapiclient.discovery import Resource, build
 from googleapiclient.errors import HttpError
 
 from .config import AppConfig
@@ -42,15 +42,19 @@ class CredentialManager:
             credentials_json = environ.get("CREDENTIALS")
             if not credentials_json:
                 raise ScriptError(
-                    "CREDENTIALS environment variable is not set", error_code="MISSING_CREDENTIALS"
+                    "CREDENTIALS environment variable is not set",
+                    error_code="MISSING_CREDENTIALS",
                 )
 
             credentials_dict = json.loads(credentials_json)
             self._validate_credentials_dict(credentials_dict)
 
             self.logger.info("Google credentials successfully loaded")
-            return service_account.Credentials.from_service_account_info(
-                credentials_dict, scopes=self.config.google.scopes
+            return cast(
+                Credentials,
+                service_account.Credentials.from_service_account_info(
+                    credentials_dict, scopes=self.config.google.scopes
+                ),
             )
 
         except json.JSONDecodeError as e:
@@ -73,7 +77,7 @@ class GoogleSheetsManager:
         self.config = config
         self.credential_manager = credential_manager
         self.logger = logger
-        self._service = None
+        self._service: Resource | None = None
 
     def _initialize_service(self) -> None:
         """Initialize Google Sheets service."""
@@ -99,6 +103,12 @@ class GoogleSheetsManager:
     def _update_sheet_sync(self, prize_data: PrizeData) -> None:
         """Synchronous sheet update (for thread pool execution)."""
         self._initialize_service()
+
+        if not self._service:
+            raise ScriptError(
+                "Google Sheets service not initialized",
+                error_code="SERVICE_NOT_INITIALIZED",
+            )
 
         values = prize_data.to_sheet_values()
         body = {"values": values}
