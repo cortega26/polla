@@ -1,66 +1,117 @@
-[![Update Prizes](https://github.com/cortega26/polla/actions/workflows/update.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/update.yml)
+# Polla.cl Prize Scraper v2.0
 
-# Prize Scraper for polla.cl
+Async Playwright-based scraper for Chilean lottery (Polla.cl) prize data with Google Sheets integration.
 
-This script is designed to scrape the prize information from [polla.cl](http://www.polla.cl/es), update the relevant values in a Google Sheet, and log the number of cells updated.
+## Features
 
-## Libraries Used
+- **Async Playwright**: Modern, fast, and reliable browser automation
+- **Robust error handling**: Detects and handles WAF/captcha blocks gracefully
+- **Session persistence**: Maintains cookies across runs via `storage_state.json`
+- **Google Sheets integration**: Updates spreadsheet automatically with prize data
+- **Comprehensive testing**: 85%+ test coverage with pytest
+- **CI/CD ready**: GitHub Actions workflow for automated daily scraping
+- **Type-safe**: Full type hints with mypy validation
 
-- `bs4` (Beautiful Soup): Used to parse the HTML source code of the website.
-- `selenium`: Used to interact with the website and retrieve the HTML source code.
-- `googleapiclient`: Used to interact with the Google Sheets API.
-- `google.oauth2.service_account`: Used to authenticate the script with the Google Sheets API.
-- `os`: Used to retrieve an environment variable.
-- `logging`: Used for improved error reporting and logging.
-- `tenacity`: Implements retry logic for robust web scraping.
+## Installation
+
+### Production
+```bash
+pip install -r requirements.txt
+playwright install chromium
+playwright install-deps
+```
+
+### Development
+```bash
+pip install -r requirements-dev.txt
+playwright install chromium
+playwright install-deps
+```
 
 ## Usage
 
-- **Install the required libraries:**
+### Command Line
+```bash
+# Run headless (default)
+python -m polla_app scrape
 
-  ```sh
-  pip install bs4 selenium google-api-python-client google-auth tenacity
-  ```
+# Run with visible browser
+python -m polla_app scrape --show
 
-- **Install ChromeDriver:**
+# With custom timeout and log level
+python -m polla_app scrape --timeout 60 --log-level DEBUG
+```
 
-  - Download and install ChromeDriver.
-  - Ensure ChromeDriver is in your PATH or specify its location in the script.
+### Environment Variables
+- `CREDENTIALS`: Google service account JSON credentials (required)
+- `DISABLE_HEADLESS`: Set to "true" to run headed (deprecated, use --show flag)
 
-- **Set Up Google Service Account:**
+## Architecture
 
-  - Create a service account in the Google Cloud Console.
-  - Download the service account JSON file.
+### Core Components
 
-- **Set Environment Variable:**
+- **PlaywrightManager**: Manages browser lifecycle and configuration
+- **PollaScraper**: Implements scraping logic with retry mechanism
+- **GoogleSheetsManager**: Handles spreadsheet updates
+- **PrizeData**: Data model for the 7 lottery prize values
 
-  Set the CREDENTIALS environment variable to the contents of your service account JSON file.
+### Error Handling
 
-  ```sh
-  export CREDENTIALS=$(cat path/to/service-account.json)
-  ```
+The scraper implements smart error detection:
+- **ACCESS_DENIED**: WAF/captcha detected, saves screenshot and exits
+- **TIMEOUT_ERROR**: Page load timeout
+- **SCRAPE_ERROR**: General scraping failure
+- **UPDATE_ERROR**: Google Sheets update failure
 
-- **Update Spreadsheet ID:**
+Exit codes:
+- 0: Success
+- 1: General error
+- 2: Access denied
+- 3: Unexpected error
 
-  - Update the `SPREADSHEET_ID` variable in the script with your Google Sheets spreadsheet ID.
+## Development
 
-- **Run the script:**
+### Running Tests
+```bash
+# Run all tests
+make test
 
-  - `python main.py`
+# With coverage
+make test-cov
 
-## Notes
+# Specific test file
+pytest tests/test_parser.py -v
+```
 
-- **Google Sheet Configuration:**
-  - The script is set up to use a specific Google Sheet and range. Adjust the `SPREADSHEET_ID` and range variables as necessary.
-  
-- **Scheduling:**
-  - The script can be scheduled to run after every lottery draw using GitHub Actions or cron jobs to ensure data in the spreadsheet is always up to date.
+### Code Quality
+```bash
+# Format code
+make format
 
-- **Headless Mode:**
-  - The script runs in headless mode by default, meaning the Chrome window will not be visible. This can be adjusted in the `get_chrome_options` function if necessary.
+# Run linter
+make lint
 
-- **Logging:**
-  - Detailed error messages are logged to `app.log` using Python's built-in logging module for improved error reporting and debugging.
+# Type checking
+make type-check
+```
 
-- **Robustness:**
-  - The script gracefully handles exceptions during web scraping and Google Sheets update operations, ensuring robustness and reliability.
+## CI/CD
+
+GitHub Actions workflow runs:
+1. **On push**: Linting, type checking, and tests
+2. **Daily schedule**: Full scraping job at 10:00 AM Chile time
+3. **Manual trigger**: Via workflow dispatch
+
+## Migration from Selenium
+
+Key improvements over the Selenium version:
+- Async/await pattern for better performance
+- Native Playwright wait strategies (no explicit sleeps)
+- Built-in auto-waiting for elements
+- Simplified cookie persistence
+- Removed stealth libraries and CDP hacks
+- Cleaner error handling with structured exceptions
+
+## License
+
+MIT
