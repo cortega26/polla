@@ -4,19 +4,19 @@ import asyncio
 import logging
 import random
 import re
-from typing import List, Optional
 
-from playwright.async_api import Page, TimeoutError as PlaywrightTimeout
 import tenacity
+from playwright.async_api import Page
+from playwright.async_api import TimeoutError as PlaywrightTimeout
 
 from .config import AppConfig
-from .models import PrizeData
 from .exceptions import ScriptError
+from .models import PrizeData
 
 
 class PollaScraper:
     """Scraper for Polla.cl prize data."""
-    
+
     def __init__(self, config: AppConfig, page: Page, logger: logging.Logger):
         """Initialize the scraper."""
         self.config = config
@@ -39,35 +39,34 @@ class PollaScraper:
             "Bot Detection",
             "Captcha",
         ]
-    
+
     async def _check_access_denied(self) -> None:
         """Check if access is denied and abort if detected."""
         content = await self.page.content()
-        
+
         for indicator in self._access_denied_indicators:
             if indicator in content:
                 self.logger.error("Access denied detected: %s", indicator)
-                
+
                 # Save screenshot for debugging
-                from .browser import PlaywrightManager
-                screenshot_path = await self._save_screenshot("access_denied")
-                
+
+                await self._save_screenshot("access_denied")
+
                 raise ScriptError(
-                    f"Access denied by WAF/Security: {indicator}",
-                    error_code="ACCESS_DENIED"
+                    f"Access denied by WAF/Security: {indicator}", error_code="ACCESS_DENIED"
                 )
-    
+
     async def _save_screenshot(self, prefix: str) -> str:
         """Save a screenshot."""
-        from pathlib import Path
         from datetime import datetime
-        
+        from pathlib import Path
+
         debug_dir = Path("debug")
         debug_dir.mkdir(exist_ok=True)
-        
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = debug_dir / f"{prefix}_{timestamp}.png"
-        
+
         try:
             await self.page.screenshot(path=str(filename), full_page=True)
             self.logger.info("Screenshot saved to %s", filename)
@@ -75,24 +74,24 @@ class PollaScraper:
         except Exception as e:
             self.logger.error("Failed to save screenshot: %s", e)
             return ""
-    
+
     async def _human_delay(self, min_seconds: float = 1.0, max_seconds: float = 3.0) -> None:
         """Add human-like delay between actions."""
         delay = random.uniform(min_seconds, max_seconds)
         await asyncio.sleep(delay)
-    
+
     async def _close_popups(self) -> None:
         """Close any popup banners that might appear."""
         popup_selectors = [
             'span.close[data-bind="click: hideBanner"]',
-            '.banner-close',
-            '.modal-close',
-            '.popup-close',
-            'button.close',
+            ".banner-close",
+            ".modal-close",
+            ".popup-close",
+            "button.close",
             '[aria-label="Close"]',
-            '[aria-label="Cerrar"]'
+            '[aria-label="Cerrar"]',
         ]
-        
+
         for selector in popup_selectors:
             try:
                 close_button = self.page.locator(selector).first
@@ -103,7 +102,7 @@ class PollaScraper:
                     return
             except Exception:
                 continue
-    
+
     def _parse_prize(self, text: str) -> int:
         """Parse prize text to integer value."""
         try:
@@ -138,43 +137,42 @@ class PollaScraper:
             self.logger.error("Failed to parse prize value: '%s'", text)
             raise ScriptError(
                 f"Parsing error for prize value: '{text}'", e, "PRIZE_PARSING_ERROR"
-            )
-    
-    def _validate_prizes(self, prizes: List[int]) -> None:
+            ) from e
+
+    def _validate_prizes(self, prizes: list[int]) -> None:
         """Validate that we have valid prize data."""
         if not prizes:
             raise ScriptError("No prizes found", error_code="NO_PRIZES_ERROR")
-        
+
         if len(prizes) < 7:
             raise ScriptError(
                 f"Invalid prize data: expected 7+ prizes, got {len(prizes)}",
-                error_code="INSUFFICIENT_PRIZES_ERROR"
+                error_code="INSUFFICIENT_PRIZES_ERROR",
             )
-        
+
         if all(prize == 0 for prize in prizes):
             raise ScriptError(
-                "All prizes are zero - possible scraping error",
-                error_code="ZERO_PRIZES_ERROR"
+                "All prizes are zero - possible scraping error", error_code="ZERO_PRIZES_ERROR"
             )
-    
-    async def _extract_prizes_from_game(self, game_name: str) -> Optional[int]:
+
+    async def _extract_prizes_from_game(self, game_name: str) -> int | None:
         """Extract prize value for a specific game."""
         prize_selectors = [
             f'[data-game="{game_name}"] .prize-amount',
             f'[data-game="{game_name}"] .prize-value',
-            f'.game-{game_name.lower()} .prize-amount',
-            f'.{game_name.lower()}-prize',
-            '.prize-amount',
-            '.jackpot-amount',
-            '.prize-value',
-            '[data-bind*="prize"]'
+            f".game-{game_name.lower()} .prize-amount",
+            f".{game_name.lower()}-prize",
+            ".prize-amount",
+            ".jackpot-amount",
+            ".prize-value",
+            '[data-bind*="prize"]',
         ]
-        
+
         for selector in prize_selectors:
             try:
                 elements = self.page.locator(selector)
                 count = await elements.count()
-                
+
                 for i in range(count):
                     element = elements.nth(i)
                     if await element.is_visible():
@@ -182,16 +180,15 @@ class PollaScraper:
                         if text and any(c.isdigit() for c in text):
                             prize = self._parse_prize(text)
                             self.logger.info(
-                                "Extracted %s prize: %s (parsed to %d)",
-                                game_name, text, prize
+                                "Extracted %s prize: %s (parsed to %d)", game_name, text, prize
                             )
                             return prize
             except Exception as e:
                 self.logger.debug("Failed with selector %s: %s", selector, e)
                 continue
-        
+
         return None
-    
+
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(ScriptError),
         wait=tenacity.wait_exponential(multiplier=1.5, min=5),
@@ -199,34 +196,36 @@ class PollaScraper:
         before_sleep=lambda retry_state: logging.getLogger("polla_app.scraper").info(
             "Retrying scrape in %.1f seconds (attempt %d)...",
             retry_state.next_action.sleep,
-            retry_state.attempt_number
-        )
+            retry_state.attempt_number,
+        ),
     )
     async def scrape_prize_data(self) -> PrizeData:
         """Main scraping method to extract all prize data."""
         try:
             self.logger.info("Starting prize data scraping...")
-            
+
             # Navigate to the main page
             self.logger.info("Navigating to %s", self.config.scraper.base_url)
             await self.page.goto(self.config.scraper.base_url, wait_until="networkidle")
-            
+
             # Check for access denied
             await self._check_access_denied()
-            
+
             # Wait for content to load
             await self._human_delay(2, 4)
-            
+
             # Close any popups
             await self._close_popups()
-            
+
             # Verify we have the right content
             content = await self.page.content()
             if "loto" not in content.lower():
                 self.logger.warning("Expected content not found, might be blocked")
                 await self._save_screenshot("no_content")
-                raise ScriptError("Expected lottery content not found", error_code="CONTENT_NOT_FOUND")
-            
+                raise ScriptError(
+                    "Expected lottery content not found", error_code="CONTENT_NOT_FOUND"
+                )
+
             # Extract prizes for each game
             games = [
                 ("Loto", "loto"),
@@ -235,22 +234,22 @@ class PollaScraper:
                 ("Desquite", "desquite"),
                 ("Jubilazo", "jubilazo"),
                 ("Multiplicar", "multiplicar"),
-                ("Jubilazo 50", "jubilazo_50")
+                ("Jubilazo 50", "jubilazo_50"),
             ]
-            
+
             prizes = []
-            
+
             for display_name, field_name in games:
                 self.logger.info("Processing game: %s", display_name)
-                
+
                 # Try to expand the game section if needed
                 expand_selectors = [
                     f'[data-game="{display_name}"] .expand-icon',
                     f'[data-game="{display_name}"] .expanse-controller',
-                    f'.game-{field_name} .expand-button',
-                    '.expanse-controller img'
+                    f".game-{field_name} .expand-button",
+                    ".expanse-controller img",
                 ]
-                
+
                 for selector in expand_selectors:
                     try:
                         expand_btn = self.page.locator(selector).first
@@ -261,25 +260,25 @@ class PollaScraper:
                             break
                     except Exception:
                         continue
-                
+
                 # Extract the prize value
                 prize_value = await self._extract_prizes_from_game(display_name)
-                
+
                 if prize_value is None:
                     self.logger.warning("Could not extract prize for %s, using 0", display_name)
                     prize_value = 0
-                
+
                 prizes.append(prize_value)
-                
+
                 # Add delay between games
                 await self._human_delay(0.5, 1.5)
-            
+
             # Validate prizes
             self._validate_prizes(prizes)
-            
+
             # Save final screenshot
             await self._save_screenshot("final_state")
-            
+
             # Create and return PrizeData
             return PrizeData(
                 loto=prizes[0],
@@ -288,16 +287,16 @@ class PollaScraper:
                 desquite=prizes[3],
                 jubilazo=prizes[4],
                 multiplicar=prizes[5],
-                jubilazo_50=prizes[6]
+                jubilazo_50=prizes[6],
             )
-            
+
         except PlaywrightTimeout as e:
             self.logger.error("Page timeout: %s", e)
             await self._save_screenshot("timeout_error")
-            raise ScriptError("Page load timeout", e, "TIMEOUT_ERROR")
+            raise ScriptError("Page load timeout", e, "TIMEOUT_ERROR") from e
         except ScriptError:
             raise
         except Exception as e:
             self.logger.exception("Unexpected error during scraping")
             await self._save_screenshot("error_state")
-            raise ScriptError("Failed to scrape prize data", e, "SCRAPE_ERROR")
+            raise ScriptError("Failed to scrape prize data", e, "SCRAPE_ERROR") from e
