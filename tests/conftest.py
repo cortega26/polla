@@ -28,6 +28,7 @@ def mock_page():
     page.content = AsyncMock(return_value="<html>test content loto</html>")
     page.locator = MagicMock()
     page.screenshot = AsyncMock()
+    page.evaluate = AsyncMock(return_value="{}")
     return page
 
 

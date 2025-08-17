@@ -1,6 +1,7 @@
 """Browser management using Playwright."""
 
 import logging
+from collections import OrderedDict
 from pathlib import Path
 from types import TracebackType
 
@@ -65,6 +66,28 @@ class PlaywrightManager:
                     self.logger.warning("Failed to load storage state: %s", e)
 
             self._context = await self._browser.new_context(**context_args)
+
+            # Apply deterministic, browser-like header ordering. Playwright
+            # accepts an ``OrderedDict`` to preserve the header order which many
+            # bot detection systems inspect.
+            headers = OrderedDict(
+                [
+                    (
+                        "Accept",
+                        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+                    ),
+                    ("Accept-Language", "es-CL,es;q=0.9"),
+                    ("Cache-Control", "no-cache"),
+                    ("Pragma", "no-cache"),
+                    ("Upgrade-Insecure-Requests", "1"),
+                    ("Sec-Fetch-Site", "none"),
+                    ("Sec-Fetch-Mode", "navigate"),
+                    ("Sec-Fetch-User", "?1"),
+                    ("Sec-Fetch-Dest", "document"),
+                    ("Accept-Encoding", "gzip, deflate, br, zstd"),
+                ]
+            )
+            await self._context.set_extra_http_headers(headers)
 
             # Set default timeouts
             self._context.set_default_navigation_timeout(self.config.browser.navigation_timeout)

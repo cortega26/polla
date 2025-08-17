@@ -78,6 +78,20 @@ async def run_scraper(config: AppConfig, logger: logging.Logger) -> int:
         return 3
 
 
+async def run_multi_agents(
+    config: AppConfig, logger: logging.Logger, agents: int
+) -> int:
+    """Run multiple scraper agents concurrently."""
+
+    async def _agent_task(agent_id: int) -> int:
+        agent_logger = logger.getChild(f"agent-{agent_id}")
+        return await run_scraper(config, agent_logger)
+
+    results = await asyncio.gather(*[_agent_task(i) for i in range(agents)])
+    # Return the highest exit code so any failure bubbles up
+    return max(results)
+
+
 @click.group()
 def cli() -> None:
     """Command-line interface for polla_app."""
@@ -89,7 +103,8 @@ def cli() -> None:
 @click.option(
     "--log-level", default="INFO", type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"])
 )
-def scrape(show: bool, timeout: int, log_level: str) -> None:
+@click.option("--agents", default=1, help="Number of parallel scraper agents")
+def scrape(show: bool, timeout: int, log_level: str, agents: int) -> None:
     """Scrape Polla.cl prize data and update Google Sheets."""
     logger = setup_logging(log_level)
 
@@ -97,7 +112,10 @@ def scrape(show: bool, timeout: int, log_level: str) -> None:
     config.browser.headless = not show
     config.scraper.timeout = timeout
 
-    exit_code = asyncio.run(run_scraper(config, logger))
+    if agents == 1:
+        exit_code = asyncio.run(run_scraper(config, logger))
+    else:
+        exit_code = asyncio.run(run_multi_agents(config, logger, agents))
     sys.exit(exit_code)
 
 
