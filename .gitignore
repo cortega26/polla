@@ -1,4 +1,16 @@
-*.json
-test/
+__pycache__/
+*.pyc
+.venv/
+.env
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+coverage.xml
+.coverage
+debug/
+logs/
+storage_state.json
 
-.qodo
+# Node modules for Playwright dependencies (if any)
+node_modules/
