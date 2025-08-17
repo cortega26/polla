@@ -1,6 +1,7 @@
 """Main scraper logic using Playwright."""
 
 import asyncio
+import hashlib
 import logging
 import random
 import re
@@ -39,6 +40,26 @@ class PollaScraper:
             "Bot Detection",
             "Captcha",
         ]
+
+    async def _generate_js_fingerprint(self) -> str:
+        """Generate a fingerprint using browser JavaScript properties."""
+        script = """
+        () => {
+            const fp = {
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                platform: navigator.platform,
+                hardwareConcurrency: navigator.hardwareConcurrency,
+                deviceMemory: navigator.deviceMemory || 0,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            };
+            return JSON.stringify(fp);
+        }
+        """
+        raw_fp = await self.page.evaluate(script)
+        fingerprint = hashlib.sha256(raw_fp.encode()).hexdigest()
+        self.logger.info("Generated JS fingerprint: %s", fingerprint)
+        return fingerprint
 
     async def _check_access_denied(self) -> None:
         """Check if access is denied and abort if detected."""
@@ -203,6 +224,9 @@ class PollaScraper:
         """Main scraping method to extract all prize data."""
         try:
             self.logger.info("Starting prize data scraping...")
+
+            # Generate a browser fingerprint before any network activity
+            await self._generate_js_fingerprint()
 
             # Navigate to the main page
             self.logger.info("Navigating to %s", self.config.scraper.base_url)

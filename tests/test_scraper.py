@@ -64,6 +64,7 @@ class TestScraperIntegration:
 
         mock_page.locator = MagicMock(return_value=mock_locator)
         mock_page.screenshot = AsyncMock()
+        mock_page.evaluate = AsyncMock(return_value="{}")
 
         return PollaScraper(app_config, mock_page, mock_logger)
 

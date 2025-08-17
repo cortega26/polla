@@ -23,9 +23,15 @@ class BrowserConfig:
 
     def to_launch_args(self) -> dict[str, Any]:
         """Convert to Playwright launch arguments."""
+        # Force the browser to use modern networking with HTTP/2 support and
+        # avoid obvious automation fingerprints.
         return {
             "headless": self.headless,
-            "args": ["--disable-blink-features=AutomationControlled"],
+            "args": [
+                "--disable-blink-features=AutomationControlled",
+                "--enable-features=NetworkService,NetworkServiceInProcess",
+                "--enable-http2",
+            ],
         }
 
     def to_context_args(self) -> dict[str, Any]:
