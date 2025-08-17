@@ -78,7 +78,12 @@ async def run_scraper(config: AppConfig, logger: logging.Logger) -> int:
         return 3
 
 
-@click.command()
+@click.group()
+def cli() -> None:
+    """Command-line interface for polla_app."""
+
+
+@cli.command()
 @click.option("--show", is_flag=True, help="Run browser in headed mode")
 @click.option("--timeout", default=30, help="Page timeout in seconds")
 @click.option(
@@ -97,4 +102,4 @@ def scrape(show: bool, timeout: int, log_level: str) -> None:
 
 
 if __name__ == "__main__":
-    scrape()
+    cli()
