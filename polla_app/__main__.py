@@ -6,6 +6,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -40,7 +41,7 @@ def cli(ctx: click.Context, log_level: str) -> None:
     ctx.obj["log_level"] = log_level
 
 
-def _echo_json(payload: dict, *, indent: int | None = 2) -> None:
+def _echo_json(payload: dict[str, Any], *, indent: int | None = 2) -> None:
     click.echo(json.dumps(payload, ensure_ascii=False, indent=indent))
 
 

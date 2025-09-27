@@ -32,7 +32,9 @@ def _make_record(premio_value: int) -> dict[str, object]:
     }
 
 
-def test_pipeline_produces_artifacts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata) -> None:
+def test_pipeline_produces_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata
+) -> None:
     source_results = {
         "t13": SourceResult("t13", "https://example.test/t13", fake_metadata, _make_record(0)),
         "24h": SourceResult("24h", "https://example.test/24h", fake_metadata, _make_record(0)),
@@ -62,11 +64,17 @@ def test_pipeline_produces_artifacts(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert (tmp_path / "comparison.json").exists()
     assert output["publish"] is True
 
-    normalized_rows = [json.loads(line) for line in (tmp_path / "normalized.jsonl").read_text().splitlines() if line]
+    normalized_rows = [
+        json.loads(line)
+        for line in (tmp_path / "normalized.jsonl").read_text().splitlines()
+        if line
+    ]
     assert normalized_rows[0]["sorteo"] == 5198
 
 
-def test_pipeline_detects_mismatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata) -> None:
+def test_pipeline_detects_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata
+) -> None:
     good = SourceResult("t13", "https://example.test/t13", fake_metadata, _make_record(0))
     mismatch_record = _make_record(1000)
     mismatch = SourceResult("24h", "https://example.test/24h", fake_metadata, mismatch_record)

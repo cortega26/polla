@@ -11,7 +11,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .net import FetchMetadata, fetch_html
 from .sources import _24h as source_24h
@@ -106,7 +106,9 @@ def _category_map(record: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     return mapping
 
 
-def _build_consensus(records: dict[str, dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], float]:
+def _build_consensus(
+    records: dict[str, dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], float]:
     categories: set[str] = set()
     for data in records.values():
         categories.update(data.keys())
@@ -350,7 +352,10 @@ def run_pipeline(
             "sorteo": max((res.record.get("sorteo") or 0) for res in results),
             "fecha": None,
         }
-        fechas = [res.record.get("fecha") for res in results if res.record.get("fecha")]
+        fecha_values = [
+            res.record.get("fecha") for res in results if res.record.get("fecha") is not None
+        ]
+        fechas: list[str] = [str(value) for value in fecha_values if value is not None]
         if fechas:
             last_draw["fecha"] = max(fechas)
 
@@ -397,7 +402,10 @@ def run_pipeline(
         mismatch_count = len(mismatches)
 
         if mismatch_count == 0:
-            decision = {"status": "publish", "reason": "No mismatches detected"}
+            decision: dict[str, Any] = {
+                "status": "publish",
+                "reason": "No mismatches detected",
+            }
         elif mismatch_ratio <= mismatch_threshold:
             decision = {
                 "status": "publish_with_warnings",
@@ -411,7 +419,7 @@ def run_pipeline(
                 "mismatch_ratio": mismatch_ratio,
             }
 
-        report_payload = {
+        report_payload: dict[str, Any] = {
             "run": {
                 "id": run_id,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -442,16 +450,18 @@ def run_pipeline(
 
         _write_json(comparison_report_path, report_payload)
 
-        summary_payload = {
+        decision_payload = cast(dict[str, Any], report_payload["decision"])
+
+        summary_payload: dict[str, Any] = {
             "run_id": run_id,
             "generated_at": report_payload["run"]["generated_at"],
-            "decision": report_payload["decision"],
+            "decision": decision_payload,
             "prizes_changed": prizes_changed,
             "normalized_path": str(normalized_path),
             "comparison_report": str(comparison_report_path),
             "raw_dir": str(raw_dir),
             "state_path": str(state_path),
-            "publish": report_payload["decision"]["status"].startswith("publish"),
+            "publish": str(decision_payload.get("status", "")).startswith("publish"),
         }
 
         _write_json(summary_path, summary_payload)
