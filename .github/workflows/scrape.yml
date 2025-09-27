@@ -90,11 +90,26 @@ jobs:
           python -m playwright install chromium
           python -m playwright install-deps
       
-      - name: Run scraper
+      - name: Run scraper (alt sources)
         env:
-          CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          ALT_SOURCE_URLS: >-
+            https://www.24horas.cl/24horas/site/tag/port/all/tagport_2312_1.html,
+            https://www.openloto.cl/pozo-del-loto.html,
+            https://resultadoslotochile.com/pozo-para-el-proximo-sorteo/
         run: |
-          python -m polla_app scrape --log-level INFO
+          mkdir -p artifacts raw pipeline_state logs
+          python main.py \
+            --sources all \
+            --retries 3 \
+            --timeout 30 \
+            --no-fail-fast \
+            --raw-dir artifacts/raw \
+            --normalized artifacts/normalized.jsonl \
+            --comparison-report artifacts/comparison_report.json \
+            --summary artifacts/run_summary.json \
+            --state-file pipeline_state/last_run.jsonl \
+            --log-file logs/run.jsonl \
+            --mismatch-threshold 0.2
         continue-on-error: true
       
       - name: Upload logs
@@ -105,10 +120,50 @@ jobs:
           path: logs/
           retention-days: 30
       
-      - name: Upload screenshots
+      - name: Upload debug artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-screenshots
-          path: debug/
+          name: scrape-artifacts
+          path: |
+            artifacts/
+            logs/
+            pipeline_state/
           retention-days: 7
+
+  publish:
+    needs: scrape
+    if: ${{ needs.scrape.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: scrape-artifacts
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install minimal deps for publish
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Publish to Google Sheets
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_CREDENTIALS }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+        run: |
+          if [ -f artifacts/normalized.jsonl ]; then \
+            python tools/publish_to_sheets.py \
+              --data artifacts/normalized.jsonl \
+              --comparison artifacts/comparison_report.json \
+              --sheet-name AltData \
+              --discrepancy-tab Discrepancies; \
+          else \
+            echo "normalized.jsonl not found; skipping publish"; \
+          fi
