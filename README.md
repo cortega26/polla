@@ -1,116 +1,99 @@
-# Polla.cl Prize Scraper v2.0
+# Polla App — Alternative Lottery Source Ingestor
 
-Async Playwright-based scraper for Chilean lottery (Polla.cl) prize data with Google Sheets integration.
+This project normalises **Loto Chile** results without touching `polla.cl`. It
+parses public news articles (T13, 24Horas) and community aggregators to produce
+a consistent JSON structure containing per-categoría payouts and próximo pozo
+estimates.
 
 ## Features
 
-- **Async Playwright**: Modern, fast, and reliable browser automation
-- **Robust error handling**: Detects and handles WAF/captcha blocks gracefully
-- **Session persistence**: Maintains cookies across runs via `storage_state.json`
-- **Google Sheets integration**: Updates spreadsheet automatically with prize data
-- **Comprehensive testing**: 85%+ test coverage with pytest
-- **CI/CD ready**: GitHub Actions workflow for automated daily scraping
-- **Type-safe**: Full type hints with mypy validation
+- ✅ **No WAF interaction** – HTTP requests are performed with `requests` and a
+  descriptive User-Agent, honouring `robots.txt`.
+- 📰 **Multiple draw sources** – Parse T13 draw articles and fall back to
+  24Horas posts when necessary.
+- 💰 **Próximo pozo enrichment** – Fetch jackpot estimates from OpenLoto and
+  ResultadosLotoChile, keeping provenance metadata.
+- 🧪 **Deterministic tests** – Parsers are covered with fixture-based unit tests.
+- 🛠️ **CLI tooling** – Inspect draw URLs, list recent 24Horas posts, and fetch
+  pozo estimates directly from the command line.
 
 ## Installation
 
-### Production
 ```bash
 pip install -r requirements.txt
-playwright install chromium
-playwright install-deps
 ```
 
-### Development
+For local development with formatting and linting tools:
+
 ```bash
 pip install -r requirements-dev.txt
-playwright install chromium
-playwright install-deps
 ```
 
 ## Usage
 
-### Command Line
+### Parse a draw
+
 ```bash
-# Run headless (default)
-python -m polla_app scrape
-
-# Run with visible browser
-python -m polla_app scrape --show
-
-# With custom timeout and log level
-python -m polla_app scrape --timeout 60 --log-level DEBUG
+python -m polla_app ingest --source t13 "https://www.t13.cl/noticia/nacional/resultados-del-loto-sorteo-5198"
 ```
 
-### Environment Variables
-- `CREDENTIALS`: Google service account JSON credentials (required)
-- `DISABLE_HEADLESS`: Set to "true" to run headed (deprecated, use --show flag)
+- `--source` accepts `t13` (default) or `24h`.
+- `--no-pozos` disables próximo pozo enrichment.
+- `--compact` prints the record on a single JSON line.
 
-## Architecture
+### List recent 24Horas result posts
 
-### Core Components
+```bash
+python -m polla_app list-24h --limit 5
+```
 
-- **PlaywrightManager**: Manages browser lifecycle and configuration
-- **PollaScraper**: Implements scraping logic with retry mechanism
-- **GoogleSheetsManager**: Handles spreadsheet updates
-- **PrizeData**: Data model for the 7 lottery prize values
+### Fetch próximo pozo estimates
 
-### Error Handling
+```bash
+python -m polla_app pozos
+```
 
-The scraper implements smart error detection:
-- **ACCESS_DENIED**: WAF/captcha detected, saves screenshot and exits
-- **TIMEOUT_ERROR**: Page load timeout
-- **SCRAPE_ERROR**: General scraping failure
-- **UPDATE_ERROR**: Google Sheets update failure
+## Data Model
 
-Exit codes:
-- 0: Success
-- 1: General error
-- 2: Access denied
-- 3: Unexpected error
+Each draw record emitted by `ingest` follows this schema:
+
+```json
+{
+  "sorteo": 5322,
+  "fecha": "2025-09-16",
+  "fuente": "https://www.t13.cl/…",
+  "premios": [
+    {"categoria": "Loto 6 aciertos", "premio_clp": 0, "ganadores": 0},
+    {"categoria": "Quina (5)", "premio_clp": 757970, "ganadores": 3}
+  ],
+  "pozos_proximo": {
+    "Loto Clásico": 690000000,
+    "Recargado": 180000000,
+    "Total estimado": 4300000000
+  },
+  "provenance": {
+    "source": "t13",
+    "url": "https://www.t13.cl/…",
+    "ingested_at": "2025-09-17T02:15:00+00:00",
+    "pozos": {"primary": {"fuente": "https://www.openloto.cl/…"}}
+  }
+}
+```
 
 ## Development
 
-### Running Tests
+### Tests
+
 ```bash
-# Run all tests
-make test
-
-# With coverage
-make test-cov
-
-# Specific test file
-pytest tests/test_parser.py -v
+pytest -q
 ```
 
-### Code Quality
+### Formatting & Linting
+
 ```bash
-# Format code
-make format
-
-# Run linter
-make lint
-
-# Type checking
-make type-check
+black polla_app tests
+ruff check polla_app tests
 ```
-
-## CI/CD
-
-GitHub Actions workflow runs:
-1. **On push**: Linting, type checking, and tests
-2. **Daily schedule**: Full scraping job at 10:00 AM Chile time
-3. **Manual trigger**: Via workflow dispatch
-
-## Migration from Selenium
-
-Key improvements over the Selenium version:
-- Async/await pattern for better performance
-- Native Playwright wait strategies (no explicit sleeps)
-- Built-in auto-waiting for elements
-- Simplified cookie persistence
-- Removed stealth libraries and CDP hacks
-- Cleaner error handling with structured exceptions
 
 ## License
 
