@@ -4,6 +4,8 @@ __version__ = "3.0.0"
 
 from .exceptions import ScriptError
 from .ingest import ingest_draw, list_24h_result_urls
+from .pipeline import run_pipeline
+from .publish import publish_to_google_sheets
 from .sources import (
     get_pozo_openloto,
     get_pozo_resultadosloto,
@@ -15,6 +17,8 @@ __all__ = [
     "ScriptError",
     "ingest_draw",
     "list_24h_result_urls",
+    "run_pipeline",
+    "publish_to_google_sheets",
     "parse_t13_draw",
     "parse_24h_draw",
     "get_pozo_openloto",
