@@ -124,8 +124,14 @@ def _extract_paragraphs(soup: BeautifulSoup) -> Iterable[_PrizeRow]:
     for m in pat.finditer(text):
         categoria_raw = m.group("cat")
         categoria = _sanitize_category(categoria_raw)
-        # Remove any trailing ':' left by sanitization
+        # Remove any trailing ':' left by sanitization and trailing verbs like paga/entrega/otorga
         categoria = categoria.rstrip(": ")
+        categoria = re.sub(
+            r"\s*(?:paga(?:rá|n)?|entrega(?:rá|n)?|otorga(?:rá|n)?)\.?$",
+            "",
+            categoria,
+            flags=re.IGNORECASE,
+        )
         if not categoria or categoria.lower().startswith("sorteo"):
             continue
         if categoria in seen:
