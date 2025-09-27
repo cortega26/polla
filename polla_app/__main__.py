@@ -24,7 +24,8 @@ def setup_logging(log_level: str) -> logging.Logger:
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(
         logging.Formatter(
-            "%(asctime)s - %(levelname)s - [%(name)s] - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+            "%(asctime)s - %(levelname)s - [%(name)s] - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
     )
     logger.addHandler(console_handler)
@@ -39,7 +40,8 @@ def setup_logging(log_level: str) -> logging.Logger:
     file_handler = logging.FileHandler(log_file)
     file_handler.setFormatter(
         logging.Formatter(
-            "%(asctime)s - %(levelname)s - [%(name)s] - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+            "%(asctime)s - %(levelname)s - [%(name)s] - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
     )
     logger.addHandler(file_handler)
@@ -78,9 +80,7 @@ async def run_scraper(config: AppConfig, logger: logging.Logger) -> int:
         return 3
 
 
-async def run_multi_agents(
-    config: AppConfig, logger: logging.Logger, agents: int
-) -> int:
+async def run_multi_agents(config: AppConfig, logger: logging.Logger, agents: int) -> int:
     """Run multiple scraper agents concurrently."""
 
     async def _agent_task(agent_id: int) -> int:
