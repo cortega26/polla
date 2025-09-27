@@ -299,7 +299,24 @@ def run_pipeline(
                 if discovered:
                     url = discovered[0]
             if not url:
-                raise RuntimeError(f"No URL configured for source '{source_name}'")
+                message = f"No URL configured for source '{source_name}'"
+                log_event(
+                    {
+                        "event": "source_missing_url",
+                        "source": source_name,
+                        "message": message,
+                    }
+                )
+                if fail_fast:
+                    raise RuntimeError(message)
+                failures.append(
+                    {
+                        "source": source_name,
+                        "url": None,
+                        "error": "Source skipped: missing URL",
+                    }
+                )
+                continue
 
             attempt = 0
             while True:
