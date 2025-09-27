@@ -107,38 +107,40 @@ def _extract_table(anchor: BeautifulSoup) -> Iterable[_PrizeRow]:
 def _extract_paragraphs(soup: BeautifulSoup) -> Iterable[_PrizeRow]:
     prizes: list[_PrizeRow] = []
     paragraphs = [p.get_text(" ", strip=True) for p in soup.find_all("p")]
-    block = " ".join(filter(None, paragraphs))
-    if not block:
+    text = " ".join(filter(None, paragraphs))
+    if not text:
         return prizes
 
+    # Match sequences like "<categoria> [paga|entrega|:] $<monto>[ MM]"
+    pat = re.compile(
+        r"(?:^|[.;•·\n])\s*"
+        r"(?P<cat>[A-Za-z0-9\(\)\+\s\u00C0-\u017F]+?)\s*"
+        r"(?:paga|entrega|:)?\s*\$"
+        r"(?P<amount>[\d\.,]+(?:\s*MM)?)",
+        re.IGNORECASE,
+    )
+
     seen: set[str] = set()
-    for match in re.finditer(r"\$[\d\.,]+(?:\s*MM)?", block):
-        premio = _parse_amount(match.group(0))
-        prefix = block[: match.start()]
-        # Find the last likely separator before the amount
-        splits = [prefix.rfind(ch) for ch in (".", ";", "•", "·", "\n")]
-        split_idx = max(splits) if splits else -1
-        start = split_idx + 1 if split_idx != -1 else 0
-        categoria_raw = prefix[start:].strip()
-        # Strip leading punctuation/bullets and trailing hints like ':' or verbs like 'paga'/'entrega'
-        categoria_raw = re.sub(r"^[\s\.:\-–—•·]+", "", categoria_raw)
-        categoria_raw = re.sub(r"\s*(?:paga|entrega)\.?$", "", categoria_raw, flags=re.IGNORECASE)
-        categoria_raw = categoria_raw.rstrip(": ")
+    for m in pat.finditer(text):
+        categoria_raw = m.group("cat")
         categoria = _sanitize_category(categoria_raw)
-        if (
-            not categoria
-            or categoria.lower().startswith("sorteo")
-            or not re.search(r"[a-zA-Z]", categoria)
-        ):
+        # Remove any trailing ':' left by sanitization
+        categoria = categoria.rstrip(": ")
+        if not categoria or categoria.lower().startswith("sorteo"):
             continue
         if categoria in seen:
             continue
         seen.add(categoria)
 
-        suffix = block[match.end() :]
+        premio = _parse_amount("$" + m.group("amount"))
+
+        # Try to find winners near the amount
+        suffix = text[m.end() :]
         gan_match = re.search(r"(\d[\d\.]*)\s+ganad", suffix, re.IGNORECASE)
         ganadores = _parse_int(gan_match.group(1) if gan_match else "0")
+
         prizes.append(_PrizeRow(categoria=categoria, premio_clp=premio, ganadores=ganadores))
+
     return prizes
 
 
