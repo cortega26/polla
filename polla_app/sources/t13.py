@@ -203,4 +203,3 @@ def parse_t13_draw(url: str, *, ua: str = DEFAULT_UA, timeout: int = 20) -> dict
     except Exception as exc:
         LOGGER.exception("Failed to parse T13 draw from %s", url)
         raise RuntimeError(f"Could not parse T13 draw at {url}") from exc
-

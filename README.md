@@ -158,6 +158,16 @@ GitHub Actions workflows are provided:
 Set these in your repository settings:
 - Secrets: `GOOGLE_SHEETS_CREDENTIALS`, `GOOGLE_SPREADSHEET_ID`
 - Optional Vars: `ALT_SOURCE_URLS` (JSON mapping like `{ "t13": "https://…" }`)
+
+## Migration
+
+This release removes the Playwright-based scraper and switches to an alt-source
+HTTP pipeline.
+
+- Replace any `python -m polla_app scrape` calls with `python -m polla_app run`.
+- Remove Playwright installation steps from CI (`playwright install`, `install-deps`).
+- Ensure repo secrets are configured: `GOOGLE_SHEETS_CREDENTIALS` and `GOOGLE_SPREADSHEET_ID`.
+- Optionally set `ALT_SOURCE_URLS` (JSON) to pin source URLs (e.g., a T13 article).
 ```
 
 ## License
