@@ -119,14 +119,15 @@ def _run_openloto_only(
     _write_jsonl(normalized_path, [record])
     _write_jsonl(state_path, [record])
 
+    run_info: dict[str, Any] = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "sources": ["openloto"],
+        "timeout": None,
+        "retries": None,
+        "fail_fast": None,
+    }
     report = {
-        "run": {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "sources": ["openloto"],
-            "timeout": None,
-            "retries": None,
-            "fail_fast": None,
-        },
+        "run": run_info,
         "last_draw": {"sorteo": None, "fecha": None},
         "decision": {
             "status": "publish",
@@ -145,9 +146,9 @@ def _run_openloto_only(
     }
     _write_json(comparison_report_path, report)
 
-    summary_payload: dict[str, Any] = {
+    openloto_summary: dict[str, Any] = {
         "run_id": str(uuid.uuid4()),
-        "generated_at": report["run"]["generated_at"],
+        "generated_at": run_info["generated_at"],
         "decision": report["decision"],
         "prizes_changed": True,
         "normalized_path": str(normalized_path),
@@ -156,17 +157,17 @@ def _run_openloto_only(
         "state_path": str(state_path),
         "publish": True,
     }
-    _write_json(summary_path, summary_payload)
+    _write_json(summary_path, openloto_summary)
     log_event(
         {
             "event": "pipeline_complete",
-            "run_id": summary_payload["run_id"],
+            "run_id": openloto_summary["run_id"],
             "decision": "publish",
             "mismatch_ratio": 0.0,
             "prizes_changed": True,
         }
     )
-    return summary_payload
+    return openloto_summary
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -647,7 +648,7 @@ def run_pipeline(
 
         decision_payload = cast(dict[str, Any], report_payload["decision"])
 
-        summary_payload: dict[str, Any] = {
+        final_summary: dict[str, Any] = {
             "run_id": run_id,
             "generated_at": report_payload["run"]["generated_at"],
             "decision": decision_payload,
@@ -659,19 +660,19 @@ def run_pipeline(
             "publish": str(decision_payload.get("status", "")).startswith("publish"),
         }
 
-        _write_json(summary_path, summary_payload)
+        _write_json(summary_path, final_summary)
 
         log_event(
             {
                 "event": "pipeline_complete",
                 "run_id": run_id,
-                "decision": summary_payload["decision"]["status"],
+                "decision": decision_payload["status"],
                 "mismatch_ratio": mismatch_ratio,
                 "prizes_changed": prizes_changed,
             }
         )
 
-        return summary_payload
+        return final_summary
     finally:
         closer = getattr(log_event, "close", None)
         if callable(closer):  # pragma: no branch - trivial guard

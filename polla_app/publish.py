@@ -8,12 +8,20 @@ import os
 from pathlib import Path
 from typing import Any
 
-import gspread
+try:  # optional at import time to allow dry-run in tests without gspread installed
+    import gspread  # type: ignore
+except Exception:  # pragma: no cover - import guard for environments without gspread
+    gspread = None  # type: ignore[assignment]
 
 LOGGER = logging.getLogger(__name__)
 
 
-def _load_credentials() -> gspread.Client:
+def _load_credentials():
+    if gspread is None:
+        raise RuntimeError(
+            "gspread is not installed; install requirements (pip install -r requirements.txt) "
+            "or run publish in --dry-run mode"
+        )
     raw = Path.cwd() / "service_account.json"
     credentials_env = None
     if raw.exists():  # pragma: no cover - developer override
