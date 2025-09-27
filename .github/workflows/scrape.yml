@@ -188,10 +188,15 @@ jobs:
           GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
         run: |
           DRY_RUN="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}"
+          if [ -z "${GOOGLE_SERVICE_ACCOUNT_JSON}" ] || [ -z "${GOOGLE_SPREADSHEET_ID}" ]; then
+            echo "Missing Google secrets; skipping publish.";
+            exit 0;
+          fi
+          if [ "${DRY_RUN}" = "true" ]; then DRY_FLAG="--dry-run"; else DRY_FLAG="--no-dry-run"; fi
           python -m polla_app publish \
             --normalized artifacts/normalized.jsonl \
             --comparison-report artifacts/comparison_report.json \
             --summary artifacts/run_summary.json \
             --worksheet "Normalized" \
             --discrepancy-tab "Discrepancies" \
-            --dry-run=${DRY_RUN}
+            ${DRY_FLAG}
