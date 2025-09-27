@@ -293,12 +293,17 @@ def run_pipeline(
 
         for source_name in requested_sources:
             loader = SOURCE_LOADERS[source_name]
-            url = overrides.get(source_name)
-            if not url and source_name == "24h":
-                discovered = source_24h.list_24h_result_urls(limit=1, timeout=timeout)
-                if discovered:
-                    url = discovered[0]
-            if not url:
+
+            # Build candidate URL list for this source
+            candidate_urls: list[str] = []
+            override = overrides.get(source_name)
+            if override:
+                candidate_urls.append(override)
+            elif source_name == "24h":
+                # Try several recent posts; we will attempt them in order until one parses successfully
+                candidate_urls.extend(source_24h.list_24h_result_urls(limit=5, timeout=timeout))
+
+            if not candidate_urls:
                 message = f"No URL configured for source '{source_name}'"
                 log_event(
                     {
@@ -318,43 +323,94 @@ def run_pipeline(
                 )
                 continue
 
-            attempt = 0
-            while True:
-                try:
-                    result = loader(url, timeout)
-                except Exception as exc:  # pragma: no cover - retry logic
-                    attempt += 1
-                    log_event(
-                        {
-                            "event": "source_error",
-                            "source": source_name,
-                            "url": url,
-                            "attempt": attempt,
-                            "message": str(exc),
-                        }
-                    )
-                    if attempt >= retries:
-                        failures.append({"source": source_name, "url": url, "error": str(exc)})
-                        if fail_fast:
-                            raise
+            loaded = False
+            for url in candidate_urls:
+                attempt = 0
+                while True:
+                    try:
+                        result = loader(url, timeout)
+                    except Exception as exc:  # pragma: no cover - retry logic
+                        attempt += 1
+                        log_event(
+                            {
+                                "event": "source_error",
+                                "source": source_name,
+                                "url": url,
+                                "attempt": attempt,
+                                "message": str(exc),
+                            }
+                        )
+                        if attempt >= retries:
+                            break
+                        time.sleep(min(2 * attempt, 10))
+                        continue
+                    else:
+                        log_event(
+                            {
+                                "event": "source_success",
+                                "source": source_name,
+                                "url": url,
+                                "sorteo": result.record.get("sorteo"),
+                                "premio_rows": len(result.record.get("premios", []) or []),
+                            }
+                        )
+                        results.append(result)
+                        loaded = True
                         break
-                    time.sleep(min(2 * attempt, 10))
-                    continue
-                else:
-                    log_event(
-                        {
-                            "event": "source_success",
-                            "source": source_name,
-                            "url": url,
-                            "sorteo": result.record.get("sorteo"),
-                            "premio_rows": len(result.record.get("premios", []) or []),
-                        }
-                    )
-                    results.append(result)
+                if loaded:
                     break
 
+            if not loaded:
+                failures.append(
+                    {
+                        "source": source_name,
+                        "url": candidate_urls[0] if candidate_urls else None,
+                        "error": "All candidate URLs failed",
+                    }
+                )
+                if fail_fast:
+                    raise RuntimeError(f"Failed to load any URL for source '{source_name}'")
+
         if not results:
-            raise RuntimeError("No valid sources were collected; aborting run")
+            # Produce quarantine summary and report instead of crashing the job
+            _write_json(comparison_report_path, {
+                "run": {
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "sources": requested_sources,
+                    "timeout": timeout,
+                    "retries": retries,
+                    "fail_fast": fail_fast,
+                },
+                "last_draw": {"sorteo": None, "fecha": None},
+                "decision": {
+                    "status": "quarantine",
+                    "reason": "No valid sources collected",
+                    "total_categories": 0,
+                    "mismatched_categories": 0,
+                },
+                "prizes_changed": False,
+                "mismatches": [],
+                "sources": {},
+                "failures": failures or [{"source": s, "url": None, "error": "No candidate URLs"} for s in requested_sources],
+            })
+
+            # Create empty normalized/state files and summary to keep downstream steps alive
+            _write_jsonl(normalized_path, [])
+            _write_jsonl(state_path, [])
+            summary_payload = {
+                "run_id": str(uuid.uuid4()),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "decision": {"status": "quarantine"},
+                "prizes_changed": False,
+                "normalized_path": str(normalized_path),
+                "comparison_report": str(comparison_report_path),
+                "raw_dir": str(raw_dir),
+                "state_path": str(state_path),
+                "publish": False,
+            }
+            _write_json(summary_path, summary_payload)
+            log_event({"event": "pipeline_complete", "run_id": summary_payload["run_id"], "decision": "quarantine", "mismatch_ratio": 0.0, "prizes_changed": False})
+            return summary_payload
 
         for result in results:
             _save_raw_outputs(raw_dir, result)

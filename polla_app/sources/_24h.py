@@ -34,12 +34,13 @@ def list_24h_result_urls(
         href = anchor["href"]
         if not href:
             continue
-        if any(keyword in href for keyword in ("resultados-loto", "/loto/")):
+        # Only keep direct result articles, not generic /loto/ listing pages
+        if "resultados-loto-sorteo" in href:
             absolute = urljoin(index_url, href)
             if absolute not in urls:
                 urls.append(absolute)
-        if len(urls) >= limit:
-            break
+                if len(urls) >= limit:
+                    break
     LOGGER.debug("Discovered %d URLs from 24Horas index", len(urls))
     return urls
 
