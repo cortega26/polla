@@ -72,10 +72,7 @@ def _normalise_sources(requested: Sequence[str]) -> list[str]:
         key = item.lower()
         if key not in SOURCE_LOADERS:
             raise ValueError(
-                (
-                    "Unsupported source '%s'. Available: openloto, %s"
-                    % (item, ", ".join(SOURCE_LOADERS))
-                )
+                f"Unsupported source '{item}'. Available: openloto, {', '.join(SOURCE_LOADERS)}"
             )
         if key not in normalised:
             normalised.append(key)
