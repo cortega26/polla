@@ -1,73 +1,60 @@
-# Polla.cl Prize Scraper v2.0
+# Polla Transparency Ingestor v3.0
 
-Async Playwright-based scraper for Chilean lottery (Polla.cl) prize data with Google Sheets integration.
+HTTP-based ingestion pipeline that leverages public media and community sources to keep Chilean Loto
+results transparent without interacting with `polla.cl`.
 
 ## Features
 
-- **Async Playwright**: Modern, fast, and reliable browser automation
-- **Robust error handling**: Detects and handles WAF/captcha blocks gracefully
-- **Session persistence**: Maintains cookies across runs via `storage_state.json`
-- **Google Sheets integration**: Updates spreadsheet automatically with prize data
-- **Comprehensive testing**: 85%+ test coverage with pytest
-- **CI/CD ready**: GitHub Actions workflow for automated daily scraping
-- **Type-safe**: Full type hints with mypy validation
+- **Polite HTTP fetching**: Custom User-Agent, robots.txt awareness, 429 back-off.
+- **Multi-source parsing**: T13, 24Horas, OpenLoto, and ResultadosLotoChile.
+- **Data validation**: Cross-check prize tables across sources and highlight discrepancies.
+- **Google Sheets export**: Structured summary containing provenance, prize breakdown, and next jackpots.
+- **CLI utilities**: Inspect individual sources or run the full ingest workflow.
+- **Type-safe**: Full type hints with mypy validation.
 
 ## Installation
 
 ### Production
 ```bash
 pip install -r requirements.txt
-playwright install chromium
-playwright install-deps
 ```
 
 ### Development
 ```bash
 pip install -r requirements-dev.txt
-playwright install chromium
-playwright install-deps
 ```
 
 ## Usage
 
 ### Command Line
+
 ```bash
-# Run headless (default)
-python -m polla_app scrape
+# Run ingest providing explicit T13 URL(s)
+python -m polla_app.cli ingest --config-t13 "https://www.t13.cl/noticia/nacional/resultados-del-loto-sorteo-5198-del-domingo-1-diciembre-2-12-2024"
 
-# Run with visible browser
-python -m polla_app scrape --show
-
-# With custom timeout and log level
-python -m polla_app scrape --timeout 60 --log-level DEBUG
+# Inspect a single T13 or 24Horas note
+python -m polla_app.cli t13 "https://www.t13.cl/noticia/..."
+python -m polla_app.cli h24 "https://www.24horas.cl/..."
 ```
 
 ### Environment Variables
 - `CREDENTIALS`: Google service account JSON credentials (required)
-- `DISABLE_HEADLESS`: Set to "true" to run headed (deprecated, use --show flag)
 
 ## Architecture
 
 ### Core Components
 
-- **PlaywrightManager**: Manages browser lifecycle and configuration
-- **PollaScraper**: Implements scraping logic with retry mechanism
-- **GoogleSheetsManager**: Handles spreadsheet updates
-- **PrizeData**: Data model for the 7 lottery prize values
+- **`net.fetch_html`**: HTTP helper that respects robots.txt and throttling.
+- **Source parsers**: Convert HTML from T13/24Horas/OpenLoto/ResultadosLotoChile into normalized objects.
+- **`ingest.collect_report`**: Combines sources, determines the latest draw, and compares prize tables.
+- **`GoogleSheetsManager`**: Publishes the structured report and tracks the last recorded draw.
 
 ### Error Handling
 
-The scraper implements smart error detection:
-- **ACCESS_DENIED**: WAF/captcha detected, saves screenshot and exits
-- **TIMEOUT_ERROR**: Page load timeout
-- **SCRAPE_ERROR**: General scraping failure
-- **UPDATE_ERROR**: Google Sheets update failure
-
-Exit codes:
-- 0: Success
-- 1: General error
-- 2: Access denied
-- 3: Unexpected error
+- **SIN_T13**: No configured T13 URLs.
+- **SIN_DATOS_T13**: All T13 parses failed.
+- **NO_PREMIOS / 24H_NO_PREMIOS**: Prize tables missing.
+- **SHEETS_* errors**: Google Sheets read/write issues.
 
 ## Development
 
@@ -75,12 +62,6 @@ Exit codes:
 ```bash
 # Run all tests
 make test
-
-# With coverage
-make test-cov
-
-# Specific test file
-pytest tests/test_parser.py -v
 ```
 
 ### Code Quality
@@ -94,23 +75,6 @@ make lint
 # Type checking
 make type-check
 ```
-
-## CI/CD
-
-GitHub Actions workflow runs:
-1. **On push**: Linting, type checking, and tests
-2. **Daily schedule**: Full scraping job at 10:00 AM Chile time
-3. **Manual trigger**: Via workflow dispatch
-
-## Migration from Selenium
-
-Key improvements over the Selenium version:
-- Async/await pattern for better performance
-- Native Playwright wait strategies (no explicit sleeps)
-- Built-in auto-waiting for elements
-- Simplified cookie persistence
-- Removed stealth libraries and CDP hacks
-- Cleaner error handling with structured exceptions
 
 ## License
 

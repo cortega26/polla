@@ -1,39 +1,32 @@
-"""Pytest configuration and fixtures."""
-
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from typing import Callable, Iterator
 
 import pytest
 
 from polla_app.config import AppConfig
 
-
-@pytest.fixture
-def app_config():
-    """Provide test configuration."""
-    return AppConfig.create_default()
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
-@pytest.fixture
-def mock_logger():
-    """Provide mock logger."""
-    return MagicMock()
+@pytest.fixture()
+def app_config() -> AppConfig:
+    config = AppConfig.create_default()
+    config.sources.t13_urls = [
+        "https://www.t13.cl/noticia/nacional/resultados-del-loto-sorteo-5198-del-domingo-1-diciembre-2024",
+        "https://www.t13.cl/noticia/nacional/resultados-del-loto-sorteo-5322-del-martes-16-septiembre-2025",
+    ]
+    return config
 
 
-@pytest.fixture
-def mock_page():
-    """Provide mock Playwright page."""
-    page = AsyncMock()
-    page.goto = AsyncMock()
-    page.content = AsyncMock(return_value="<html>test content loto</html>")
-    page.locator = MagicMock()
-    page.screenshot = AsyncMock()
-    page.evaluate = AsyncMock(return_value="{}")
-    return page
+@pytest.fixture()
+def fixture_path() -> Path:
+    return FIXTURES
 
 
-@pytest.fixture
-def sample_html():
-    """Load sample HTML fixture."""
-    fixture_path = Path(__file__).parent / "fixtures" / "polla_mock.html"
-    return fixture_path.read_text()
+@pytest.fixture()
+def read_fixture() -> Iterator[Callable[[str], str]]:
+    def _reader(name: str) -> str:
+        return (FIXTURES / name).read_text(encoding="utf-8")
+
+    yield _reader
+

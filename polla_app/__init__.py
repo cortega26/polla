@@ -1,8 +1,8 @@
-"""Polla.cl Prize Scraper - Async Playwright Implementation."""
+"""Alternative data ingestion utilities for Chilean Loto transparency."""
 
-__version__ = "2.0.0"
+__version__ = "3.0.0"
 
 from .exceptions import ScriptError
-from .models import PrizeData
+from .models import DrawReport
 
-__all__ = ["ScriptError", "PrizeData"]
+__all__ = ["ScriptError", "DrawReport"]
