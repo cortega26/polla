@@ -97,7 +97,7 @@ jobs:
             --sources all \
             --retries 3 \
             --timeout 30 \
-            --fail-fast=false \
+            --no-fail-fast \
             --raw-dir artifacts/raw \
             --normalized artifacts/normalized.jsonl \
             --comparison-report artifacts/comparison_report.json \

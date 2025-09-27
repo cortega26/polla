@@ -48,7 +48,7 @@ jobs:
             --sources all \
             --retries 2 \
             --timeout 25 \
-            --fail-fast=false \
+            --no-fail-fast \
             --raw-dir artifacts/raw \
             --normalized artifacts/normalized.jsonl \
             --comparison-report artifacts/comparison_report.json \
