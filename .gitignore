@@ -10,6 +10,8 @@ coverage.xml
 .coverage
 debug/
 logs/
+artifacts/
+pipeline_state/
 storage_state.json
 
 # Node modules for Playwright dependencies (if any)

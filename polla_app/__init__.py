@@ -1,8 +1,26 @@
-"""Polla.cl Prize Scraper - Async Playwright Implementation."""
+"""Alternative-source ingestion utilities for Chilean Loto draws."""
 
-__version__ = "2.0.0"
+__version__ = "3.0.0"
 
 from .exceptions import ScriptError
-from .models import PrizeData
+from .ingest import ingest_draw, list_24h_result_urls
+from .pipeline import run_pipeline
+from .publish import publish_to_google_sheets
+from .sources import (
+    get_pozo_openloto,
+    get_pozo_resultadosloto,
+    parse_24h_draw,
+    parse_t13_draw,
+)
 
-__all__ = ["ScriptError", "PrizeData"]
+__all__ = [
+    "ScriptError",
+    "ingest_draw",
+    "list_24h_result_urls",
+    "run_pipeline",
+    "publish_to_google_sheets",
+    "parse_t13_draw",
+    "parse_24h_draw",
+    "get_pozo_openloto",
+    "get_pozo_resultadosloto",
+]
