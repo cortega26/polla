@@ -31,6 +31,59 @@ pip install -r requirements-dev.txt
 
 ## Usage
 
+### End-to-end pipeline (ingest + compare)
+
+Run the multi-source pipeline, write artifacts, and compute a publish decision:
+
+```bash
+python -m polla_app run \
+  --sources all \
+  --retries 3 \
+  --timeout 30 \
+  --no-fail-fast \
+  --raw-dir artifacts/raw \
+  --normalized artifacts/normalized.jsonl \
+  --comparison-report artifacts/comparison_report.json \
+  --summary artifacts/run_summary.json \
+  --state-file pipeline_state/last_run.jsonl \
+  --log-file logs/run.jsonl \
+  --mismatch-threshold 0.2 \
+  --include-pozos
+```
+
+- Sources: `all` includes `24h` and `t13`. The `24h` URL is auto-discovered (latest); `t13` requires an explicit URL override if you want cross-source comparison.
+- Override URLs via `--source-url` (repeatable) or `ALT_SOURCE_URLS` env var (JSON):
+
+```bash
+python -m polla_app run \
+  --sources all \
+  --source-url t13=https://www.t13.cl/noticia/nacional/resultados-del-loto-sorteo-5198
+
+# Or with env var (JSON mapping)
+export ALT_SOURCE_URLS='{"t13": "https://www.t13.cl/noticia/..."}'
+python -m polla_app run --sources all
+```
+
+- Artifacts written under `artifacts/` and decision emitted as `artifacts/comparison_report.json` and `artifacts/run_summary.json`.
+
+### Publish to Google Sheets
+
+```bash
+python -m polla_app publish \
+  --normalized artifacts/normalized.jsonl \
+  --comparison-report artifacts/comparison_report.json \
+  --summary artifacts/run_summary.json \
+  --worksheet "Normalized" \
+  --discrepancy-tab "Discrepancies" \
+  --dry-run
+```
+
+Environment required:
+- `GOOGLE_SHEETS_CREDENTIALS` (service account JSON)
+- `GOOGLE_SPREADSHEET_ID` (spreadsheet key)
+
+If the decision status is `quarantine`, the canonical worksheet is skipped and mismatches are written to the discrepancy tab.
+
 ### Parse a draw
 
 ```bash
@@ -93,6 +146,18 @@ pytest -q
 ```bash
 black polla_app tests
 ruff check polla_app tests
+
+## CI
+
+GitHub Actions workflows are provided:
+
+- Ingest + compare + conditional publish: `.github/workflows/scrape.yml`
+- Dry-run verification (no publish): `.github/workflows/update.yml`
+- Secret checks: `.github/workflows/verify-secret.yml`
+
+Set these in your repository settings:
+- Secrets: `GOOGLE_SHEETS_CREDENTIALS`, `GOOGLE_SPREADSHEET_ID`
+- Optional Vars: `ALT_SOURCE_URLS` (JSON mapping like `{ "t13": "https://…" }`)
 ```
 
 ## License
