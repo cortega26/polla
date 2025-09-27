@@ -115,11 +115,15 @@ def _extract_paragraphs(soup: BeautifulSoup) -> Iterable[_PrizeRow]:
     for match in re.finditer(r"\$[\d\.,]+(?:\s*MM)?", block):
         premio = _parse_amount(match.group(0))
         prefix = block[: match.start()]
-        split_idx = max(prefix.rfind("."), prefix.rfind(";"))
-        if split_idx == -1:
-            split_idx = 0
-        categoria_raw = prefix[split_idx:].strip()
-        categoria_raw = re.sub(r"^[-:]+", "", categoria_raw).strip()
+        # Find the last likely separator before the amount
+        splits = [prefix.rfind(ch) for ch in (".", ";", "•", "·", "\n")]
+        split_idx = max(splits) if splits else -1
+        start = split_idx + 1 if split_idx != -1 else 0
+        categoria_raw = prefix[start:].strip()
+        # Strip leading punctuation/bullets and trailing hints like ':' or verbs like 'paga'/'entrega'
+        categoria_raw = re.sub(r"^[\s\.:\-–—•·]+", "", categoria_raw)
+        categoria_raw = re.sub(r"\s*(?:paga|entrega)\.?$", "", categoria_raw, flags=re.IGNORECASE)
+        categoria_raw = categoria_raw.rstrip(": ")
         categoria = _sanitize_category(categoria_raw)
         if (
             not categoria
