@@ -14,7 +14,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def _load_credentials() -> gspread.Client:
-    raw = (Path.cwd() / "service_account.json")
+    raw = Path.cwd() / "service_account.json"
     credentials_env = None
     if raw.exists():  # pragma: no cover - developer override
         credentials_env = raw.read_text(encoding="utf-8")
@@ -85,7 +85,11 @@ def publish_to_google_sheets(
 ) -> dict[str, Any]:
     """Publish normalized data to Google Sheets."""
 
-    normalized = [json.loads(line) for line in normalized_path.read_text(encoding="utf-8").splitlines() if line]
+    normalized = [
+        json.loads(line)
+        for line in normalized_path.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
     if not normalized:
         raise RuntimeError("Normalized dataset is empty; nothing to publish")
 
@@ -114,7 +118,9 @@ def publish_to_google_sheets(
 
     if dry_run:
         LOGGER.info("Dry-run enabled; skipping Google Sheets API calls")
-        spreadsheet_id = os.getenv("GOOGLE_SPREADSHEET_ID") or os.getenv("GOOGLE_SHEETS_SPREADSHEET_ID")
+        spreadsheet_id = os.getenv("GOOGLE_SPREADSHEET_ID") or os.getenv(
+            "GOOGLE_SHEETS_SPREADSHEET_ID"
+        )
         if spreadsheet_id:
             result["spreadsheet_id"] = spreadsheet_id
         result.update({"worksheet": worksheet_name, "discrepancy_tab": discrepancy_tab})
@@ -134,16 +140,19 @@ def publish_to_google_sheets(
             worksheet = spreadsheet.add_worksheet(title=worksheet_name, rows="200", cols="10")
         worksheet.clear()
         worksheet.update(
-            [[
-                "sorteo",
-                "fecha",
-                "fuente",
-                "categoria",
-                "premio_clp",
-                "ganadores",
-                "pozos_proximo",
-                "provenance",
-            ]] + rows
+            [
+                [
+                    "sorteo",
+                    "fecha",
+                    "fuente",
+                    "categoria",
+                    "premio_clp",
+                    "ganadores",
+                    "pozos_proximo",
+                    "provenance",
+                ]
+            ]
+            + rows
         )
         result["updated_rows"] = len(rows)
 

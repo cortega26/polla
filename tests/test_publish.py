@@ -35,7 +35,9 @@ def comparison_file(tmp_path: Path) -> Path:
     return path
 
 
-def test_publish_dry_run(normalized_file: Path, comparison_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_publish_dry_run(
+    normalized_file: Path, comparison_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("GOOGLE_SPREADSHEET_ID", "dummy")
     result = publish_to_google_sheets(
         normalized_path=normalized_file,
