@@ -72,7 +72,10 @@ def _normalise_sources(requested: Sequence[str]) -> list[str]:
         key = item.lower()
         if key not in SOURCE_LOADERS:
             raise ValueError(
-                f"Unsupported source '{item}'. Available: openloto, {', '.join(SOURCE_LOADERS)}"
+                (
+                    "Unsupported source '%s'. Available: openloto, %s"
+                    % (item, ", ".join(SOURCE_LOADERS))
+                )
             )
         if key not in normalised:
             normalised.append(key)
@@ -100,12 +103,14 @@ def _run_openloto_only(
         "premios": [],
         "pozos_proximo": amounts,
         "provenance": {
-            "pozos": {"primary": {
-                "fuente": payload.get("fuente"),
-                "fetched_at": payload.get("fetched_at"),
-                "user_agent": payload.get("user_agent"),
-                "estimado": True,
-            }}
+            "pozos": {
+                "primary": {
+                    "fuente": payload.get("fuente"),
+                    "fetched_at": payload.get("fetched_at"),
+                    "user_agent": payload.get("user_agent"),
+                    "estimado": True,
+                }
+            }
         },
     }
 
@@ -126,10 +131,19 @@ def _run_openloto_only(
             "fail_fast": None,
         },
         "last_draw": {"sorteo": None, "fecha": None},
-        "decision": {"status": "publish", "total_categories": len(amounts), "mismatched_categories": 0},
+        "decision": {
+            "status": "publish",
+            "total_categories": len(amounts),
+            "mismatched_categories": 0,
+        },
         "prizes_changed": True,
         "mismatches": [],
-        "sources": {"openloto": {"url": payload.get("fuente"), "premios": 0}},
+        "sources": {
+            "openloto": {
+                "url": payload.get("fuente"),
+                "premios": 0,
+            }
+        },
         "failures": [],
     }
     _write_json(comparison_report_path, report)
@@ -146,7 +160,15 @@ def _run_openloto_only(
         "publish": True,
     }
     _write_json(summary_path, summary_payload)
-    log_event({"event": "pipeline_complete", "run_id": summary_payload["run_id"], "decision": "publish", "mismatch_ratio": 0.0, "prizes_changed": True})
+    log_event(
+        {
+            "event": "pipeline_complete",
+            "run_id": summary_payload["run_id"],
+            "decision": "publish",
+            "mismatch_ratio": 0.0,
+            "prizes_changed": True,
+        }
+    )
     return summary_payload
 
 
@@ -461,26 +483,33 @@ def run_pipeline(
 
         if not results:
             # Produce quarantine summary and report instead of crashing the job
-            _write_json(comparison_report_path, {
-                "run": {
-                    "generated_at": datetime.now(timezone.utc).isoformat(),
-                    "sources": requested_sources,
-                    "timeout": timeout,
-                    "retries": retries,
-                    "fail_fast": fail_fast,
+            _write_json(
+                comparison_report_path,
+                {
+                    "run": {
+                        "generated_at": datetime.now(timezone.utc).isoformat(),
+                        "sources": requested_sources,
+                        "timeout": timeout,
+                        "retries": retries,
+                        "fail_fast": fail_fast,
+                    },
+                    "last_draw": {"sorteo": None, "fecha": None},
+                    "decision": {
+                        "status": "quarantine",
+                        "reason": "No valid sources collected",
+                        "total_categories": 0,
+                        "mismatched_categories": 0,
+                    },
+                    "prizes_changed": False,
+                    "mismatches": [],
+                    "sources": {},
+                    "failures": failures
+                    or [
+                        {"source": s, "url": None, "error": "No candidate URLs"}
+                        for s in requested_sources
+                    ],
                 },
-                "last_draw": {"sorteo": None, "fecha": None},
-                "decision": {
-                    "status": "quarantine",
-                    "reason": "No valid sources collected",
-                    "total_categories": 0,
-                    "mismatched_categories": 0,
-                },
-                "prizes_changed": False,
-                "mismatches": [],
-                "sources": {},
-                "failures": failures or [{"source": s, "url": None, "error": "No candidate URLs"} for s in requested_sources],
-            })
+            )
 
             # Create empty normalized/state files and summary to keep downstream steps alive
             _write_jsonl(normalized_path, [])
@@ -497,7 +526,15 @@ def run_pipeline(
                 "publish": False,
             }
             _write_json(summary_path, summary_payload)
-            log_event({"event": "pipeline_complete", "run_id": summary_payload["run_id"], "decision": "quarantine", "mismatch_ratio": 0.0, "prizes_changed": False})
+            log_event(
+                {
+                    "event": "pipeline_complete",
+                    "run_id": summary_payload["run_id"],
+                    "decision": "quarantine",
+                    "mismatch_ratio": 0.0,
+                    "prizes_changed": False,
+                }
+            )
             return summary_payload
 
         for result in results:
