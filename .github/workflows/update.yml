@@ -1,12 +1,17 @@
-name: Update Prizes
+name: Alt Sources Dry Run
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # Run at 2 AM UTC daily
-  workflow_dispatch:  # Allow manual triggers
+    - cron: '0 2 * * *'  # Supplemental early-morning verification
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Skip publishing (always true for this workflow)'
+        required: false
+        default: 'true'
 
 jobs:
-  update-prizes:
+  dry-run:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,39 +24,59 @@ jobs:
           cache: 'pip'
           cache-dependency-path: 'requirements.txt'
 
-      - name: Install Chrome
-        run: |
-          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir -r requirements.txt
+          pip install -r requirements.txt
 
-      - name: Run script
+      - name: Restore pipeline state
+        id: restore-state
+        uses: actions/cache/restore@v3
+        with:
+          path: pipeline_state
+          key: dry-run-state-${{ github.ref_name }}-${{ github.run_number }}
+          restore-keys: |
+            dry-run-state-${{ github.ref_name }}-
+
+      - name: Execute dry-run pipeline
         env:
-          CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
-          PROXY_API_URL: ${{ secrets.PROXY_API_URL }}
-          PROXY_API_TOKEN: ${{ secrets.PROXY_API_TOKEN }}
-        run: python -u main.py
-        timeout-minutes: 5
-
-      - name: List workspace files (debug)
-        if: always()
-        run: ls -la
-
-      - name: Show log file content
-        if: always()
+          ALT_SOURCE_URLS: ${{ vars.ALT_SOURCE_URLS }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
         run: |
-          echo "----- LOG FILE CONTENT -----"
-          cat logs/*.log
+          mkdir -p artifacts pipeline_state logs
+          python -m polla_app run \
+            --sources all \
+            --retries 2 \
+            --timeout 25 \
+            --fail-fast=false \
+            --raw-dir artifacts/raw \
+            --normalized artifacts/normalized.jsonl \
+            --comparison-report artifacts/comparison_report.json \
+            --summary artifacts/run_summary.json \
+            --state-file pipeline_state/last_run.jsonl \
+            --log-file logs/run.jsonl \
+            --mismatch-threshold 0.3 \
+            --include-pozos
+          python -m polla_app publish \
+            --normalized artifacts/normalized.jsonl \
+            --comparison-report artifacts/comparison_report.json \
+            --summary artifacts/run_summary.json \
+            --worksheet "Normalized" \
+            --discrepancy-tab "Discrepancies" \
+            --dry-run
 
-      - name: Upload debug screenshot artifacts
+      - name: Save pipeline state
+        uses: actions/cache/save@v3
+        if: always()
+        with:
+          path: pipeline_state
+          key: dry-run-state-${{ github.ref_name }}-${{ github.run_number }}
+
+      - name: Upload dry-run artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-screenshots
-          path: "*_failure_*.png"
+          name: dry-run-artifacts
+          path: |
+            artifacts/
+            logs/

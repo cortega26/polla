@@ -9,6 +9,8 @@ dependencies = [
     "beautifulsoup4>=4.12.3",
     "click>=8.1.7",
     "requests>=2.32.4",
+    "gspread>=6.1.0",
+    "google-auth>=2.30.0",
 ]
 
 [project.scripts]
