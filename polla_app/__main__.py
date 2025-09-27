@@ -92,7 +92,7 @@ def pozos() -> None:
 @cli.command()
 @click.option(
     "--sources",
-    default="all",
+    default="openloto",
     show_default=True,
     help="Comma-separated list of sources to use (or 'all').",
 )

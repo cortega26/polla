@@ -41,19 +41,26 @@ def _record_to_rows(record: dict[str, Any]) -> list[list[Any]]:
     pozos = json.dumps(record.get("pozos_proximo", {}), ensure_ascii=False)
     provenance = json.dumps(record.get("provenance", {}), ensure_ascii=False)
     rows: list[list[Any]] = []
-    for premio in record.get("premios", []):
-        rows.append(
-            [
-                record.get("sorteo"),
-                record.get("fecha"),
-                record.get("fuente"),
-                premio.get("categoria"),
-                premio.get("premio_clp"),
-                premio.get("ganadores"),
-                pozos,
-                provenance,
-            ]
-        )
+    premios = record.get("premios", []) or []
+    if premios:
+        for premio in premios:
+            rows.append(
+                [
+                    record.get("sorteo"),
+                    record.get("fecha"),
+                    record.get("fuente"),
+                    premio.get("categoria"),
+                    premio.get("premio_clp"),
+                    premio.get("ganadores"),
+                    pozos,
+                    provenance,
+                ]
+            )
+        return rows
+
+    # Pozos-only mode: emit one row per category with jackpot amount
+    for categoria, monto in (record.get("pozos_proximo", {}) or {}).items():
+        rows.append([categoria, int(monto)])
     return rows
 
 
@@ -134,26 +141,27 @@ def publish_to_google_sheets(
     spreadsheet = client.open_by_key(spreadsheet_id)
 
     if publish_allowed or force_publish:
+        # Determine header based on row shape
+        row_width = len(rows[0]) if rows else 0
+        if row_width == 2:
+            header = ["categoria", "pozo_clp"]
+        else:
+            header = [
+                "sorteo",
+                "fecha",
+                "fuente",
+                "categoria",
+                "premio_clp",
+                "ganadores",
+                "pozos_proximo",
+                "provenance",
+            ]
         try:
             worksheet = spreadsheet.worksheet(worksheet_name)
         except gspread.WorksheetNotFound:
             worksheet = spreadsheet.add_worksheet(title=worksheet_name, rows="200", cols="10")
         worksheet.clear()
-        worksheet.update(
-            [
-                [
-                    "sorteo",
-                    "fecha",
-                    "fuente",
-                    "categoria",
-                    "premio_clp",
-                    "ganadores",
-                    "pozos_proximo",
-                    "provenance",
-                ]
-            ]
-            + rows
-        )
+        worksheet.update([header] + rows)
         result["updated_rows"] = len(rows)
 
     if mismatch_rows or allow_quarantine:

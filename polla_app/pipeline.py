@@ -61,16 +61,93 @@ SOURCE_LOADERS: dict[str, SourceLoader] = {
 
 
 def _normalise_sources(requested: Sequence[str]) -> list[str]:
-    if "all" in {item.lower() for item in requested}:
+    lowered = {item.lower() for item in requested}
+    # OpenLoto-only mode
+    if "openloto" in lowered:
+        return ["openloto"]
+    if "all" in lowered:
         return sorted(SOURCE_LOADERS.keys())
     normalised: list[str] = []
     for item in requested:
         key = item.lower()
         if key not in SOURCE_LOADERS:
-            raise ValueError(f"Unsupported source '{item}'. Available: {', '.join(SOURCE_LOADERS)}")
+            raise ValueError(
+                f"Unsupported source '{item}'. Available: openloto, {', '.join(SOURCE_LOADERS)}"
+            )
         if key not in normalised:
             normalised.append(key)
     return normalised
+
+
+def _run_openloto_only(
+    *,
+    raw_dir: Path,
+    normalized_path: Path,
+    comparison_report_path: Path,
+    summary_path: Path,
+    state_path: Path,
+    log_event: Callable[[dict[str, Any]], None],
+) -> dict[str, Any]:
+    payload = pozos_module.get_pozo_openloto()
+    amounts = payload.get("montos", {})
+    if not amounts:
+        raise RuntimeError("OpenLoto returned no amounts")
+
+    record: dict[str, Any] = {
+        "sorteo": None,
+        "fecha": None,
+        "fuente": payload.get("fuente"),
+        "premios": [],
+        "pozos_proximo": amounts,
+        "provenance": {
+            "pozos": {"primary": {
+                "fuente": payload.get("fuente"),
+                "fetched_at": payload.get("fetched_at"),
+                "user_agent": payload.get("user_agent"),
+                "estimado": True,
+            }}
+        },
+    }
+
+    # Write raw JSON
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(raw_dir / "openloto.json", payload)
+
+    # Normalized/state
+    _write_jsonl(normalized_path, [record])
+    _write_jsonl(state_path, [record])
+
+    report = {
+        "run": {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "sources": ["openloto"],
+            "timeout": None,
+            "retries": None,
+            "fail_fast": None,
+        },
+        "last_draw": {"sorteo": None, "fecha": None},
+        "decision": {"status": "publish", "total_categories": len(amounts), "mismatched_categories": 0},
+        "prizes_changed": True,
+        "mismatches": [],
+        "sources": {"openloto": {"url": payload.get("fuente"), "premios": 0}},
+        "failures": [],
+    }
+    _write_json(comparison_report_path, report)
+
+    summary_payload: dict[str, Any] = {
+        "run_id": str(uuid.uuid4()),
+        "generated_at": report["run"]["generated_at"],
+        "decision": report["decision"],
+        "prizes_changed": True,
+        "normalized_path": str(normalized_path),
+        "comparison_report": str(comparison_report_path),
+        "raw_dir": str(raw_dir),
+        "state_path": str(state_path),
+        "publish": True,
+    }
+    _write_json(summary_path, summary_payload)
+    log_event({"event": "pipeline_complete", "run_id": summary_payload["run_id"], "decision": "publish", "mismatch_ratio": 0.0, "prizes_changed": True})
+    return summary_payload
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -287,6 +364,17 @@ def run_pipeline(
     try:
         requested_sources = _normalise_sources(sources)
         overrides = {k.lower(): v for k, v in (source_overrides or {}).items()}
+
+        # OpenLoto-only fast path
+        if requested_sources == ["openloto"]:
+            return _run_openloto_only(
+                raw_dir=raw_dir,
+                normalized_path=normalized_path,
+                comparison_report_path=comparison_report_path,
+                summary_path=summary_path,
+                state_path=state_path,
+                log_event=log_event,
+            )
 
         results: list[SourceResult] = []
         failures: list[dict[str, Any]] = []
