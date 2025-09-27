@@ -102,3 +102,68 @@ def test_pipeline_detects_mismatch(
     report = json.loads((tmp_path / "comparison.json").read_text())
     assert report["decision"]["status"] == "quarantine"
     assert report["mismatches"], "Expected mismatches in comparison report"
+
+
+def test_pipeline_skips_missing_url_and_publishes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata
+) -> None:
+    def _unexpected_loader(url: str, timeout: int) -> SourceResult:
+        pytest.fail("t13 loader should not be invoked when URL is missing")
+
+    success = SourceResult("24h", "https://example.test/24h", fake_metadata, _make_record(0))
+
+    monkeypatch.setitem(SOURCE_LOADERS, "t13", _unexpected_loader)
+    monkeypatch.setitem(SOURCE_LOADERS, "24h", lambda url, timeout: success)
+
+    summary = run_pipeline(
+        sources=["t13", "24h"],
+        source_overrides={"24h": success.url},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=tmp_path / "run.log",
+        retries=1,
+        timeout=5,
+        fail_fast=False,
+        mismatch_threshold=0.5,
+        include_pozos=False,
+    )
+
+    assert summary["publish"] is True
+    report = json.loads((tmp_path / "comparison.json").read_text())
+    assert report["decision"]["status"] == "publish"
+    assert report["sources"].keys() == {"24h"}
+    assert report["failures"] == [
+        {"source": "t13", "url": None, "error": "Source skipped: missing URL"}
+    ]
+
+
+def test_pipeline_missing_url_fail_fast(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata
+) -> None:
+    def _unexpected_loader(url: str, timeout: int) -> SourceResult:
+        pytest.fail("t13 loader should not be invoked when URL is missing")
+
+    success = SourceResult("24h", "https://example.test/24h", fake_metadata, _make_record(0))
+
+    monkeypatch.setitem(SOURCE_LOADERS, "t13", _unexpected_loader)
+    monkeypatch.setitem(SOURCE_LOADERS, "24h", lambda url, timeout: success)
+
+    with pytest.raises(RuntimeError, match="No URL configured for source 't13'"):
+        run_pipeline(
+            sources=["t13", "24h"],
+            source_overrides={"24h": success.url},
+            raw_dir=tmp_path / "raw",
+            normalized_path=tmp_path / "normalized.jsonl",
+            comparison_report_path=tmp_path / "comparison.json",
+            summary_path=tmp_path / "summary.json",
+            state_path=tmp_path / "state.jsonl",
+            log_path=tmp_path / "run.log",
+            retries=1,
+            timeout=5,
+            fail_fast=True,
+            mismatch_threshold=0.5,
+            include_pozos=False,
+        )
