@@ -197,6 +197,6 @@ jobs:
             --normalized artifacts/normalized.jsonl \
             --comparison-report artifacts/comparison_report.json \
             --summary artifacts/run_summary.json \
-            --worksheet "Normalized" \
+            --worksheet "Proximo Pozo" \
             --discrepancy-tab "Discrepancies" \
             ${DRY_FLAG}
