@@ -1,60 +1,40 @@
-"""Configuration classes for the Polla scraper."""
+"""Application configuration for alternative Loto data ingestion."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Sequence
+
+
+DEFAULT_T13_URLS: list[str] = []
 
 
 @dataclass
-class BrowserConfig:
-    """Browser configuration settings."""
+class NetworkConfig:
+    """Network related configuration."""
 
-    headless: bool = True
-    viewport_width: int = 1920
-    viewport_height: int = 1080
-    locale: str = "es-CL"
-    timezone: str = "America/Santiago"
     user_agent: str = (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
+        "polla-alt-scraper/3.0 (+https://github.com/your-org/polla-transparency)"
     )
-    navigation_timeout: int = 45000  # 45 seconds in ms
-    timeout: int = 15000  # 15 seconds in ms for actions
-
-    def to_launch_args(self) -> dict[str, Any]:
-        """Convert to Playwright launch arguments."""
-        # Force the browser to use modern networking with HTTP/2 support and
-        # avoid obvious automation fingerprints.
-        return {
-            "headless": self.headless,
-            "args": [
-                "--disable-blink-features=AutomationControlled",
-                "--enable-features=NetworkService,NetworkServiceInProcess",
-                "--enable-http2",
-            ],
-        }
-
-    def to_context_args(self) -> dict[str, Any]:
-        """Convert to Playwright context arguments."""
-        return {
-            "viewport": {"width": self.viewport_width, "height": self.viewport_height},
-            "locale": self.locale,
-            "timezone_id": self.timezone,
-            "user_agent": self.user_agent,
-        }
+    accept_language: str = "es-CL,es;q=0.9"
+    timeout: int = 20
+    backoff_seconds: int = 60
+    max_retries: int = 1
 
 
 @dataclass
-class ScraperConfig:
-    """Scraper configuration settings."""
+class SourceConfig:
+    """Configuration pointing to known alternative sources."""
 
-    base_url: str = "https://www.polla.cl/es"
-    timeout: int = 30  # seconds
-    retry_attempts: int = 3
-    retry_multiplier: float = 1.5
-    min_retry_wait: int = 5
-    element_timeout: int = 10000  # 10 seconds in ms
-    storage_state_file: str = "storage_state.json"
+    t13_urls: list[str] = field(default_factory=lambda: list(DEFAULT_T13_URLS))
+    h24_tag_url: str = "https://www.24horas.cl/24horas/site/tag/port/all/tagport_2312_1.html"
+    openloto_url: str = "https://www.openloto.cl/pozo-del-loto.html"
+    resultadosloto_url: str = "https://resultadoslotochile.com/pozo-para-el-proximo-sorteo/"
+
+    def iter_t13_urls(self) -> Sequence[str]:
+        """Return configured T13 URLs."""
+
+        return tuple(self.t13_urls)
 
 
 @dataclass
@@ -62,21 +42,24 @@ class GoogleConfig:
     """Google Sheets configuration settings."""
 
     spreadsheet_id: str = "16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc"
-    range_name: str = "Sheet1!A1:A7"
+    range_name: str = "Sheet1!A1:H"
     scopes: tuple[str, ...] = ("https://www.googleapis.com/auth/spreadsheets",)
     retry_attempts: int = 3
     retry_delay: int = 5
+    read_range: str = "Sheet1!A1:H"
 
 
 @dataclass
 class AppConfig:
-    """Main application configuration."""
+    """Top level configuration container."""
 
-    browser: BrowserConfig = field(default_factory=BrowserConfig)
-    scraper: ScraperConfig = field(default_factory=ScraperConfig)
+    network: NetworkConfig = field(default_factory=NetworkConfig)
+    sources: SourceConfig = field(default_factory=SourceConfig)
     google: GoogleConfig = field(default_factory=GoogleConfig)
 
     @classmethod
     def create_default(cls) -> "AppConfig":
-        """Create default configuration."""
+        """Create a default configuration instance."""
+
         return cls()
+
