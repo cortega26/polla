@@ -478,7 +478,11 @@ def run_pipeline(
                     "decision": decision_status,
                     "mismatch_ratio": 0.0,
                     "prizes_changed": not unchanged,
-                    "reason": ("sorteo_fecha_and_amounts_unchanged" if unchanged else "updated_or_new_amounts"),
+                    "reason": (
+                        "sorteo_fecha_and_amounts_unchanged"
+                        if unchanged
+                        else "updated_or_new_amounts"
+                    ),
                 }
             )
             _write_json(summary_path, summary_payload)

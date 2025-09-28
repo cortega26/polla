@@ -23,7 +23,9 @@ _LABEL_PATTERNS = {
     "Jubilazo $1.000.000": r"Jubilazo(?:\s*\$?1\.000\.000)?",
     # Also include the anniversary/500k variant explicitly so we don't miss it
     # on sources that enumerate both Jubilazo prizes.
-    "Jubilazo $500.000": r"(?:Jubilazo\s+Aniversario(?:\s*de\s*\$?500\.000)?|Jubilazo\s*\$?500\.000)",
+    "Jubilazo $500.000": (
+        r"(?:Jubilazo\s+Aniversario(?:\s*de\s*\$?500\.000)?|Jubilazo\s*\$?500\.000)"
+    ),
     "Total estimado": r"Total\s+estimado",
 }
 

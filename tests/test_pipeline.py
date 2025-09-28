@@ -72,7 +72,9 @@ def test_pozos_pipeline_produces_artifacts(tmp_path: Path, monkeypatch: pytest.M
     assert any(e.get("event") == "pozos_enriched" for e in events)
 
 
-def test_pozos_pipeline_skip_when_unchanged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_pozos_pipeline_skip_when_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from polla_app import pipeline as pipeline_mod
 
     primary = {
