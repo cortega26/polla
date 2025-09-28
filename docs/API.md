@@ -2,6 +2,12 @@
 
 Programmatic entry points for integrating the pipeline into other tooling.
 
+Sanity check doctest:
+
+>>> from polla_app.sources import pozos
+>>> isinstance(pozos.OPENLOTO_URL, str)
+True
+
 ## Pipeline
 
 `polla_app.pipeline.run_pipeline(*, sources, source_overrides, raw_dir, normalized_path, comparison_report_path, summary_path, state_path, log_path, retries, timeout, fail_fast, mismatch_threshold, include_pozos, force_publish=False) -> dict`
@@ -82,4 +88,3 @@ Return a dict with `montos` per category, `fuente`, `fetched_at`, and best‑eff
 `ConfigError` — configuration/env problems (e.g., missing Google credentials or spreadsheet ID).
 
 `RobotsDisallowedError` — raised when robots policy forbids a fetch (subclasses `PermissionError`).
-

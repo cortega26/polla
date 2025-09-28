@@ -1,5 +1,7 @@
 # Polla App — Próximo Pozo Aggregator
 
+[![Docs](https://github.com/cortega26/polla/actions/workflows/docs.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/docs.yml)
+
 Aggregates the próximo pozo (jackpot estimates) for Loto Chile from community sources — without hitting `polla.cl`. It fetches and parses aggregator pages, merges categories, and outputs a consistent JSON record and a publish decision.
 
 ## Highlights
