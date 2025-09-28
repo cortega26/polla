@@ -41,10 +41,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Run formatting & linting
+      - name: Run formatting & linting (auto-fix)
         run: |
+          black polla_app tests
+          ruff check --fix polla_app tests
           black --check polla_app tests
-          ruff check polla_app tests
 
       - name: Run type checking
         run: mypy polla_app
