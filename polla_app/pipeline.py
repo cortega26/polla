@@ -19,7 +19,7 @@ LOGGER = logging.getLogger(__name__)
 SOURCE_LOADERS: dict[str, Any] = {}
 
 
-def _normalise_sources(requested: Sequence[str]) -> list[str]:
+def _normalize_sources(requested: Sequence[str]) -> list[str]:
     lowered = {item.lower() for item in requested}
     # Pozos-only modes
     if "pozos" in lowered:
@@ -38,6 +38,9 @@ def _normalise_sources(requested: Sequence[str]) -> list[str]:
         if key not in normalised:
             normalised.append(key)
     return normalised
+
+# Backward-compat alias (do not remove without a major version bump)
+_normalise_sources = _normalize_sources
 
 
 def _run_openloto_only(
@@ -465,7 +468,7 @@ def run_pipeline(
     log_event({"event": "pipeline_start", "run_id": run_id, "sources": sources})
 
     try:
-        requested_sources = _normalise_sources(sources)
+        requested_sources = _normalize_sources(sources)
 
         # Pozos-only fast path
         if requested_sources == ["pozos"]:

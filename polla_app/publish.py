@@ -46,8 +46,11 @@ def _load_credentials() -> Any:
     return gspread.service_account_from_dict(payload)
 
 
-def _normalise_summary(summary: dict[str, Any] | None) -> dict[str, Any]:
+def _normalize_summary(summary: dict[str, Any] | None) -> dict[str, Any]:
     return summary or {}
+
+# Backward-compat alias (do not remove without a major version bump)
+_normalise_summary = _normalize_summary
 
 
 def _load_json(path: Path) -> Any:
@@ -198,7 +201,7 @@ def publish_to_google_sheets(
         raise RuntimeError("Normalized dataset is empty; nothing to publish")
 
     report = _load_json(comparison_report_path)
-    summary_payload = _normalise_summary(summary)
+    summary_payload = _normalize_summary(summary)
     rows = _record_to_rows(normalized[0])
     mismatch_rows = _mismatch_rows(report)
 
