@@ -318,6 +318,8 @@ def _merge_pozos(collected: Iterable[dict[str, Any]]) -> tuple[dict[str, Any], d
     alternatives: list[dict[str, Any]] = []
     for idx, entry in enumerate(collected):
         for categoria, monto in entry.get("montos", {}).items():
+            if str(categoria).lower().startswith("total"):
+                continue
             merged.setdefault(categoria, int(monto))
         descriptor = {
             "fuente": entry.get("fuente"),

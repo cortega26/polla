@@ -29,10 +29,27 @@ _LABEL_PATTERNS = {
 
 
 def _parse_millones_to_clp(raw: str) -> int:
+    """Parse Spanish-formatted MILLONES into integer CLP.
+
+    Examples:
+    - "690" -> 690_000_000
+    - "4.300" -> 4_300_000_000 (dot as thousands separator)
+    - "4,75" -> 4_750_000 (comma as decimal separator)
+    - "1.234,56" -> 1_234_560
+    """
+
     cleaned = re.sub(r"[^0-9,\.]", "", raw or "")
     if not cleaned:
         return 0
-    cleaned = cleaned.replace(",", ".")
+
+    if "," in cleaned and "." in cleaned:
+        # Assume dot thousands + comma decimal
+        cleaned = cleaned.replace(".", "").replace(",", ".")
+    elif "," in cleaned:
+        cleaned = cleaned.replace(",", ".")
+    else:
+        cleaned = cleaned.replace(".", "")
+
     try:
         value = float(cleaned)
     except ValueError:
