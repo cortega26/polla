@@ -42,3 +42,6 @@ def test_resultadosloto_pozo_with_anniversary_jubilazo(monkeypatch) -> None:
     assert pozos["montos"]["Jubilazo $500.000"] == 480_000_000
     assert pozos["sorteo"] == 5322
     assert pozos["fecha"] == "2025-09-16"
+    # 50 años variants should also be present
+    assert pozos["montos"]["Jubilazo 50 años $1.000.000"] == 1_200_000_000
+    assert pozos["montos"]["Jubilazo 50 años $500.000"] == 300_000_000
