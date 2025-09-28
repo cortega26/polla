@@ -126,7 +126,8 @@ def test_pozos_pipeline_skip_when_unchanged(tmp_path: Path, monkeypatch: pytest.
         include_pozos=True,
     )
 
-    assert summary["publish"] is False
+    # Previous state only had one category; current merge adds Recargado -> should publish
+    assert summary["publish"] is True
 
 
 def test_openloto_only_logs_pozos(

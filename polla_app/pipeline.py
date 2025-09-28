@@ -404,12 +404,15 @@ def run_pipeline(
                 "provenance": {"pozos": pozos_prov},
             }
 
-            # Compare with previous state (based on sorteo+fecha)
+            # Compare with previous state (use sorteo+fecha AND amounts to detect changes)
             previous_records = _load_previous_state(state_path)
             unchanged = False
             for prev in previous_records:
                 if prev.get("sorteo") == sorteo and prev.get("fecha") == fecha:
-                    unchanged = True
+                    prev_pozos = {k: int(v) for k, v in (prev.get("pozos_proximo", {}) or {}).items()}
+                    curr_pozos = {k: int(v) for k, v in (record.get("pozos_proximo", {}) or {}).items()}
+                    if prev_pozos == curr_pozos:
+                        unchanged = True
                     break
 
             # Write artifacts
@@ -470,6 +473,7 @@ def run_pipeline(
                     "decision": decision_status,
                     "mismatch_ratio": 0.0,
                     "prizes_changed": not unchanged,
+                    "reason": ("sorteo_fecha_and_amounts_unchanged" if unchanged else "updated_or_new_amounts"),
                 }
             )
             _write_json(summary_path, summary_payload)
