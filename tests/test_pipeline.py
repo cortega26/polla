@@ -166,3 +166,104 @@ def test_openloto_only_logs_pozos(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     evt = pozos_events[-1]
     assert evt["source_mode"] == "openloto_only"
     assert evt["categories"]["Recargado"] == 333_000_000
+
+
+def test_pozos_pipeline_applies_source_overrides(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    res_override = "https://override.example/resultados"
+    open_override = "https://override.example/openloto"
+
+    def stub_resultados(url: str = "https://default.resultados/", **_: object) -> dict[str, object]:
+        return {
+            "fuente": url,
+            "fetched_at": "2025-09-28T00:00:00+00:00",
+            "montos": {"Loto Clásico": 101_000_000},
+            "user_agent": "pytest",
+            "estimado": True,
+            "sorteo": 7001,
+            "fecha": "2025-10-01",
+        }
+
+    def stub_openloto(url: str = "https://default.openloto/", **_: object) -> dict[str, object]:
+        return {
+            "fuente": url,
+            "fetched_at": "2025-09-28T00:00:10+00:00",
+            "montos": {"Recargado": 202_000_000},
+            "user_agent": "pytest",
+            "estimado": True,
+            "sorteo": 7001,
+            "fecha": "2025-10-01",
+        }
+
+    monkeypatch.setattr(
+        pipeline_mod.pozos_module, "get_pozo_resultadosloto", stub_resultados
+    )
+    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", stub_openloto)
+
+    run_pipeline(
+        sources=["pozos"],
+        source_overrides={
+            "resultadoslotochile": res_override,
+            "openloto": open_override,
+        },
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+    )
+
+    # Read normalized record
+    record = json.loads((tmp_path / "normalized.jsonl").read_text().splitlines()[0])
+    assert record["fuente"] == res_override
+    assert record["pozos_proximo"]["Loto Clásico"] == 101_000_000
+    assert record["pozos_proximo"]["Recargado"] == 202_000_000
+    prov = record.get("provenance", {}).get("pozos", {})
+    assert prov.get("primary", {}).get("fuente") == res_override
+    assert prov.get("alternatives", [])[0].get("fuente") == open_override
+
+
+def test_openloto_only_uses_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    open_override = "https://override.example/openloto"
+
+    def stub_openloto(url: str = "https://default.openloto/", **_: object) -> dict[str, object]:
+        return {
+            "fuente": url,
+            "fetched_at": "2025-09-28T00:00:10+00:00",
+            "montos": {"Recargado": 303_000_000},
+            "user_agent": "pytest",
+            "estimado": True,
+        }
+
+    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", stub_openloto)
+
+    run_pipeline(
+        sources=["openloto"],
+        source_overrides={"openloto": open_override},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=False,
+    )
+
+    # Verify raw payload wrote the override URL
+    raw_payload = json.loads((tmp_path / "raw" / "openloto.json").read_text(encoding="utf-8"))
+    assert raw_payload["fuente"] == open_override

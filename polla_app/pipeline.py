@@ -48,8 +48,15 @@ def _run_openloto_only(
     summary_path: Path,
     state_path: Path,
     log_event: Callable[[dict[str, Any]], None],
+    source_overrides: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    payload = pozos_module.get_pozo_openloto()
+    overrides = {k.lower(): v for k, v in (source_overrides or {}).items()}
+    openloto_url = overrides.get("openloto")
+    payload = (
+        pozos_module.get_pozo_openloto(url=openloto_url)
+        if openloto_url
+        else pozos_module.get_pozo_openloto()
+    )
     amounts = payload.get("montos", {})
     if not amounts:
         raise RuntimeError("OpenLoto returned no amounts")
@@ -180,15 +187,28 @@ def _load_previous_state(path: Path) -> list[dict[str, Any]]:
 ## article-source comparison helper removed
 
 
-def _collect_pozos(include: bool) -> tuple[dict[str, Any], ...]:
+def _collect_pozos(
+    include: bool, *, source_overrides: Mapping[str, str] | None = None
+) -> tuple[dict[str, Any], ...]:
     if not include:
         return tuple()
 
     collected: list[dict[str, Any]] = []
     # Prefer resultadoslotochile.com as primary; openloto as fallback
-    for fetcher in (pozos_module.get_pozo_resultadosloto, pozos_module.get_pozo_openloto):
+    overrides = {k.lower(): v for k, v in (source_overrides or {}).items()}
+    res_url = overrides.get("resultadoslotochile")
+    open_url = overrides.get("openloto")
+    for name, fetcher in (
+        ("resultadoslotochile", pozos_module.get_pozo_resultadosloto),
+        ("openloto", pozos_module.get_pozo_openloto),
+    ):
         try:
-            payload = fetcher()
+            if name == "resultadoslotochile" and res_url:
+                payload = fetcher(url=res_url)
+            elif name == "openloto" and open_url:
+                payload = fetcher(url=open_url)
+            else:
+                payload = fetcher()
         except Exception as exc:  # pragma: no cover - network/runtime guard
             LOGGER.warning("Pozo fetcher %s failed: %s", fetcher.__name__, exc)
             continue
@@ -270,7 +290,7 @@ def run_pipeline(
         # Pozos-only fast paths
         if requested_sources == ["pozos"]:
             # Fetch from resultadoslotochile (primary) + openloto (fallback), compare to previous state
-            collected = _collect_pozos(include=True)
+            collected = _collect_pozos(include=True, source_overrides=source_overrides)
             if not collected:
                 raise RuntimeError("No pozo sources returned data")
 
@@ -382,6 +402,7 @@ def run_pipeline(
                 summary_path=summary_path,
                 state_path=state_path,
                 log_event=log_event,
+                source_overrides=source_overrides,
             )
 
         # Any other requested sources are not supported in this pozos-only build.
