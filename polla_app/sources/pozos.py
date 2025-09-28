@@ -124,9 +124,7 @@ def _extract_proximo_info(text: str) -> tuple[int | None, str | None]:
             sorteo = None
 
     # Prefer explicit "Fecha Próximo Sorteo" segment if present
-    m_fecha_block = re.search(
-        r"Fecha\s+Pr[oó]ximo\s+Sorteo[:\s]*([^\n]+)", text, re.IGNORECASE
-    )
+    m_fecha_block = re.search(r"Fecha\s+Pr[oó]ximo\s+Sorteo[:\s]*([^\n]+)", text, re.IGNORECASE)
     if m_fecha_block:
         fecha_iso = _parse_spanish_date(m_fecha_block.group(1))
     if not fecha_iso:

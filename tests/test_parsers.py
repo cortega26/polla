@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from polla_app.net import FetchMetadata
 from polla_app.sources.pozos import get_pozo_openloto, get_pozo_resultadosloto
 
@@ -22,7 +24,7 @@ def _metadata(name: str, *, url: str = "https://example.test") -> FetchMetadata:
 ## Draw article parsers removed; only pozo aggregators remain.
 
 
-def test_openloto_pozo(monkeypatch) -> None:
+def test_openloto_pozo(monkeypatch: pytest.MonkeyPatch) -> None:
     metadata = _metadata("openloto_pozo.html")
     monkeypatch.setattr("polla_app.sources.pozos.fetch_html", lambda *_, **__: metadata)
 
@@ -32,7 +34,9 @@ def test_openloto_pozo(monkeypatch) -> None:
     assert "Total estimado" not in pozos["montos"], "Totals are excluded from output"
 
 
-def test_resultadosloto_pozo_with_anniversary_jubilazo(monkeypatch) -> None:
+def test_resultadosloto_pozo_with_anniversary_jubilazo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     metadata = _metadata("resultadosloto_pozo.html")
     monkeypatch.setattr("polla_app.sources.pozos.fetch_html", lambda *_, **__: metadata)
 

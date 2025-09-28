@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -132,9 +131,7 @@ def test_pozos_pipeline_skip_when_unchanged(
     assert summary["publish"] is True
 
 
-def test_openloto_only_logs_pozos(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_openloto_only_logs_pozos(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from polla_app import pipeline as pipeline_mod
 
     payload = {

@@ -9,6 +9,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
 from .sources import pozos as pozos_module
 
 LOGGER = logging.getLogger(__name__)
@@ -293,8 +294,12 @@ def run_pipeline(
             unchanged = False
             for prev in previous_records:
                 if prev.get("sorteo") == sorteo and prev.get("fecha") == fecha:
-                    prev_pozos = {k: int(v) for k, v in (prev.get("pozos_proximo", {}) or {}).items()}
-                    curr_pozos = {k: int(v) for k, v in (record.get("pozos_proximo", {}) or {}).items()}
+                    prev_pozos = {
+                        k: int(v) for k, v in (prev.get("pozos_proximo", {}) or {}).items()
+                    }
+                    curr_pozos = {
+                        k: int(v) for k, v in (record.get("pozos_proximo", {}) or {}).items()
+                    }
                     if prev_pozos == curr_pozos:
                         unchanged = True
                     break
@@ -325,9 +330,7 @@ def run_pipeline(
                 },
                 "prizes_changed": not unchanged,
                 "mismatches": [],
-                "sources": {
-                    "pozos": {"url": record["fuente"], "premios": 0}
-                },
+                "sources": {"pozos": {"url": record["fuente"], "premios": 0}},
                 "failures": [],
             }
             _write_json(comparison_report_path, report_payload)
@@ -392,4 +395,3 @@ def run_pipeline(
 
 
 __all__ = ["run_pipeline"]
-

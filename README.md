@@ -2,16 +2,16 @@
 
 This project aggregates the **próximo pozo** for Loto Chile without touching
 `polla.cl`. It reads community aggregator pages and emits a simple, consistent
-JSON record with per‑categoría jackpot estimates and provenance.
+JSON record with per‑categoría jackpot.
 
 ## Features
 
-- ✅ **No WAF interaction** – HTTP requests are performed with `requests` and a
+- **No WAF interaction** – HTTP requests are performed with `requests` and a
   descriptive User-Agent, honouring `robots.txt`.
-- 💰 **Próximo pozo only** – Fetch jackpot estimates from
+- **Próximo pozo only** – Fetch jackpot estimates from
   ResultadosLotoChile (primary) and OpenLoto (fallback), keeping provenance.
-- 🧪 **Deterministic tests** – Parsers are covered with fixture-based unit tests.
-- 🛠️ **CLI tooling** – Inspect draw URLs, list recent 24Horas posts, and fetch
+- **Deterministic tests** – Parsers are covered with fixture-based unit tests.
+- **CLI tooling** – Inspect draw URLs, list recent 24Horas posts, and fetch
   pozo estimates directly from the command line.
 
 ## Installation
