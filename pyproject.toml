@@ -1,6 +1,6 @@
 [project]
 name = "polla-scraper"
-version = "3.0.0"
+dynamic = ["version"]
 description = "Alternative-source ingestion for Chilean Loto draws"
 authors = [{name = "Your Name", email = "your.email@example.com"}]
 readme = "README.md"
@@ -19,6 +19,9 @@ polla = "polla_app.__main__:cli"
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = { attr = "polla_app.__version__" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
