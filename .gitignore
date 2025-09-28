@@ -16,3 +16,4 @@ storage_state.json
 
 # Node modules for Playwright dependencies (if any)
 node_modules/
+.vscode/

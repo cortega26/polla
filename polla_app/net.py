@@ -13,6 +13,8 @@ from urllib.robotparser import RobotFileParser
 
 import requests
 
+from .exceptions import RobotsDisallowedError
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -78,7 +80,10 @@ def fetch_html(url: str, ua: str, timeout: int = 20) -> FetchMetadata:
     }
 
     if not _robots_allowed(url, ua):
-        raise PermissionError(f"Robots policy forbids fetching {url}")
+        raise RobotsDisallowedError(
+            "Robots policy forbids fetching URL",
+            context={"url": url, "ua": ua},
+        )
 
     def _request() -> requests.Response:
         response = session.get(url, headers=headers, timeout=timeout)

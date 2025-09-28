@@ -261,6 +261,186 @@ def _init_log_stream(log_path: Path) -> Callable[[dict[str, Any]], None]:
     return _emit
 
 
+def _compute_unchanged(
+    previous_records: list[dict[str, Any]],
+    *,
+    sorteo: Any,
+    fecha: Any,
+    current_record: Mapping[str, Any],
+) -> bool:
+    """Return True if previous state contains same sorteo/fecha and identical amounts."""
+    for prev in previous_records:
+        if prev.get("sorteo") == sorteo and prev.get("fecha") == fecha:
+            prev_pozos = {k: int(v) for k, v in (prev.get("pozos_proximo", {}) or {}).items()}
+            curr_pozos = {
+                k: int(v) for k, v in (current_record.get("pozos_proximo", {}) or {}).items()
+            }
+            if prev_pozos == curr_pozos:
+                return True
+            break
+    return False
+
+
+def _build_report_payload(
+    *,
+    run_id: str,
+    generated_at: str,
+    requested_sources: Sequence[str],
+    timeout: int,
+    retries: int,
+    fail_fast: bool,
+    sorteo: Any,
+    fecha: Any,
+    merged_pozos: Mapping[str, Any],
+    record_source: Any,
+    decision_status: str,
+) -> dict[str, Any]:
+    return {
+        "run": {
+            "id": run_id,
+            "generated_at": generated_at,
+            "sources": requested_sources,
+            "timeout": timeout,
+            "retries": retries,
+            "fail_fast": fail_fast,
+        },
+        "last_draw": {"sorteo": sorteo, "fecha": fecha},
+        "decision": {
+            "status": decision_status,
+            "total_categories": len(merged_pozos),
+            "mismatched_categories": 0,
+        },
+        "prizes_changed": decision_status != "skip",
+        "mismatches": [],
+        "sources": {"pozos": {"url": record_source, "premios": 0}},
+        "failures": [],
+    }
+
+
+def _build_summary_payload(
+    *,
+    run_id: str,
+    generated_at: str,
+    decision: Mapping[str, Any],
+    normalized_path: Path,
+    comparison_report_path: Path,
+    raw_dir: Path,
+    state_path: Path,
+    publish_flag: bool,
+) -> dict[str, Any]:
+    return {
+        "run_id": run_id,
+        "generated_at": generated_at,
+        "decision": dict(decision),
+        "prizes_changed": bool(decision.get("status") != "skip"),
+        "normalized_path": str(normalized_path),
+        "comparison_report": str(comparison_report_path),
+        "raw_dir": str(raw_dir),
+        "state_path": str(state_path),
+        "publish": publish_flag,
+    }
+
+
+def _handle_pozos_only(
+    *,
+    run_id: str,
+    requested_sources: list[str],
+    source_overrides: Mapping[str, str] | None,
+    raw_dir: Path,
+    normalized_path: Path,
+    comparison_report_path: Path,
+    summary_path: Path,
+    state_path: Path,
+    retries: int,
+    timeout: int,
+    fail_fast: bool,
+    force_publish: bool,
+    log_event: Callable[[dict[str, Any]], None],
+) -> dict[str, Any]:
+    collected = _collect_pozos(include=True, source_overrides=source_overrides)
+    if not collected:
+        raise RuntimeError("No pozo sources returned data")
+
+    merged_pozos, pozos_prov = _merge_pozos(collected)
+    primary = collected[0]
+    sorteo = primary.get("sorteo")
+    fecha = primary.get("fecha")
+
+    record: dict[str, Any] = {
+        "sorteo": sorteo,
+        "fecha": fecha,
+        "fuente": pozos_prov.get("primary", {}).get("fuente"),
+        "premios": [],
+        "pozos_proximo": merged_pozos,
+        "provenance": {"pozos": pozos_prov},
+    }
+
+    previous_records = _load_previous_state(state_path)
+    unchanged = _compute_unchanged(
+        previous_records, sorteo=sorteo, fecha=fecha, current_record=record
+    )
+
+    _write_jsonl(normalized_path, [record])
+    _write_jsonl(state_path, [record])
+
+    decision_status = "skip" if unchanged else "publish"
+    publish_flag = not unchanged
+    if force_publish and unchanged:
+        decision_status = "publish_forced"
+        publish_flag = True
+
+    generated_at = datetime.now(timezone.utc).isoformat()
+    report_payload = _build_report_payload(
+        run_id=run_id,
+        generated_at=generated_at,
+        requested_sources=requested_sources,
+        timeout=timeout,
+        retries=retries,
+        fail_fast=fail_fast,
+        sorteo=sorteo,
+        fecha=fecha,
+        merged_pozos=merged_pozos,
+        record_source=record["fuente"],
+        decision_status=decision_status,
+    )
+    _write_json(comparison_report_path, report_payload)
+
+    summary_payload = _build_summary_payload(
+        run_id=run_id,
+        generated_at=generated_at,
+        decision=report_payload["decision"],
+        normalized_path=normalized_path,
+        comparison_report_path=comparison_report_path,
+        raw_dir=raw_dir,
+        state_path=state_path,
+        publish_flag=publish_flag,
+    )
+
+    log_event(
+        {
+            "event": "pozos_enriched",
+            "source_mode": "pozos_only",
+            "primary": pozos_prov.get("primary"),
+            "alternatives": pozos_prov.get("alternatives", []),
+            "categories": merged_pozos,
+        }
+    )
+    log_event(
+        {
+            "event": "pipeline_complete",
+            "run_id": run_id,
+            "decision": decision_status,
+            "mismatch_ratio": 0.0,
+            "prizes_changed": not unchanged,
+            "reason": (
+                "sorteo_fecha_and_amounts_unchanged" if unchanged else "updated_or_new_amounts"
+            ),
+        }
+    )
+    _write_json(summary_path, summary_payload)
+    return summary_payload
+
+
 def run_pipeline(
     *,
     sources: Sequence[str],
@@ -287,112 +467,23 @@ def run_pipeline(
     try:
         requested_sources = _normalise_sources(sources)
 
-        # Pozos-only fast paths
+        # Pozos-only fast path
         if requested_sources == ["pozos"]:
-            # Fetch from resultadoslotochile (primary) + openloto (fallback), compare to previous state
-            collected = _collect_pozos(include=True, source_overrides=source_overrides)
-            if not collected:
-                raise RuntimeError("No pozo sources returned data")
-
-            merged_pozos, pozos_prov = _merge_pozos(collected)
-            # Determine sorteo/fecha from primary if available
-            primary = collected[0]
-            sorteo = primary.get("sorteo")
-            fecha = primary.get("fecha")
-
-            record: dict[str, Any] = {
-                "sorteo": sorteo,
-                "fecha": fecha,
-                "fuente": pozos_prov.get("primary", {}).get("fuente"),
-                "premios": [],
-                "pozos_proximo": merged_pozos,
-                "provenance": {"pozos": pozos_prov},
-            }
-
-            # Compare with previous state (use sorteo+fecha AND amounts to detect changes)
-            previous_records = _load_previous_state(state_path)
-            unchanged = False
-            for prev in previous_records:
-                if prev.get("sorteo") == sorteo and prev.get("fecha") == fecha:
-                    prev_pozos = {
-                        k: int(v) for k, v in (prev.get("pozos_proximo", {}) or {}).items()
-                    }
-                    curr_pozos = {
-                        k: int(v) for k, v in (record.get("pozos_proximo", {}) or {}).items()
-                    }
-                    if prev_pozos == curr_pozos:
-                        unchanged = True
-                    break
-
-            # Write artifacts
-            _write_jsonl(normalized_path, [record])
-            _write_jsonl(state_path, [record])
-
-            decision_status = "skip" if unchanged else "publish"
-            publish_flag = not unchanged
-            if force_publish and unchanged:
-                decision_status = "publish_forced"
-                publish_flag = True
-            report_payload: dict[str, Any] = {
-                "run": {
-                    "id": run_id,
-                    "generated_at": datetime.now(timezone.utc).isoformat(),
-                    "sources": requested_sources,
-                    "timeout": timeout,
-                    "retries": retries,
-                    "fail_fast": fail_fast,
-                },
-                "last_draw": {"sorteo": sorteo, "fecha": fecha},
-                "decision": {
-                    "status": decision_status,
-                    "total_categories": len(merged_pozos),
-                    "mismatched_categories": 0,
-                },
-                "prizes_changed": not unchanged,
-                "mismatches": [],
-                "sources": {"pozos": {"url": record["fuente"], "premios": 0}},
-                "failures": [],
-            }
-            _write_json(comparison_report_path, report_payload)
-
-            summary_payload: dict[str, Any] = {
-                "run_id": run_id,
-                "generated_at": report_payload["run"]["generated_at"],
-                "decision": report_payload["decision"],
-                "prizes_changed": not unchanged,
-                "normalized_path": str(normalized_path),
-                "comparison_report": str(comparison_report_path),
-                "raw_dir": str(raw_dir),
-                "state_path": str(state_path),
-                "publish": publish_flag,
-            }
-
-            # Log enriched pozos
-            log_event(
-                {
-                    "event": "pozos_enriched",
-                    "source_mode": "pozos_only",
-                    "primary": pozos_prov.get("primary"),
-                    "alternatives": pozos_prov.get("alternatives", []),
-                    "categories": merged_pozos,
-                }
+            return _handle_pozos_only(
+                run_id=run_id,
+                requested_sources=requested_sources,
+                source_overrides=source_overrides,
+                raw_dir=raw_dir,
+                normalized_path=normalized_path,
+                comparison_report_path=comparison_report_path,
+                summary_path=summary_path,
+                state_path=state_path,
+                retries=retries,
+                timeout=timeout,
+                fail_fast=fail_fast,
+                force_publish=force_publish,
+                log_event=log_event,
             )
-            log_event(
-                {
-                    "event": "pipeline_complete",
-                    "run_id": run_id,
-                    "decision": decision_status,
-                    "mismatch_ratio": 0.0,
-                    "prizes_changed": not unchanged,
-                    "reason": (
-                        "sorteo_fecha_and_amounts_unchanged"
-                        if unchanged
-                        else "updated_or_new_amounts"
-                    ),
-                }
-            )
-            _write_json(summary_path, summary_payload)
-            return summary_payload
 
         if requested_sources == ["openloto"]:
             return _run_openloto_only(

@@ -1,61 +1,47 @@
 # Polla App — Próximo Pozo Aggregator
 
-This project aggregates the **próximo pozo** for Loto Chile without touching
-`polla.cl`. It reads community aggregator pages and emits a simple, consistent
-JSON record with per‑categoría jackpot.
+Aggregates the próximo pozo (jackpot estimates) for Loto Chile from community sources — without hitting `polla.cl`. It fetches and parses aggregator pages, merges categories, and outputs a consistent JSON record and a publish decision.
 
-## Features
+## Highlights
 
-- **No WAF interaction** – HTTP requests are performed with `requests` and a
-  descriptive User-Agent, honouring `robots.txt`.
-- **Próximo pozo only** – Fetch jackpot estimates from
-  ResultadosLotoChile (primary) and OpenLoto (fallback), keeping provenance.
-- **Deterministic tests** – Parsers are covered with fixture-based unit tests.
-- **CLI tooling** – Inspect draw URLs, list recent 24Horas posts, and fetch
-  pozo estimates directly from the command line.
+- No WAF interaction: polite `requests` client with descriptive UA and `robots.txt` checks.
+- Pozos‑only: ResultadosLotoChile (primary) + OpenLoto (fallback) with provenance.
+- Clean CLI: run pipeline, print estimates, or publish to Google Sheets.
+- Deterministic tests: fixture‑based unit/integration tests.
 
-## Installation
+## Install
 
 ```bash
 pip install -r requirements.txt
-```
-
-For local development with formatting and linting tools:
-
-```bash
+# dev tools
 pip install -r requirements-dev.txt
 ```
 
-## Usage
+## Quickstart
 
-### Run the pipeline
-
-Run the multi-source pipeline, write artifacts, and compute a publish decision:
+- Run pozos pipeline and generate artifacts:
 
 ```bash
 python -m polla_app run \
   --sources pozos \
-  --retries 3 \
-  --timeout 30 \
-  --no-fail-fast \
-  --raw-dir artifacts/raw \
   --normalized artifacts/normalized.jsonl \
   --comparison-report artifacts/comparison_report.json \
-  --summary artifacts/run_summary.json \
-  --state-file pipeline_state/last_run.jsonl \
-  --log-file logs/run.jsonl \
-  --mismatch-threshold 0.2 \
-  --include-pozos
+  --summary artifacts/run_summary.json
 ```
 
-- Sources: use `pozos` (default) to fetch from ResultadosLotoChile + OpenLoto.
-  `openloto` forces fallback‑only mode.
+- Print current estimates (JSON):
 
 ```bash
-python -m polla_app run --sources pozos
+python -m polla_app pozos
 ```
 
-- Artifacts written under `artifacts/` and decision emitted as `artifacts/comparison_report.json` and `artifacts/run_summary.json`.
+### Configuration
+
+- `ALT_SOURCE_URLS` (optional): JSON mapping to override source URLs, e.g.
+
+```bash
+set ALT_SOURCE_URLS={"openloto":"https://mirror/openloto.html"}
+```
 
 ### Publish to Google Sheets
 
@@ -69,27 +55,18 @@ python -m polla_app publish \
   --dry-run
 ```
 
-Environment required:
-- `GOOGLE_SHEETS_CREDENTIALS` (service account JSON)
-- `GOOGLE_SPREADSHEET_ID` (spreadsheet key)
+Required environment:
+- `GOOGLE_SPREADSHEET_ID` — spreadsheet key
+- Credentials via one of:
+  - `service_account.json` file in the working directory, or
+  - `GOOGLE_SERVICE_ACCOUNT_JSON` (JSON string), or
+  - `GOOGLE_CREDENTIALS` / `CREDENTIALS` (JSON string)
 
-If the decision status is `quarantine`, the canonical worksheet is skipped and mismatches are written to the discrepancy tab.
-
-### Inspect current estimates
-
-```bash
-python -m polla_app pozos
-```
-
-### Fetch próximo pozo estimates
-
-```bash
-python -m polla_app pozos
-```
+If the decision requests quarantine, the canonical worksheet is skipped; discrepancies are still written when `--allow-quarantine` is set.
 
 ## Data Model
 
-Each pipeline run writes a normalized record with this schema:
+Normalized record written by the pipeline:
 
 ```json
 {
@@ -108,42 +85,38 @@ Each pipeline run writes a normalized record with this schema:
 }
 ```
 
+## Python API
+
+See `docs/API.md` for programmatic usage of `run_pipeline`, `publish_to_google_sheets`, and the source/HTTP helpers.
+
 ## Development
 
-### Tests
-
 ```bash
-pytest -q
+pytest -q            # run tests
+ruff check .         # lint
+black .              # format
+python scripts/benchmark_pozos_parsing.py  # micro-benchmarks
 ```
-
-### Formatting & Linting
-
-```bash
-black polla_app tests
-ruff check polla_app tests
 
 ## CI
 
-GitHub Actions workflows are provided:
-
+Workflows:
 - Ingest + compare + conditional publish: `.github/workflows/scrape.yml`
 - Dry-run verification (no publish): `.github/workflows/update.yml`
 - Secret checks: `.github/workflows/verify-secret.yml`
 
-Set these in your repository settings:
-- Secrets: `GOOGLE_SHEETS_CREDENTIALS`, `GOOGLE_SPREADSHEET_ID`
-- Optional Vars: `ALT_SOURCE_URLS` (JSON mapping like `{ "24h": "https://…" }`)
+Repository secrets:
+- `GOOGLE_SPREADSHEET_ID`
+- Optionally: `GOOGLE_SERVICE_ACCOUNT_JSON` (if not using `service_account.json`)
+- Optional: `ALT_SOURCE_URLS` (JSON mapping)
 
-## Migration
+## Migration Notes
 
-This release removes the Playwright-based scraper and switches to an alt-source
-HTTP pipeline.
+This branch is pozos‑only. Article scraping and Playwright have been removed.
 
-- Replace any `python -m polla_app scrape` calls with `python -m polla_app run`.
-- Remove Playwright installation steps from CI (`playwright install`, `install-deps`).
-- Ensure repo secrets are configured: `GOOGLE_SHEETS_CREDENTIALS` and `GOOGLE_SPREADSHEET_ID`.
-- Optionally set `ALT_SOURCE_URLS` (JSON) to pin source URLs (e.g., a 24Horas article).
-```
+- Replace `python -m polla_app scrape` with `python -m polla_app run`.
+- Remove Playwright steps from CI.
+- Provide Google secrets as above.
 
 ## License
 

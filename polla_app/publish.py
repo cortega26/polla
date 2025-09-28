@@ -5,8 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
+
+from .exceptions import ConfigError
 
 # Optional at import time to allow dry-run in tests without gspread installed
 gspread: Any
@@ -35,11 +38,11 @@ def _load_credentials() -> Any:
             or os.getenv("CREDENTIALS")
         )
     if not credentials_env:
-        raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON environment variable is required")
+        raise ConfigError("GOOGLE_SERVICE_ACCOUNT_JSON environment variable is required")
     try:
         payload = json.loads(credentials_env)
     except json.JSONDecodeError as exc:  # pragma: no cover - misconfiguration guard
-        raise RuntimeError("Invalid GOOGLE_SERVICE_ACCOUNT_JSON payload") from exc
+        raise ConfigError("Invalid GOOGLE_SERVICE_ACCOUNT_JSON payload") from exc
     return gspread.service_account_from_dict(payload)
 
 
@@ -51,7 +54,20 @@ def _load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _record_to_rows(record: dict[str, Any]) -> list[list[Any]]:
+def _load_normalized_ndjson(path: Path) -> list[dict[str, Any]]:
+    """Load NDJSON file into a list of dicts.
+
+    Each line must be a valid JSON object.
+    """
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+def _record_to_rows(record: Mapping[str, Any]) -> list[list[Any]]:
+    """Convert a normalized record into tabular rows for Sheets.
+
+    - If `premios` is present, emit the canonical 8‑column row format.
+    - Otherwise (pozos‑only), emit two‑column rows of category and amount.
+    """
     pozos = json.dumps(record.get("pozos_proximo", {}), ensure_ascii=False)
     provenance = json.dumps(record.get("provenance", {}), ensure_ascii=False)
     rows: list[list[Any]] = []
@@ -78,7 +94,8 @@ def _record_to_rows(record: dict[str, Any]) -> list[list[Any]]:
     return rows
 
 
-def _mismatch_rows(report: dict[str, Any]) -> list[list[Any]]:
+def _mismatch_rows(report: Mapping[str, Any]) -> list[list[Any]]:
+    """Convert mismatch entries into a tabular form for the discrepancy tab."""
     rows: list[list[Any]] = []
     for mismatch in report.get("mismatches", []):
         rows.append(
@@ -91,6 +108,76 @@ def _mismatch_rows(report: dict[str, Any]) -> list[list[Any]]:
             ]
         )
     return rows
+
+
+def _parse_publish_decision(
+    *, report: Mapping[str, Any], summary_payload: Mapping[str, Any], force_publish: bool
+) -> tuple[bool, str]:
+    """Resolve whether canonical update is allowed and the effective status."""
+    decision = report.get("decision", {})
+    status = str(decision.get("status", "")).lower()
+    publish_allowed = status.startswith("publish")
+
+    if summary_payload:
+        publish_allowed = bool(summary_payload.get("publish", publish_allowed))
+        status = str(summary_payload.get("decision", {}).get("status", status)).lower()
+
+    if not publish_allowed and not force_publish:
+        LOGGER.info("Run is quarantined; canonical worksheet will not be updated")
+    return publish_allowed, status
+
+
+def _canonical_rows_header(rows: Iterable[Iterable[Any]]) -> list[str]:
+    """Return the header row matching the row width of `rows`."""
+    row_width = len(next(iter(rows), []))  # type: ignore[arg-type]
+    if row_width == 2:
+        return ["categoria", "pozo_clp"]
+    return [
+        "sorteo",
+        "fecha",
+        "fuente",
+        "categoria",
+        "premio_clp",
+        "ganadores",
+        "pozos_proximo",
+        "provenance",
+    ]
+
+
+def _get_or_create_worksheet(spreadsheet: Any, name: str) -> Any:
+    """Return existing worksheet by name or create it if missing."""
+    try:
+        return spreadsheet.worksheet(name)
+    except gspread.WorksheetNotFound:
+        return spreadsheet.add_worksheet(title=name, rows="200", cols="10")
+
+
+def _update_canonical_worksheet(spreadsheet: Any, worksheet_name: str, rows: list[list[Any]]) -> int:
+    """Write canonical rows and return the number of updated rows."""
+    if not rows:
+        return 0
+    header = _canonical_rows_header(rows)
+    ws = _get_or_create_worksheet(spreadsheet, worksheet_name)
+    ws.clear()
+    ws.update([header] + rows)
+    return len(rows)
+
+
+def _update_discrepancy_sheet(
+    spreadsheet: Any, discrepancy_tab: str, report: Mapping[str, Any], mismatch_rows: list[list[Any]], *, allow_quarantine: bool
+) -> None:
+    """Write mismatch rows or a placeholder if `allow_quarantine` is set."""
+    if not mismatch_rows and not allow_quarantine:
+        return
+    ws = _get_or_create_worksheet(spreadsheet, discrepancy_tab)
+    headers = ["sorteo", "categoria", "consensus", "disagreeing", "missing_sources"]
+    payload: list[list[Any]] = [headers]
+    if mismatch_rows:
+        payload.extend(mismatch_rows)
+    else:
+        payload.append([report.get("last_draw", {}).get("sorteo"), "", "", "", ""])
+    ws.clear()
+    ws.update(payload)
 
 
 def publish_to_google_sheets(
@@ -106,31 +193,20 @@ def publish_to_google_sheets(
 ) -> dict[str, Any]:
     """Publish normalized data to Google Sheets."""
 
-    normalized = [
-        json.loads(line)
-        for line in normalized_path.read_text(encoding="utf-8").splitlines()
-        if line
-    ]
+    normalized = _load_normalized_ndjson(normalized_path)
     if not normalized:
         raise RuntimeError("Normalized dataset is empty; nothing to publish")
 
     report = _load_json(comparison_report_path)
     summary_payload = _normalise_summary(summary)
-
-    decision = report.get("decision", {})
-    status = str(decision.get("status", "")).lower()
-    publish_allowed = status.startswith("publish")
-
-    if summary_payload:
-        publish_allowed = bool(summary_payload.get("publish", publish_allowed))
-        status = str(summary_payload.get("decision", {}).get("status", status)).lower()
-
-    if not publish_allowed and not force_publish:
-        LOGGER.info("Run is quarantined; canonical worksheet will not be updated")
     rows = _record_to_rows(normalized[0])
     mismatch_rows = _mismatch_rows(report)
 
-    result = {
+    publish_allowed, status = _parse_publish_decision(
+        report=report, summary_payload=summary_payload, force_publish=force_publish
+    )
+
+    result: dict[str, Any] = {
         "updated_rows": 0,
         "discrepancy_rows": len(mismatch_rows),
         "status": status,
@@ -149,48 +225,17 @@ def publish_to_google_sheets(
 
     spreadsheet_id = os.getenv("GOOGLE_SPREADSHEET_ID") or os.getenv("GOOGLE_SHEETS_SPREADSHEET_ID")
     if not spreadsheet_id:
-        raise RuntimeError("GOOGLE_SPREADSHEET_ID environment variable is required")
+        raise ConfigError("GOOGLE_SPREADSHEET_ID environment variable is required")
 
     client = _load_credentials()
     spreadsheet = client.open_by_key(spreadsheet_id)
 
     if publish_allowed or force_publish:
-        # Determine header based on row shape
-        row_width = len(rows[0]) if rows else 0
-        if row_width == 2:
-            header = ["categoria", "pozo_clp"]
-        else:
-            header = [
-                "sorteo",
-                "fecha",
-                "fuente",
-                "categoria",
-                "premio_clp",
-                "ganadores",
-                "pozos_proximo",
-                "provenance",
-            ]
-        try:
-            worksheet = spreadsheet.worksheet(worksheet_name)
-        except gspread.WorksheetNotFound:
-            worksheet = spreadsheet.add_worksheet(title=worksheet_name, rows="200", cols="10")
-        worksheet.clear()
-        worksheet.update([header] + rows)
-        result["updated_rows"] = len(rows)
+        result["updated_rows"] = _update_canonical_worksheet(spreadsheet, worksheet_name, rows)
 
-    if mismatch_rows or allow_quarantine:
-        try:
-            discrepancy_ws = spreadsheet.worksheet(discrepancy_tab)
-        except gspread.WorksheetNotFound:
-            discrepancy_ws = spreadsheet.add_worksheet(title=discrepancy_tab, rows="200", cols="10")
-        headers = ["sorteo", "categoria", "consensus", "disagreeing", "missing_sources"]
-        payload = [headers]
-        if mismatch_rows:
-            payload.extend(mismatch_rows)
-        else:
-            payload.append([report.get("last_draw", {}).get("sorteo"), "", "", "", ""])
-        discrepancy_ws.clear()
-        discrepancy_ws.update(payload)
+    _update_discrepancy_sheet(
+        spreadsheet, discrepancy_tab, report, mismatch_rows, allow_quarantine=allow_quarantine
+    )
 
     return result
 
