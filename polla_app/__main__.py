@@ -10,7 +10,6 @@ from typing import Any
 
 import click
 
-from .ingest import ingest_draw, list_24h_result_urls
 from .pipeline import run_pipeline
 from .publish import publish_to_google_sheets
 from .sources import get_pozo_openloto, get_pozo_resultadosloto
@@ -45,37 +44,7 @@ def _echo_json(payload: dict[str, Any], *, indent: int | None = 2) -> None:
     click.echo(json.dumps(payload, ensure_ascii=False, indent=indent))
 
 
-@cli.command()
-@click.argument("url")
-@click.option(
-    "--source",
-    default="24h",
-    type=click.Choice(["24h"]),
-    help="Source parser to use.",
-)
-@click.option("--no-pozos", is_flag=True, help="Skip próximo pozo enrichment.")
-@click.option("--compact", is_flag=True, help="Emit JSON in a single line.")
-def ingest(url: str, source: str, no_pozos: bool, compact: bool) -> None:
-    """Parse a draw URL and print the normalized record."""
-
-    record = ingest_draw(url, source=source, include_pozos=not no_pozos)
-    _echo_json(record, indent=None if compact else 2)
-
-
-@cli.command("list-24h")
-@click.option(
-    "--index-url",
-    default="https://www.24horas.cl/24horas/site/tag/port/all/tagport_2312_1.html",
-    show_default=True,
-    help="24Horas tag index to scan.",
-)
-@click.option("--limit", default=10, show_default=True, help="Maximum number of URLs to return.")
-def list_24h(index_url: str, limit: int) -> None:
-    """List recent 24Horas result URLs."""
-
-    urls = list_24h_result_urls(index_url=index_url, limit=limit)
-    for item in urls:
-        click.echo(item)
+## Ingest of article sources is no longer supported; pozos-only CLI remains.
 
 
 @cli.command()
@@ -92,9 +61,9 @@ def pozos() -> None:
 @cli.command()
 @click.option(
     "--sources",
-    default="all",
+    default="pozos",
     show_default=True,
-    help="Comma-separated list of sources to use (or 'all').",
+    help="Set to 'pozos' (default) or 'openloto' for fallback-only mode.",
 )
 @click.option(
     "--source-url",
@@ -183,7 +152,7 @@ def run(
 
     requested_sources = [item.strip() for item in sources.split(",") if item.strip()]
     if not requested_sources:
-        requested_sources = ["all"]
+        requested_sources = ["pozos"]
 
     overrides: dict[str, str] = {}
     env_overrides = os.getenv("ALT_SOURCE_URLS")

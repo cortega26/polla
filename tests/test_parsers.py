@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from polla_app.net import FetchMetadata
-from polla_app.sources._24h import list_24h_result_urls, parse_24h_draw
 from polla_app.sources.pozos import get_pozo_openloto, get_pozo_resultadosloto
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -20,27 +19,7 @@ def _metadata(name: str, *, url: str = "https://example.test") -> FetchMetadata:
     )
 
 
-## T13 parser removed; 24h parser remains the primary draw parser.
-
-
-def test_list_24h_result_urls(monkeypatch) -> None:
-    metadata = _metadata("24h_tag_index.html")
-    monkeypatch.setattr("polla_app.sources._24h.fetch_html", lambda *_, **__: metadata)
-
-    urls = list_24h_result_urls(limit=2)
-
-    assert urls[0] == "https://www.24horas.cl/te-sirve/loto/resultados-loto-sorteo-5322"
-    assert urls[1].endswith("sorteo-5321")
-
-
-def test_parse_24h_draw(monkeypatch) -> None:
-    metadata = _metadata("t13_sorteo_5198.html", url="https://www.24horas.cl/loto/5198")
-    monkeypatch.setattr("polla_app.sources._24h.fetch_html", lambda *_, **__: metadata)
-
-    record = parse_24h_draw("https://www.24horas.cl/loto/5198")
-
-    assert record["provenance"]["source"] == "24horas"
-    assert any(p["categoria"].startswith("Loto 6") for p in record["premios"])
+## Draw article parsers removed; only pozo aggregators remain.
 
 
 def test_openloto_pozo(monkeypatch) -> None:
@@ -50,7 +29,7 @@ def test_openloto_pozo(monkeypatch) -> None:
     pozos = get_pozo_openloto()
 
     assert pozos["montos"]["Loto Clásico"] == 690_000_000
-    assert "Total estimado" in pozos["montos"]
+    assert "Total estimado" not in pozos["montos"], "Totals are excluded from output"
 
 
 def test_resultadosloto_pozo_with_anniversary_jubilazo(monkeypatch) -> None:
@@ -61,3 +40,5 @@ def test_resultadosloto_pozo_with_anniversary_jubilazo(monkeypatch) -> None:
 
     assert pozos["montos"]["Jubilazo $1.000.000"] == 960_000_000
     assert pozos["montos"]["Jubilazo $500.000"] == 480_000_000
+    assert pozos["sorteo"] == 5322
+    assert pozos["fecha"] == "2025-09-16"

@@ -1,4 +1,4 @@
-name: Ingest Alternative Sources
+﻿name: Ingest Alternative Sources
 
 on:
   schedule:
@@ -93,7 +93,7 @@ jobs:
         run: |
           mkdir -p artifacts raw pipeline_state logs
           python -m polla_app run \
-            --sources all \
+            --sources pozos \
             --retries 3 \
             --timeout 30 \
             --no-fail-fast \
@@ -207,3 +207,4 @@ jobs:
             --worksheet "Proximo Pozo" \
             --discrepancy-tab "Discrepancies" \
             ${DRY_FLAG}
+

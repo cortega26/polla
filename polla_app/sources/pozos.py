@@ -55,6 +55,63 @@ def _extract_amounts(text: str, *, allow_total: bool = True) -> dict[str, int]:
     return amounts
 
 
+_MONTHS = {
+    "enero": 1,
+    "febrero": 2,
+    "marzo": 3,
+    "abril": 4,
+    "mayo": 5,
+    "junio": 6,
+    "julio": 7,
+    "agosto": 8,
+    "septiembre": 9,
+    "setiembre": 9,
+    "octubre": 10,
+    "noviembre": 11,
+    "diciembre": 12,
+}
+
+
+def _parse_spanish_date(text: str) -> str | None:
+    # Match e.g., 16 de septiembre de 2025
+    m = re.search(r"(\d{1,2})\s+de\s+([a-zA-Z\u00C0-\u017F]+)\s+de\s+(\d{4})", text, re.IGNORECASE)
+    if not m:
+        return None
+    day, month_name, year = m.group(1), m.group(2), m.group(3)
+    month = _MONTHS.get(month_name.lower())
+    if not month:
+        return None
+    try:
+        from datetime import date
+
+        return date(int(year), int(month), int(day)).isoformat()
+    except Exception:
+        return None
+
+
+def _extract_proximo_info(text: str) -> tuple[int | None, str | None]:
+    # Common patterns on aggregator pages
+    sorteo: int | None = None
+    fecha_iso: str | None = None
+
+    m_sorteo = re.search(r"Sorteo\s*(?:N[°º]\s*)?(\d{4,})", text, re.IGNORECASE)
+    if m_sorteo:
+        try:
+            sorteo = int(m_sorteo.group(1))
+        except ValueError:
+            sorteo = None
+
+    # Prefer explicit "Fecha Próximo Sorteo" segment if present
+    m_fecha_block = re.search(
+        r"Fecha\s+Pr[oó]ximo\s+Sorteo[:\s]*([^\n]+)", text, re.IGNORECASE
+    )
+    if m_fecha_block:
+        fecha_iso = _parse_spanish_date(m_fecha_block.group(1))
+    if not fecha_iso:
+        fecha_iso = _parse_spanish_date(text)
+    return sorteo, fecha_iso
+
+
 def get_pozo_openloto(
     url: str = OPENLOTO_URL,
     *,
@@ -66,13 +123,16 @@ def get_pozo_openloto(
     metadata = fetch_html(url, ua=ua, timeout=timeout)
     soup = BeautifulSoup(metadata.html, "html.parser")
     text = soup.get_text(" ", strip=True)
-    amounts = _extract_amounts(text)
+    amounts = _extract_amounts(text, allow_total=False)
+    sorteo, fecha = _extract_proximo_info(text)
     return {
         "fuente": url,
         "fetched_at": metadata.fetched_at.isoformat(),
         "estimado": True,
         "montos": amounts,
         "user_agent": metadata.user_agent,
+        "sorteo": sorteo,
+        "fecha": fecha,
     }
 
 
@@ -87,13 +147,15 @@ def get_pozo_resultadosloto(
     metadata = fetch_html(url, ua=ua, timeout=timeout)
     soup = BeautifulSoup(metadata.html, "html.parser")
     text = soup.get_text(" ", strip=True)
-    # The resultadosloto site rarely publishes a "Total" headline. Skip that
-    # label to avoid false positives from unrelated marketing text.
+    # Skip total to avoid noise
     amounts = _extract_amounts(text, allow_total=False)
+    sorteo, fecha = _extract_proximo_info(text)
     return {
         "fuente": url,
         "fetched_at": metadata.fetched_at.isoformat(),
         "estimado": True,
         "montos": amounts,
         "user_agent": metadata.user_agent,
+        "sorteo": sorteo,
+        "fecha": fecha,
     }

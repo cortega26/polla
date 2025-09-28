@@ -1,17 +1,15 @@
-# Polla App — Alternative Lottery Source Ingestor
+# Polla App — Próximo Pozo Aggregator
 
-This project normalises **Loto Chile** results without touching `polla.cl`. It
-parses public news articles (24Horas) and community aggregators to produce
-a consistent JSON structure containing per-categoría payouts and próximo pozo
-estimates.
+This project aggregates the **próximo pozo** for Loto Chile without touching
+`polla.cl`. It reads community aggregator pages and emits a simple, consistent
+JSON record with per‑categoría jackpot estimates and provenance.
 
 ## Features
 
 - ✅ **No WAF interaction** – HTTP requests are performed with `requests` and a
   descriptive User-Agent, honouring `robots.txt`.
-- 📰 **Draw source** – Parse 24Horas result articles.
-- 💰 **Próximo pozo enrichment** – Fetch jackpot estimates from OpenLoto and
-  ResultadosLotoChile, keeping provenance metadata.
+- 💰 **Próximo pozo only** – Fetch jackpot estimates from
+  ResultadosLotoChile (primary) and OpenLoto (fallback), keeping provenance.
 - 🧪 **Deterministic tests** – Parsers are covered with fixture-based unit tests.
 - 🛠️ **CLI tooling** – Inspect draw URLs, list recent 24Horas posts, and fetch
   pozo estimates directly from the command line.
@@ -30,13 +28,13 @@ pip install -r requirements-dev.txt
 
 ## Usage
 
-### End-to-end pipeline (ingest + compare)
+### Run the pipeline
 
 Run the multi-source pipeline, write artifacts, and compute a publish decision:
 
 ```bash
 python -m polla_app run \
-  --sources all \
+  --sources pozos \
   --retries 3 \
   --timeout 30 \
   --no-fail-fast \
@@ -50,18 +48,11 @@ python -m polla_app run \
   --include-pozos
 ```
 
-- Sources: `all` includes `24h`. The `24h` URL is auto-discovered (latest).
-- Override URLs via `--source-url` (repeatable) or `ALT_SOURCE_URLS` env var (JSON):
+- Sources: use `pozos` (default) to fetch from ResultadosLotoChile + OpenLoto.
+  `openloto` forces fallback‑only mode.
 
 ```bash
-python -m polla_app run \
-  --sources all \
-  # Optionally pin a specific 24h URL (otherwise latest is auto-discovered)
-  --source-url 24h=https://www.24horas.cl/te-sirve/loto/resultados-loto-sorteo-5322
-
-# Or with env var (JSON mapping)
-export ALT_SOURCE_URLS='{"24h": "https://www.24horas.cl/te-sirve/loto/resultados-loto-sorteo-5322"}'
-python -m polla_app run --sources all
+python -m polla_app run --sources pozos
 ```
 
 - Artifacts written under `artifacts/` and decision emitted as `artifacts/comparison_report.json` and `artifacts/run_summary.json`.
@@ -84,20 +75,10 @@ Environment required:
 
 If the decision status is `quarantine`, the canonical worksheet is skipped and mismatches are written to the discrepancy tab.
 
-### Parse a draw
+### Inspect current estimates
 
 ```bash
-python -m polla_app ingest --source 24h "https://www.24horas.cl/te-sirve/loto/resultados-loto-sorteo-5322"
-```
-
-- `--source` accepts `24h`.
-- `--no-pozos` disables próximo pozo enrichment.
-- `--compact` prints the record on a single JSON line.
-
-### List recent 24Horas result posts
-
-```bash
-python -m polla_app list-24h --limit 5
+python -m polla_app pozos
 ```
 
 ### Fetch próximo pozo estimates
@@ -108,26 +89,20 @@ python -m polla_app pozos
 
 ## Data Model
 
-Each draw record emitted by `ingest` follows this schema:
+Each pipeline run writes a normalized record with this schema:
 
 ```json
 {
   "sorteo": 5322,
   "fecha": "2025-09-16",
-  "fuente": "https://www.24horas.cl/…",
-  "premios": [
-    {"categoria": "Loto 6 aciertos", "premio_clp": 0, "ganadores": 0},
-    {"categoria": "Quina (5)", "premio_clp": 757970, "ganadores": 3}
-  ],
+  "fuente": "https://resultadoslotochile.com/pozo-para-el-proximo-sorteo/",
+  "premios": [],
   "pozos_proximo": {
     "Loto Clásico": 690000000,
     "Recargado": 180000000,
-    "Total estimado": 4300000000
+    "Jubilazo $500.000": 480000000
   },
   "provenance": {
-    "source": "24h",
-    "url": "https://www.24horas.cl/…",
-    "ingested_at": "2025-09-17T02:15:00+00:00",
     "pozos": {"primary": {"fuente": "https://resultadoslotochile.com/pozo-para-el-proximo-sorteo/"}}
   }
 }

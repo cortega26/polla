@@ -1,4 +1,4 @@
-name: Alt Sources Dry Run
+﻿name: Alt Sources Dry Run
 
 on:
   schedule:
@@ -45,7 +45,7 @@ jobs:
         run: |
           mkdir -p artifacts pipeline_state logs
           python -m polla_app run \
-            --sources all \
+            --sources pozos \
             --retries 2 \
             --timeout 25 \
             --no-fail-fast \
@@ -80,3 +80,4 @@ jobs:
           path: |
             artifacts/
             logs/
+
