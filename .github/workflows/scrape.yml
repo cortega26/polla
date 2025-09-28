@@ -185,9 +185,17 @@ jobs:
       - name: Publish to Google Sheets
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
           GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
         run: |
           DRY_RUN="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}"
+          # Fallbacks for legacy secret names and known spreadsheet ID
+          if [ -z "${GOOGLE_SERVICE_ACCOUNT_JSON}" ] && [ -n "${GOOGLE_CREDENTIALS}" ]; then
+            export GOOGLE_SERVICE_ACCOUNT_JSON="${GOOGLE_CREDENTIALS}";
+          fi
+          if [ -z "${GOOGLE_SPREADSHEET_ID}" ]; then
+            export GOOGLE_SPREADSHEET_ID="16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc";
+          fi
           if [ -z "${GOOGLE_SERVICE_ACCOUNT_JSON}" ] || [ -z "${GOOGLE_SPREADSHEET_ID}" ]; then
             echo "Missing Google secrets; skipping publish.";
             exit 0;

@@ -29,7 +29,11 @@ def _load_credentials() -> Any:
     if raw.exists():  # pragma: no cover - developer override
         credentials_env = raw.read_text(encoding="utf-8")
     if credentials_env is None:
-        credentials_env = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+        credentials_env = (
+            os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+            or os.getenv("GOOGLE_CREDENTIALS")
+            or os.getenv("CREDENTIALS")
+        )
     if not credentials_env:
         raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON environment variable is required")
     try:
