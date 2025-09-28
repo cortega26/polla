@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .obs import metric, sanitize, set_correlation_id, span
 from .sources import pozos as pozos_module
 
 LOGGER = logging.getLogger(__name__)
@@ -249,10 +250,14 @@ def _merge_pozos(collected: Iterable[dict[str, Any]]) -> tuple[dict[str, Any], d
 def _init_log_stream(log_path: Path) -> Callable[[dict[str, Any]], None]:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     handle = log_path.open("a", encoding="utf-8")
+    correlation_id: str | None = None
 
     def _emit(payload: dict[str, Any]) -> None:
         payload = dict(payload)
         payload.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+        if correlation_id and "correlation_id" not in payload:
+            payload["correlation_id"] = correlation_id
+        payload = sanitize(payload)
         handle.write(json.dumps(payload, ensure_ascii=False))
         handle.write("\n")
         handle.flush()
@@ -260,7 +265,12 @@ def _init_log_stream(log_path: Path) -> Callable[[dict[str, Any]], None]:
     def _close() -> None:
         handle.close()
 
+    def _set_correlation_id(value: str) -> None:
+        nonlocal correlation_id
+        correlation_id = value
+
     _emit.close = _close  # type: ignore[attr-defined]
+    _emit.set_correlation_id = _set_correlation_id  # type: ignore[attr-defined]
     return _emit
 
 
@@ -360,7 +370,8 @@ def _handle_pozos_only(
     force_publish: bool,
     log_event: Callable[[dict[str, Any]], None],
 ) -> dict[str, Any]:
-    collected = _collect_pozos(include=True, source_overrides=source_overrides)
+    with span("pozos_only", log_event, attrs={"sources": requested_sources}):
+        collected = _collect_pozos(include=True, source_overrides=source_overrides)
     if not collected:
         raise RuntimeError("No pozo sources returned data")
 
@@ -440,6 +451,13 @@ def _handle_pozos_only(
             ),
         }
     )
+    metric(
+        "pipeline_run",
+        log_event,
+        kind="counter",
+        value=1,
+        tags={"decision": decision_status, "publish": publish_flag},
+    )
     _write_json(summary_path, summary_payload)
     return summary_payload
 
@@ -465,6 +483,8 @@ def run_pipeline(
 
     log_event = _init_log_stream(log_path)
     run_id = str(uuid.uuid4())
+    log_event.set_correlation_id(run_id)  # type: ignore[attr-defined]
+    set_correlation_id(run_id)
     log_event({"event": "pipeline_start", "run_id": run_id, "sources": sources})
 
     try:
