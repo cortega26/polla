@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
+from time import monotonic, sleep
+from typing import Final
 from urllib.parse import urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
 
@@ -85,7 +88,32 @@ def fetch_html(url: str, ua: str, timeout: int = 20) -> FetchMetadata:
             context={"url": url, "ua": ua},
         )
 
+    last_seen: dict[str, float] = getattr(fetch_html, "_last_seen", {})
+    rate_limit_env: Final[str] = "POLLA_RATE_LIMIT_RPS"
+
+    def _rate_limit_if_needed() -> None:
+        rps = os.getenv(rate_limit_env)
+        if not rps:
+            return
+        try:
+            limit = float(rps)
+        except ValueError:
+            return
+        if limit <= 0:
+            return
+        min_interval = 1.0 / limit
+        host = urlparse(url).netloc
+        last = last_seen.get(host)
+        now = monotonic()
+        if last is not None:
+            delta = now - last
+            if delta < min_interval:
+                sleep(min_interval - delta)
+        last_seen[host] = monotonic()
+        fetch_html._last_seen = last_seen  # type: ignore[attr-defined]
+
     def _request() -> requests.Response:
+        _rate_limit_if_needed()
         response = session.get(url, headers=headers, timeout=timeout)
         if response.status_code == 429:
             raise requests.HTTPError("Too Many Requests", response=response)

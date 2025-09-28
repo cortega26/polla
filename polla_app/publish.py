@@ -9,6 +9,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
+from .contracts import API_VERSION
 from .exceptions import ConfigError
 
 # Optional at import time to allow dry-run in tests without gspread installed
@@ -48,6 +49,7 @@ def _load_credentials() -> Any:
 
 def _normalize_summary(summary: dict[str, Any] | None) -> dict[str, Any]:
     return summary or {}
+
 
 # Backward-compat alias (do not remove without a major version bump)
 _normalise_summary = _normalize_summary
@@ -155,7 +157,9 @@ def _get_or_create_worksheet(spreadsheet: Any, name: str) -> Any:
         return spreadsheet.add_worksheet(title=name, rows="200", cols="10")
 
 
-def _update_canonical_worksheet(spreadsheet: Any, worksheet_name: str, rows: list[list[Any]]) -> int:
+def _update_canonical_worksheet(
+    spreadsheet: Any, worksheet_name: str, rows: list[list[Any]]
+) -> int:
     """Write canonical rows and return the number of updated rows."""
     if not rows:
         return 0
@@ -167,7 +171,12 @@ def _update_canonical_worksheet(spreadsheet: Any, worksheet_name: str, rows: lis
 
 
 def _update_discrepancy_sheet(
-    spreadsheet: Any, discrepancy_tab: str, report: Mapping[str, Any], mismatch_rows: list[list[Any]], *, allow_quarantine: bool
+    spreadsheet: Any,
+    discrepancy_tab: str,
+    report: Mapping[str, Any],
+    mismatch_rows: list[list[Any]],
+    *,
+    allow_quarantine: bool,
 ) -> None:
     """Write mismatch rows or a placeholder if `allow_quarantine` is set."""
     if not mismatch_rows and not allow_quarantine:
@@ -214,6 +223,7 @@ def publish_to_google_sheets(
         "discrepancy_rows": len(mismatch_rows),
         "status": status,
         "publish_allowed": publish_allowed or force_publish,
+        "api_version": API_VERSION,
     }
 
     if dry_run:

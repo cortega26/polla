@@ -198,9 +198,7 @@ def test_pozos_pipeline_applies_source_overrides(
             "fecha": "2025-10-01",
         }
 
-    monkeypatch.setattr(
-        pipeline_mod.pozos_module, "get_pozo_resultadosloto", stub_resultados
-    )
+    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_resultadosloto", stub_resultados)
     monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", stub_openloto)
 
     run_pipeline(

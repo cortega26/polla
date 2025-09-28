@@ -158,9 +158,7 @@ def _effective_ua(ua: str) -> str:
     return os.getenv("POLLA_USER_AGENT") or ua
 
 
-def _fetch_pozos(
-    *, url: str, ua: str, timeout: int, allow_total: bool
-) -> dict[str, Any]:
+def _fetch_pozos(*, url: str, ua: str, timeout: int, allow_total: bool) -> dict[str, Any]:
     metadata = fetch_html(url, ua=_effective_ua(ua), timeout=timeout)
     soup = BeautifulSoup(metadata.html, "html.parser")
     text = soup.get_text(" ", strip=True)

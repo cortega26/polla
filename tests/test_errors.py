@@ -31,7 +31,9 @@ def test_missing_spreadsheet_id_raises_config_error(
 ) -> None:
     # Prepare minimal normalized and comparison files
     normalized_file = tmp_path / "normalized.jsonl"
-    normalized_file.write_text(json.dumps({"sorteo": 5198, "fecha": "2024-12-01", "premios": []}), encoding="utf-8")
+    normalized_file.write_text(
+        json.dumps({"sorteo": 5198, "fecha": "2024-12-01", "premios": []}), encoding="utf-8"
+    )
     comparison_file = tmp_path / "comparison.json"
     comparison_file.write_text(
         '{"decision": {"status": "publish"}, "mismatches": [], "last_draw": {"sorteo": 5198}}',

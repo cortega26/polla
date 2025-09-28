@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .contracts import API_VERSION
 from .obs import metric, sanitize, set_correlation_id, span
 from .sources import pozos as pozos_module
 
@@ -39,6 +40,7 @@ def _normalize_sources(requested: Sequence[str]) -> list[str]:
         if key not in normalised:
             normalised.append(key)
     return normalised
+
 
 # Backward-compat alias (do not remove without a major version bump)
 _normalise_sources = _normalize_sources
@@ -116,6 +118,7 @@ def _run_openloto_only(
         },
         "failures": [],
     }
+    report["api_version"] = API_VERSION
     _write_json(comparison_report_path, report)
 
     openloto_summary: dict[str, Any] = {
@@ -129,6 +132,7 @@ def _run_openloto_only(
         "state_path": str(state_path),
         "publish": True,
     }
+    openloto_summary["api_version"] = API_VERSION
     _write_json(summary_path, openloto_summary)
     # Emit detailed jackpot categories to the structured log
     log_event(
@@ -417,6 +421,7 @@ def _handle_pozos_only(
         record_source=record["fuente"],
         decision_status=decision_status,
     )
+    report_payload["api_version"] = API_VERSION
     _write_json(comparison_report_path, report_payload)
 
     summary_payload = _build_summary_payload(
@@ -429,6 +434,7 @@ def _handle_pozos_only(
         state_path=state_path,
         publish_flag=publish_flag,
     )
+    summary_payload["api_version"] = API_VERSION
 
     log_event(
         {

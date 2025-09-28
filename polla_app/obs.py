@@ -32,7 +32,10 @@ def _should_redact_key(key: str) -> bool:
     key_l = key.lower()
     if key_l in {"fuente", "source", "url"}:  # URLs are safe in this context
         return False
-    return any(tok in key_l for tok in ("password", "secret", "token", "credential", "apikey", "api_key", "key"))
+    return any(
+        tok in key_l
+        for tok in ("password", "secret", "token", "credential", "apikey", "api_key", "key")
+    )
 
 
 def sanitize(obj: Any) -> Any:
@@ -87,7 +90,14 @@ def span(
         log(end_payload)
 
 
-def metric(name: str, log: Callable[[dict[str, Any]], None], *, kind: str = "counter", value: int | float = 1, tags: Mapping[str, Any] | None = None) -> None:
+def metric(
+    name: str,
+    log: Callable[[dict[str, Any]], None],
+    *,
+    kind: str = "counter",
+    value: int | float = 1,
+    tags: Mapping[str, Any] | None = None,
+) -> None:
     """Emit a simple metric event via the structured log stream."""
 
     payload: dict[str, Any] = {"event": "metric", "name": name, "kind": kind, "value": value}

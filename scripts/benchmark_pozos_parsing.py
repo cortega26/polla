@@ -6,6 +6,7 @@ Measures impact of precompiled regexes vs. the previous on-the-fly approach.
 Run:
   python scripts/benchmark_pozos_parsing.py
 """
+
 from __future__ import annotations
 
 import json
@@ -62,9 +63,7 @@ def old_extract_proximo_info(text: str) -> tuple[int | None, str | None]:
             sorteo = int(m_sorteo.group(1))
         except ValueError:
             sorteo = None
-    m_fecha_block = re.search(
-        r"Fecha\s+Pr[oó]ximo\s+Sorteo[:\s]*([^\n]+)", text, re.IGNORECASE
-    )
+    m_fecha_block = re.search(r"Fecha\s+Pr[oó]ximo\s+Sorteo[:\s]*([^\n]+)", text, re.IGNORECASE)
     fecha_iso = None
     if m_fecha_block:
         fecha_iso = new._parse_spanish_date(m_fecha_block.group(1))  # type: ignore[attr-defined]

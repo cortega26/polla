@@ -277,8 +277,15 @@ def publish(
 
 
 @cli.command()
-@click.option("--online/--offline", default=False, show_default=True, help="Perform live source checks.")
-@click.option("--timeout", default=10, show_default=True, help="Per-source timeout (seconds) for online checks.")
+@click.option(
+    "--online/--offline", default=False, show_default=True, help="Perform live source checks."
+)
+@click.option(
+    "--timeout",
+    default=10,
+    show_default=True,
+    help="Per-source timeout (seconds) for online checks.",
+)
 def health(online: bool, timeout: int) -> None:
     """Run health checks (offline by default). Prints JSON with status."""
 
