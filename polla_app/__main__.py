@@ -276,7 +276,11 @@ def publish(
 
     summary_payload: dict[str, object] | None = None
     if summary:
-        summary_payload = json.loads(Path(summary).read_text(encoding="utf-8"))
+        try:
+            summary_payload = json.loads(Path(summary).read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            # Proceed without run summary if not present; rely on comparison report
+            summary_payload = None
 
     result = publish_to_google_sheets(
         normalized_path=Path(normalized),

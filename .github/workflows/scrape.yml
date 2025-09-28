@@ -180,7 +180,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: alt-sources-artifacts
-          path: artifacts
 
       - name: Publish to Google Sheets
         env:
