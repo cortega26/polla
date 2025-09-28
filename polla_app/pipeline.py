@@ -265,7 +265,6 @@ def run_pipeline(
 
     try:
         requested_sources = _normalise_sources(sources)
-        overrides = {k.lower(): v for k, v in (source_overrides or {}).items()}
 
         # Pozos-only fast paths
         if requested_sources == ["pozos"]:
