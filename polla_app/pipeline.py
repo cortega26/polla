@@ -158,6 +158,20 @@ def _run_openloto_only(
         "publish": True,
     }
     _write_json(summary_path, openloto_summary)
+    # Emit detailed jackpot categories to the structured log
+    log_event(
+        {
+            "event": "pozos_enriched",
+            "source_mode": "openloto_only",
+            "primary": {
+                "fuente": payload.get("fuente"),
+                "fetched_at": payload.get("fetched_at"),
+                "user_agent": payload.get("user_agent"),
+                "estimado": True,
+            },
+            "categories": amounts,
+        }
+    )
     log_event(
         {
             "event": "pipeline_complete",
@@ -585,6 +599,15 @@ def run_pipeline(
                 if merged_pozos:
                     consensus_record["pozos_proximo"] = merged_pozos
                     consensus_record["provenance"]["pozos"] = pozos_prov
+                    # Emit detailed jackpot categories to the structured log
+                    log_event(
+                        {
+                            "event": "pozos_enriched",
+                            "primary": pozos_prov.get("primary"),
+                            "alternatives": pozos_prov.get("alternatives", []),
+                            "categories": merged_pozos,
+                        }
+                    )
 
         previous_records = _load_previous_state(state_path)
         prizes_changed = _compare_with_previous(consensus_record, previous_records)
