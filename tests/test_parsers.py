@@ -49,3 +49,25 @@ def test_resultadosloto_pozo_with_anniversary_jubilazo(
     # 50 años variants should also be present
     assert pozos["montos"]["Jubilazo 50 años $1.000.000"] == 1_200_000_000
     assert pozos["montos"]["Jubilazo 50 años $500.000"] == 300_000_000
+
+
+def test_env_user_agent_override_applied_openloto(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Ensure POLLA_USER_AGENT overrides provided UA
+    ua_env = "EnvUA/2.0"
+    monkeypatch.setenv("POLLA_USER_AGENT", ua_env)
+
+    html = (FIXTURES / "openloto_pozo.html").read_text(encoding="utf-8")
+
+    def stub_fetch_html(url: str, ua: str, timeout: int) -> FetchMetadata:  # noqa: ARG002
+        # The UA received by fetch_html should be the env override, not the default
+        assert ua == ua_env
+        return FetchMetadata(
+            url=url,
+            user_agent=ua,
+            fetched_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            html=html,
+        )
+
+    monkeypatch.setattr("polla_app.sources.pozos.fetch_html", stub_fetch_html)
+    payload = get_pozo_openloto()
+    assert payload["user_agent"] == ua_env

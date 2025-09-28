@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import Any
 
@@ -149,18 +150,21 @@ def _extract_proximo_info(text: str) -> tuple[int | None, str | None]:
     return sorteo, fecha_iso
 
 
-def get_pozo_openloto(
-    url: str = OPENLOTO_URL,
-    *,
-    ua: str = DEFAULT_UA,
-    timeout: int = 20,
-) -> dict[str, Any]:
-    """Fetch próximo pozo data from OpenLoto."""
+def _effective_ua(ua: str) -> str:
+    """Resolve effective User-Agent from env override or provided value.
 
-    metadata = fetch_html(url, ua=ua, timeout=timeout)
+    Honors the POLLA_USER_AGENT environment variable if set.
+    """
+    return os.getenv("POLLA_USER_AGENT") or ua
+
+
+def _fetch_pozos(
+    *, url: str, ua: str, timeout: int, allow_total: bool
+) -> dict[str, Any]:
+    metadata = fetch_html(url, ua=_effective_ua(ua), timeout=timeout)
     soup = BeautifulSoup(metadata.html, "html.parser")
     text = soup.get_text(" ", strip=True)
-    amounts = _extract_amounts(text, allow_total=False)
+    amounts = _extract_amounts(text, allow_total=allow_total)
     sorteo, fecha = _extract_proximo_info(text)
     return {
         "fuente": url,
@@ -171,6 +175,17 @@ def get_pozo_openloto(
         "sorteo": sorteo,
         "fecha": fecha,
     }
+
+
+def get_pozo_openloto(
+    url: str = OPENLOTO_URL,
+    *,
+    ua: str = DEFAULT_UA,
+    timeout: int = 20,
+) -> dict[str, Any]:
+    """Fetch próximo pozo data from OpenLoto."""
+
+    return _fetch_pozos(url=url, ua=ua, timeout=timeout, allow_total=False)
 
 
 def get_pozo_resultadosloto(
@@ -181,18 +196,5 @@ def get_pozo_resultadosloto(
 ) -> dict[str, Any]:
     """Fetch próximo pozo data from resultadoslotochile.com."""
 
-    metadata = fetch_html(url, ua=ua, timeout=timeout)
-    soup = BeautifulSoup(metadata.html, "html.parser")
-    text = soup.get_text(" ", strip=True)
-    # Skip total to avoid noise
-    amounts = _extract_amounts(text, allow_total=False)
-    sorteo, fecha = _extract_proximo_info(text)
-    return {
-        "fuente": url,
-        "fetched_at": metadata.fetched_at.isoformat(),
-        "estimado": True,
-        "montos": amounts,
-        "user_agent": metadata.user_agent,
-        "sorteo": sorteo,
-        "fecha": fecha,
-    }
+    # Skip totals to avoid noise
+    return _fetch_pozos(url=url, ua=ua, timeout=timeout, allow_total=False)
