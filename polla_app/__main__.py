@@ -126,6 +126,12 @@ def pozos() -> None:
     show_default=True,
     help="Include próximo pozo enrichment in the normalized record.",
 )
+@click.option(
+    "--force-publish/--no-force-publish",
+    default=False,
+    show_default=True,
+    help="Force the run summary to publish even if sorteo/fecha and amounts are unchanged.",
+)
 def run(
     sources: str,
     source_url: tuple[str, ...],
@@ -140,6 +146,7 @@ def run(
     log_file: str,
     mismatch_threshold: float,
     include_pozos: bool,
+    force_publish: bool,
 ) -> None:
     """Execute the multi-source ingestion pipeline."""
 
@@ -188,6 +195,7 @@ def run(
         fail_fast=fail_fast,
         mismatch_threshold=mismatch_threshold,
         include_pozos=include_pozos,
+        force_publish=force_publish,
     )
 
     _echo_json(summary_payload)

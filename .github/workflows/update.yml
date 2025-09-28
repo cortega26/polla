@@ -9,6 +9,10 @@ on:
         description: 'Skip publishing (always true for this workflow)'
         required: false
         default: 'true'
+      force_publish:
+        description: 'Force publish even if sorteo/fecha and amounts are unchanged'
+        required: false
+        default: 'false'
 
 jobs:
   dry-run:
@@ -44,6 +48,8 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
         run: |
           mkdir -p artifacts pipeline_state logs
+          FORCE_PUBLISH="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.force_publish || 'false' }}"
+          if [ "${FORCE_PUBLISH}" = "true" ]; then FORCE_FLAG="--force-publish"; else FORCE_FLAG=""; fi
           python -m polla_app run \
             --sources pozos \
             --retries 2 \
@@ -56,7 +62,8 @@ jobs:
             --state-file pipeline_state/last_run.jsonl \
             --log-file logs/run.jsonl \
             --mismatch-threshold 0.3 \
-            --include-pozos
+            --include-pozos \
+            ${FORCE_FLAG}
           python -m polla_app publish \
             --normalized artifacts/normalized.jsonl \
             --comparison-report artifacts/comparison_report.json \

@@ -371,6 +371,7 @@ def run_pipeline(
     fail_fast: bool,
     mismatch_threshold: float,
     include_pozos: bool,
+    force_publish: bool = False,
 ) -> dict[str, Any]:
     """Run the ingestion + validation pipeline and emit artefacts."""
 
@@ -420,6 +421,10 @@ def run_pipeline(
             _write_jsonl(state_path, [record])
 
             decision_status = "skip" if unchanged else "publish"
+            publish_flag = not unchanged
+            if force_publish and unchanged:
+                decision_status = "publish_forced"
+                publish_flag = True
             report_payload: dict[str, Any] = {
                 "run": {
                     "id": run_id,
@@ -453,7 +458,7 @@ def run_pipeline(
                 "comparison_report": str(comparison_report_path),
                 "raw_dir": str(raw_dir),
                 "state_path": str(state_path),
-                "publish": not unchanged,
+                "publish": publish_flag,
             }
 
             # Log enriched pozos

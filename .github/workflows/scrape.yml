@@ -9,6 +9,10 @@ on:
         description: 'Skip publishing to Google Sheets'
         required: false
         default: 'false'
+      force_publish:
+        description: 'Force publish even if sorteo/fecha and amounts are unchanged'
+        required: false
+        default: 'false'
   repository_dispatch:
     types: [refresh-alt-sources]
   push:
@@ -92,6 +96,8 @@ jobs:
           GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
         run: |
           mkdir -p artifacts raw pipeline_state logs
+          FORCE_PUBLISH="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.force_publish || 'false' }}"
+          if [ "${FORCE_PUBLISH}" = "true" ]; then FORCE_FLAG="--force-publish"; else FORCE_FLAG=""; fi
           python -m polla_app run \
             --sources pozos \
             --retries 3 \
@@ -103,7 +109,8 @@ jobs:
             --summary artifacts/run_summary.json \
             --state-file pipeline_state/last_run.jsonl \
             --log-file logs/run.jsonl \
-            --mismatch-threshold 0.2
+            --mismatch-threshold 0.2 \
+            ${FORCE_FLAG}
 
       - name: Parse publish decision
         id: decision
