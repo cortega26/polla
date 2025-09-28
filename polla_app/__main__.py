@@ -5,6 +5,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
+import time
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 
@@ -271,6 +274,68 @@ def publish(
     )
 
     _echo_json(result)
+
+
+@cli.command()
+@click.option("--online/--offline", default=False, show_default=True, help="Perform live source checks.")
+@click.option("--timeout", default=10, show_default=True, help="Per-source timeout (seconds) for online checks.")
+def health(online: bool, timeout: int) -> None:
+    """Run health checks (offline by default). Prints JSON with status."""
+
+    def _pkg_ver(name: str) -> str | None:
+        try:
+            return metadata.version(name)
+        except Exception:
+            return None
+
+    checks: dict[str, object] = {
+        "python": sys.version.split()[0],
+        "dependencies": {
+            "requests": _pkg_ver("requests"),
+            "beautifulsoup4": _pkg_ver("beautifulsoup4"),
+            "gspread": _pkg_ver("gspread"),  # optional
+        },
+        "online": online,
+        "sources": {},
+    }
+
+    status = "pass"
+    if online:
+        successes = 0
+        failures = 0
+        for name, fn in (
+            ("resultadoslotochile", get_pozo_resultadosloto),
+            ("openloto", get_pozo_openloto),
+        ):
+            start = time.monotonic()
+            try:
+                payload = fn(timeout=timeout)
+                elapsed = time.monotonic() - start
+                sources = checks["sources"]
+                assert isinstance(sources, dict)
+                sources[name] = {
+                    "ok": True,
+                    "ms": int(elapsed * 1000),
+                    "keys": sorted((payload.get("montos", {}) or {}).keys()),
+                }
+                successes += 1
+            except Exception as exc:  # pragma: no cover - network variability in live checks
+                elapsed = time.monotonic() - start
+                sources = checks["sources"]
+                assert isinstance(sources, dict)
+                sources[name] = {
+                    "ok": False,
+                    "ms": int(elapsed * 1000),
+                    "error": type(exc).__name__,
+                }
+                failures += 1
+        if failures and successes:
+            status = "degraded"
+        elif failures and not successes:
+            status = "fail"
+
+    payload = {"status": status, "checks": checks}
+    _echo_json(payload)
 
 
 if __name__ == "__main__":
