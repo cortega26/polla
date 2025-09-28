@@ -18,6 +18,18 @@ This repository uses AGENTS.md to guide AI/automation and humans on how to make 
 - Observability: structured JSON logs with correlation IDs, spans, and metrics
 - Contracts: artifacts/results include `api_version` (see `polla_app/contracts.py`)
 
+## Engineering Principles (MANDATORY)
+- SOLID
+  - Single Responsibility: keep modules/functions focused on one concern. Split large functions into helpers.
+  - Open/Closed: prefer additive changes (new helpers/flags/fields). Avoid breaking existing behavior/outputs.
+  - Liskov Substitution: maintain type contracts; don’t narrow accepted types or return shapes.
+  - Interface Segregation: use small, specific functions; avoid leaking cross‑cutting concerns in signatures.
+  - Dependency Inversion: depend on abstractions (e.g., `Mapping`, `Iterable`, protocols) and inject IO via parameters.
+- DRY: eliminate duplication (regexes, network helpers, version constants). Reuse shared utilities and fixtures.
+- KISS: choose the simplest approach that solves the problem; avoid new deps and over‑engineering.
+- Zen of Python: explicit over implicit; readability counts; simple > complex; flat > nested.
+- PEP‑8: enforced by Ruff + Black. Naming: `snake_case` for functions/vars, `CapWords` for classes, `UPPER_SNAKE` for constants. Keep imports sorted; write meaningful docstrings.
+
 ## What to Change (and What Not)
 - OK: bug fixes, test additions, small refactors that preserve behavior, performance improvements that keep outputs the same, docs changes.
 - ASK FIRST: adding new dependencies, changing CLI flags or outputs, network‑heavy features, schema or API changes (see Contracts).
@@ -29,6 +41,8 @@ This repository uses AGENTS.md to guide AI/automation and humans on how to make 
 - Artifact/result API version: `polla_app/contracts.py: API_VERSION`.
   - If you add fields: keep them additive and update tests & docs. If you must remove/rename, bump `API_VERSION` and provide migration notes.
 - Deprecations: keep backward‑compat aliases for at least one MINOR version (e.g., `_normalise_*` → `_normalize_*`).
+
+Note: Keep this file named `AGENTS.md`. The automation reads `AGENTS.md` automatically; renaming to another filename (e.g., `AGENTS_AI.md`) may cause it to be ignored.
 
 ## Environment & Config (12‑Factor)
 - Inputs via env vars (don’t hardcode):
