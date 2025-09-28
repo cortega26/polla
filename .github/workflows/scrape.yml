@@ -83,7 +83,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run alternative-source pipeline (OpenLoto only)
+      - name: Run alternative-source pipeline (All sources)
         id: pipeline
         env:
           ALT_SOURCE_URLS: ${{ vars.ALT_SOURCE_URLS }}
@@ -93,7 +93,7 @@ jobs:
         run: |
           mkdir -p artifacts raw pipeline_state logs
           python -m polla_app run \
-            --sources openloto \
+            --sources all \
             --retries 3 \
             --timeout 30 \
             --no-fail-fast \

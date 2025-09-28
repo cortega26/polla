@@ -83,8 +83,8 @@ def pozos() -> None:
     """Print próximo pozo estimates from known aggregators."""
 
     results = {
-        "openloto": get_pozo_openloto(),
         "resultadoslotochile": get_pozo_resultadosloto(),
+        "openloto": get_pozo_openloto(),
     }
     _echo_json(results)
 
@@ -92,7 +92,7 @@ def pozos() -> None:
 @cli.command()
 @click.option(
     "--sources",
-    default="openloto",
+    default="all",
     show_default=True,
     help="Comma-separated list of sources to use (or 'all').",
 )
