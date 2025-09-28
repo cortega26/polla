@@ -26,8 +26,9 @@ PARSERS: dict[str, Parser] = {
 }
 
 POZO_FETCHERS: tuple[PozoFetcher, ...] = (
-    get_pozo_openloto,
+    # Prefer resultadoslotochile.com as primary; openloto as fallback
     get_pozo_resultadosloto,
+    get_pozo_openloto,
 )
 
 

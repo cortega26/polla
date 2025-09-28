@@ -308,7 +308,8 @@ def _collect_pozos(include: bool) -> tuple[dict[str, Any], ...]:
         return tuple()
 
     collected: list[dict[str, Any]] = []
-    for fetcher in (pozos_module.get_pozo_openloto, pozos_module.get_pozo_resultadosloto):
+    # Prefer resultadoslotochile.com as primary; openloto as fallback
+    for fetcher in (pozos_module.get_pozo_resultadosloto, pozos_module.get_pozo_openloto):
         try:
             payload = fetcher()
         except Exception as exc:  # pragma: no cover - network/runtime guard

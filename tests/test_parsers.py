@@ -5,7 +5,7 @@ from pathlib import Path
 
 from polla_app.net import FetchMetadata
 from polla_app.sources._24h import list_24h_result_urls, parse_24h_draw
-from polla_app.sources.pozos import get_pozo_openloto
+from polla_app.sources.pozos import get_pozo_openloto, get_pozo_resultadosloto
 from polla_app.sources.t13 import parse_t13_draw
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -71,3 +71,13 @@ def test_openloto_pozo(monkeypatch) -> None:
 
     assert pozos["montos"]["Loto Clásico"] == 690_000_000
     assert "Total estimado" in pozos["montos"]
+
+
+def test_resultadosloto_pozo_with_anniversary_jubilazo(monkeypatch) -> None:
+    metadata = _metadata("resultadosloto_pozo.html")
+    monkeypatch.setattr("polla_app.sources.pozos.fetch_html", lambda *_, **__: metadata)
+
+    pozos = get_pozo_resultadosloto()
+
+    assert pozos["montos"]["Jubilazo $1.000.000"] == 960_000_000
+    assert pozos["montos"]["Jubilazo $500.000"] == 480_000_000

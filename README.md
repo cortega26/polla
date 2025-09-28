@@ -128,7 +128,7 @@ Each draw record emitted by `ingest` follows this schema:
     "source": "t13",
     "url": "https://www.t13.cl/…",
     "ingested_at": "2025-09-17T02:15:00+00:00",
-    "pozos": {"primary": {"fuente": "https://www.openloto.cl/…"}}
+    "pozos": {"primary": {"fuente": "https://resultadoslotochile.com/pozo-para-el-proximo-sorteo/"}}
   }
 }
 ```
