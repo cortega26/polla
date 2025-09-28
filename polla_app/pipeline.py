@@ -477,6 +477,19 @@ def run_pipeline(
                                 "premio_rows": len(result.record.get("premios", []) or []),
                             }
                         )
+                        # Log individual prize rows per category for this source
+                        try:
+                            log_event(
+                                {
+                                    "event": "premios_parsed",
+                                    "source": source_name,
+                                    "url": url,
+                                    "sorteo": result.record.get("sorteo"),
+                                    "categories": _category_map(result.record),
+                                }
+                            )
+                        except Exception as exc:  # pragma: no cover - logging guard
+                            LOGGER.debug("Failed to emit premios_parsed log: %s", exc)
                         results.append(result)
                         loaded = True
                         break
@@ -558,6 +571,16 @@ def run_pipeline(
 
         if not consensus_rows:
             raise RuntimeError("No prize categories available after parsing all sources")
+
+        # Emit the consensus prize rows and mismatch stats to the structured log
+        log_event(
+            {
+                "event": "premios_consensus",
+                "rows": consensus_rows,
+                "mismatches": mismatches,
+                "mismatch_ratio": mismatch_ratio,
+            }
+        )
 
         last_draw = {
             "sorteo": max((res.record.get("sorteo") or 0) for res in results),

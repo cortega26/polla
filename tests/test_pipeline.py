@@ -261,3 +261,69 @@ def test_pipeline_missing_url_fail_fast(
             mismatch_threshold=0.5,
             include_pozos=False,
         )
+
+
+def test_pipeline_logs_premios_parsed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata
+) -> None:
+    # Single source with a known record
+    record = _make_record(0)
+    result = SourceResult("t13", "https://example.test/t13", fake_metadata, record)
+    monkeypatch.setitem(SOURCE_LOADERS, "t13", lambda url, timeout: result)
+
+    log_path = tmp_path / "run.jsonl"
+    run_pipeline(
+        sources=["t13"],
+        source_overrides={"t13": result.url},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=log_path,
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=False,
+    )
+
+    events = [json.loads(line) for line in log_path.read_text().splitlines() if line]
+    parsed = [e for e in events if e.get("event") == "premios_parsed"]
+    assert parsed, "Expected premios_parsed event in structured log"
+    cat_map = parsed[-1]["categories"]
+    assert cat_map["Loto 6 aciertos"]["premio_clp"] == 0
+    assert cat_map["Terna"]["ganadores"] == 10
+
+
+def test_pipeline_logs_premios_consensus(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata
+) -> None:
+    # Two sources that agree on values -> consensus should be logged
+    r1 = SourceResult("t13", "https://example.test/t13", fake_metadata, _make_record(0))
+    r2 = SourceResult("24h", "https://example.test/24h", fake_metadata, _make_record(0))
+    monkeypatch.setitem(SOURCE_LOADERS, "t13", lambda url, timeout: r1)
+    monkeypatch.setitem(SOURCE_LOADERS, "24h", lambda url, timeout: r2)
+
+    log_path = tmp_path / "run.jsonl"
+    run_pipeline(
+        sources=["t13", "24h"],
+        source_overrides={"t13": r1.url, "24h": r2.url},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=log_path,
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=False,
+    )
+
+    events = [json.loads(line) for line in log_path.read_text().splitlines() if line]
+    consensus = [e for e in events if e.get("event") == "premios_consensus"]
+    assert consensus, "Expected premios_consensus event in structured log"
+    rows = consensus[-1]["rows"]
+    assert any(r["categoria"].startswith("Loto 6") for r in rows)
