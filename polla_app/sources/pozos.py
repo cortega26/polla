@@ -33,6 +33,26 @@ _LABEL_PATTERNS = {
 }
 
 
+# Precompiled helpers to avoid repeated regex compilation in hot paths
+_NON_NUM = re.compile(r"[^0-9,\.]")
+_LABEL_REGEX: dict[str, re.Pattern[str]] = {
+    label: re.compile(
+        pattern + r"[^0-9$]{0,40}\$?([\d\.,]+)\s*(?:MM|MILLON(?:ES)?)?",
+        re.IGNORECASE,
+    )
+    for label, pattern in _LABEL_PATTERNS.items()
+}
+_DATE_RE = re.compile(
+    r"(\d{1,2})\s+de\s+([a-zA-Z\u00C0-\u017F]+)\s+de\s+(\d{4})",
+    re.IGNORECASE,
+)
+_PROX_FECHA_BLOCK_RE = re.compile(
+    r"Fecha\s+Pr[oó]ximo\s+Sorteo[:\s]*([^\n]+)",
+    re.IGNORECASE,
+)
+_SORTEO_RE = re.compile(r"Sorteo\s*(?:N[°º]\s*)?(\d{4,})", re.IGNORECASE)
+
+
 def _parse_millones_to_clp(raw: str) -> int:
     """Parse Spanish-formatted MILLONES into integer CLP.
 
@@ -43,7 +63,7 @@ def _parse_millones_to_clp(raw: str) -> int:
     - "1.234,56" -> 1_234_560
     """
 
-    cleaned = re.sub(r"[^0-9,\.]", "", raw or "")
+    cleaned = _NON_NUM.sub("", raw or "")
     if not cleaned:
         return 0
 
@@ -65,12 +85,9 @@ def _parse_millones_to_clp(raw: str) -> int:
 
 def _extract_amounts(text: str, *, allow_total: bool = True) -> dict[str, int]:
     amounts: dict[str, int] = {}
-    for label, pattern in _LABEL_PATTERNS.items():
+    for label, regex in _LABEL_REGEX.items():
         if not allow_total and label == "Total estimado":
             continue
-        regex = re.compile(
-            pattern + r"[^0-9$]{0,40}\$?([\d\.,]+)\s*(?:MM|MILLON(?:ES)?)?", re.IGNORECASE
-        )
         match = regex.search(text)
         if match:
             amounts[label] = _parse_millones_to_clp(match.group(1))
@@ -96,7 +113,7 @@ _MONTHS = {
 
 def _parse_spanish_date(text: str) -> str | None:
     # Match e.g., 16 de septiembre de 2025
-    m = re.search(r"(\d{1,2})\s+de\s+([a-zA-Z\u00C0-\u017F]+)\s+de\s+(\d{4})", text, re.IGNORECASE)
+    m = _DATE_RE.search(text)
     if not m:
         return None
     day, month_name, year = m.group(1), m.group(2), m.group(3)
@@ -116,7 +133,7 @@ def _extract_proximo_info(text: str) -> tuple[int | None, str | None]:
     sorteo: int | None = None
     fecha_iso: str | None = None
 
-    m_sorteo = re.search(r"Sorteo\s*(?:N[°º]\s*)?(\d{4,})", text, re.IGNORECASE)
+    m_sorteo = _SORTEO_RE.search(text)
     if m_sorteo:
         try:
             sorteo = int(m_sorteo.group(1))
@@ -124,7 +141,7 @@ def _extract_proximo_info(text: str) -> tuple[int | None, str | None]:
             sorteo = None
 
     # Prefer explicit "Fecha Próximo Sorteo" segment if present
-    m_fecha_block = re.search(r"Fecha\s+Pr[oó]ximo\s+Sorteo[:\s]*([^\n]+)", text, re.IGNORECASE)
+    m_fecha_block = _PROX_FECHA_BLOCK_RE.search(text)
     if m_fecha_block:
         fecha_iso = _parse_spanish_date(m_fecha_block.group(1))
     if not fecha_iso:

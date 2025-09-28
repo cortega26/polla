@@ -7,6 +7,7 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import lru_cache
 from urllib.parse import urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
 
@@ -30,6 +31,18 @@ class FetchMetadata:
         return hashlib.sha256(self.html.encode("utf-8")).hexdigest()
 
 
+@lru_cache(maxsize=64)
+def _get_robots_parser(robots_url: str) -> RobotFileParser | None:
+    parser = RobotFileParser()
+    try:
+        parser.set_url(robots_url)
+        parser.read()
+    except Exception as exc:  # pragma: no cover - network/IO edge cases
+        LOGGER.warning("Failed to read robots.txt from %s: %s", robots_url, exc)
+        return None
+    return parser
+
+
 def _robots_allowed(url: str, ua: str) -> bool:
     """Check whether the given URL is allowed by robots.txt.
 
@@ -40,15 +53,9 @@ def _robots_allowed(url: str, ua: str) -> bool:
 
     parsed = urlparse(url)
     robots_url = urlunparse((parsed.scheme, parsed.netloc, "/robots.txt", "", "", ""))
-    parser = RobotFileParser()
-
-    try:
-        parser.set_url(robots_url)
-        parser.read()
-    except Exception as exc:  # pragma: no cover - network/IO edge cases
-        LOGGER.warning("Failed to read robots.txt from %s: %s", robots_url, exc)
+    parser = _get_robots_parser(robots_url)
+    if parser is None:
         return True
-
     allowed = parser.can_fetch(ua, url)
     if not allowed:
         LOGGER.warning("robots.txt forbids %s for UA %s", url, ua)
