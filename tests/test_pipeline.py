@@ -13,7 +13,7 @@ from polla_app.pipeline import SOURCE_LOADERS, SourceResult, run_pipeline
 @pytest.fixture
 def fake_metadata() -> FetchMetadata:
     return FetchMetadata(
-        url="https://example.test/t13",
+        url="https://example.test/24h",
         user_agent="pytest",
         fetched_at=datetime(2024, 12, 1, tzinfo=timezone.utc),
         html="<html></html>",
@@ -24,7 +24,7 @@ def _make_record(premio_value: int) -> dict[str, object]:
     return {
         "sorteo": 5198,
         "fecha": "2024-12-01",
-        "fuente": "https://example.test/t13",
+        "fuente": "https://example.test/24h",
         "premios": [
             {"categoria": "Loto 6 aciertos", "premio_clp": premio_value, "ganadores": 0},
             {"categoria": "Terna", "premio_clp": 1000, "ganadores": 10},
@@ -35,17 +35,12 @@ def _make_record(premio_value: int) -> dict[str, object]:
 def test_pipeline_produces_artifacts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata
 ) -> None:
-    source_results = {
-        "t13": SourceResult("t13", "https://example.test/t13", fake_metadata, _make_record(0)),
-        "24h": SourceResult("24h", "https://example.test/24h", fake_metadata, _make_record(0)),
-    }
-
-    for key, result in source_results.items():
-        monkeypatch.setitem(SOURCE_LOADERS, key, lambda url, timeout, result=result: result)
+    result_24h = SourceResult("24h", "https://example.test/24h", fake_metadata, _make_record(0))
+    monkeypatch.setitem(SOURCE_LOADERS, "24h", lambda url, timeout: result_24h)
 
     output = run_pipeline(
         sources=["all"],
-        source_overrides={"t13": "https://example.test/t13", "24h": "https://example.test/24h"},
+        source_overrides={"24h": result_24h.url},
         raw_dir=tmp_path / "raw",
         normalized_path=tmp_path / "normalized.jsonl",
         comparison_report_path=tmp_path / "comparison.json",
@@ -59,7 +54,7 @@ def test_pipeline_produces_artifacts(
         include_pozos=False,
     )
 
-    assert (tmp_path / "raw" / "t13.json").exists()
+    assert (tmp_path / "raw" / "24h.json").exists()
     assert (tmp_path / "normalized.jsonl").exists()
     assert (tmp_path / "comparison.json").exists()
     assert output["publish"] is True
@@ -72,19 +67,15 @@ def test_pipeline_produces_artifacts(
     assert normalized_rows[0]["sorteo"] == 5198
 
 
-def test_pipeline_detects_mismatch(
+def test_pipeline_single_source_publishes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata
 ) -> None:
-    good = SourceResult("t13", "https://example.test/t13", fake_metadata, _make_record(0))
-    mismatch_record = _make_record(1000)
-    mismatch = SourceResult("24h", "https://example.test/24h", fake_metadata, mismatch_record)
-
-    monkeypatch.setitem(SOURCE_LOADERS, "t13", lambda url, timeout: good)
-    monkeypatch.setitem(SOURCE_LOADERS, "24h", lambda url, timeout: mismatch)
+    result_24h = SourceResult("24h", "https://example.test/24h", fake_metadata, _make_record(0))
+    monkeypatch.setitem(SOURCE_LOADERS, "24h", lambda url, timeout: result_24h)
 
     summary = run_pipeline(
-        sources=["t13", "24h"],
-        source_overrides={"t13": good.url, "24h": mismatch.url},
+        sources=["24h"],
+        source_overrides={"24h": result_24h.url},
         raw_dir=tmp_path / "raw",
         normalized_path=tmp_path / "normalized.jsonl",
         comparison_report_path=tmp_path / "comparison.json",
@@ -98,26 +89,16 @@ def test_pipeline_detects_mismatch(
         include_pozos=False,
     )
 
-    assert summary["decision"]["status"] == "quarantine"
-    report = json.loads((tmp_path / "comparison.json").read_text())
-    assert report["decision"]["status"] == "quarantine"
-    assert report["mismatches"], "Expected mismatches in comparison report"
+    assert summary["decision"]["status"].startswith("publish")
 
 
-def test_pipeline_skips_missing_url_and_publishes(
+def test_pipeline_handles_missing_url_quarantine(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata
 ) -> None:
-    def _unexpected_loader(url: str, timeout: int) -> SourceResult:
-        pytest.fail("t13 loader should not be invoked when URL is missing")
-
-    success = SourceResult("24h", "https://example.test/24h", fake_metadata, _make_record(0))
-
-    monkeypatch.setitem(SOURCE_LOADERS, "t13", _unexpected_loader)
-    monkeypatch.setitem(SOURCE_LOADERS, "24h", lambda url, timeout: success)
-
+    # With only 24h available, and no override URL provided, pipeline should quarantine
     summary = run_pipeline(
-        sources=["t13", "24h"],
-        source_overrides={"24h": success.url},
+        sources=["24h"],
+        source_overrides={},
         raw_dir=tmp_path / "raw",
         normalized_path=tmp_path / "normalized.jsonl",
         comparison_report_path=tmp_path / "comparison.json",
@@ -131,21 +112,17 @@ def test_pipeline_skips_missing_url_and_publishes(
         include_pozos=False,
     )
 
-    assert summary["publish"] is True
+    assert summary["publish"] is False
     report = json.loads((tmp_path / "comparison.json").read_text())
-    assert report["decision"]["status"] == "publish"
-    assert report["sources"].keys() == {"24h"}
-    assert report["failures"] == [
-        {"source": "t13", "url": None, "error": "Source skipped: missing URL"}
-    ]
+    assert report["decision"]["status"] == "quarantine"
 
 
 def test_pipeline_logs_pozos_enriched(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata
 ) -> None:
     # One successful source result
-    result = SourceResult("t13", "https://example.test/t13", fake_metadata, _make_record(0))
-    monkeypatch.setitem(SOURCE_LOADERS, "t13", lambda url, timeout: result)
+    result = SourceResult("24h", "https://example.test/24h", fake_metadata, _make_record(0))
+    monkeypatch.setitem(SOURCE_LOADERS, "24h", lambda url, timeout: result)
 
     # Stub pozo fetchers via the pozos module used in pipeline
     from polla_app import pipeline as pipeline_mod
@@ -170,8 +147,8 @@ def test_pipeline_logs_pozos_enriched(
 
     log_path = tmp_path / "run.jsonl"
     run_pipeline(
-        sources=["t13"],
-        source_overrides={"t13": result.url},
+        sources=["24h"],
+        source_overrides={"24h": result.url},
         raw_dir=tmp_path / "raw",
         normalized_path=tmp_path / "normalized.jsonl",
         comparison_report_path=tmp_path / "comparison.json",
@@ -237,18 +214,17 @@ def test_openloto_only_logs_pozos(
 def test_pipeline_missing_url_fail_fast(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata
 ) -> None:
-    def _unexpected_loader(url: str, timeout: int) -> SourceResult:
-        pytest.fail("t13 loader should not be invoked when URL is missing")
-
     success = SourceResult("24h", "https://example.test/24h", fake_metadata, _make_record(0))
-
-    monkeypatch.setitem(SOURCE_LOADERS, "t13", _unexpected_loader)
     monkeypatch.setitem(SOURCE_LOADERS, "24h", lambda url, timeout: success)
+    from polla_app import pipeline as pipeline_mod
+    monkeypatch.setattr(
+        pipeline_mod.source_24h, "list_24h_result_urls", lambda *_, **__: []
+    )
 
-    with pytest.raises(RuntimeError, match="No URL configured for source 't13'"):
+    with pytest.raises(RuntimeError, match="No URL configured for source '24h'"):
         run_pipeline(
-            sources=["t13", "24h"],
-            source_overrides={"24h": success.url},
+            sources=["24h"],
+            source_overrides={},
             raw_dir=tmp_path / "raw",
             normalized_path=tmp_path / "normalized.jsonl",
             comparison_report_path=tmp_path / "comparison.json",
@@ -268,13 +244,13 @@ def test_pipeline_logs_premios_parsed(
 ) -> None:
     # Single source with a known record
     record = _make_record(0)
-    result = SourceResult("t13", "https://example.test/t13", fake_metadata, record)
-    monkeypatch.setitem(SOURCE_LOADERS, "t13", lambda url, timeout: result)
+    result = SourceResult("24h", "https://example.test/24h", fake_metadata, record)
+    monkeypatch.setitem(SOURCE_LOADERS, "24h", lambda url, timeout: result)
 
     log_path = tmp_path / "run.jsonl"
     run_pipeline(
-        sources=["t13"],
-        source_overrides={"t13": result.url},
+        sources=["24h"],
+        source_overrides={"24h": result.url},
         raw_dir=tmp_path / "raw",
         normalized_path=tmp_path / "normalized.jsonl",
         comparison_report_path=tmp_path / "comparison.json",
@@ -300,15 +276,13 @@ def test_pipeline_logs_premios_consensus(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_metadata: FetchMetadata
 ) -> None:
     # Two sources that agree on values -> consensus should be logged
-    r1 = SourceResult("t13", "https://example.test/t13", fake_metadata, _make_record(0))
-    r2 = SourceResult("24h", "https://example.test/24h", fake_metadata, _make_record(0))
-    monkeypatch.setitem(SOURCE_LOADERS, "t13", lambda url, timeout: r1)
-    monkeypatch.setitem(SOURCE_LOADERS, "24h", lambda url, timeout: r2)
+    r1 = SourceResult("24h", "https://example.test/24h", fake_metadata, _make_record(0))
+    monkeypatch.setitem(SOURCE_LOADERS, "24h", lambda url, timeout: r1)
 
     log_path = tmp_path / "run.jsonl"
     run_pipeline(
-        sources=["t13", "24h"],
-        source_overrides={"t13": r1.url, "24h": r2.url},
+        sources=["24h"],
+        source_overrides={"24h": r1.url},
         raw_dir=tmp_path / "raw",
         normalized_path=tmp_path / "normalized.jsonl",
         comparison_report_path=tmp_path / "comparison.json",

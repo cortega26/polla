@@ -49,8 +49,8 @@ def _echo_json(payload: dict[str, Any], *, indent: int | None = 2) -> None:
 @click.argument("url")
 @click.option(
     "--source",
-    default="t13",
-    type=click.Choice(["t13", "24h"]),
+    default="24h",
+    type=click.Choice(["24h"]),
     help="Source parser to use.",
 )
 @click.option("--no-pozos", is_flag=True, help="Skip próximo pozo enrichment.")

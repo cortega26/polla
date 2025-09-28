@@ -12,7 +12,7 @@ def draw_record() -> dict[str, object]:
     return {
         "sorteo": 5198,
         "fecha": "2024-12-01",
-        "fuente": "https://example.test/t13/5198",
+        "fuente": "https://example.test/24h/5198",
         "premios": [
             {"categoria": "Loto 6 aciertos", "premio_clp": 0, "ganadores": 0},
         ],
@@ -21,7 +21,7 @@ def draw_record() -> dict[str, object]:
 
 
 def test_ingest_draw_merges_pozo_data(monkeypatch, draw_record) -> None:
-    monkeypatch.setitem(ingest.PARSERS, "t13", lambda url: copy.deepcopy(draw_record))
+    monkeypatch.setitem(ingest.PARSERS, "24h", lambda url: copy.deepcopy(draw_record))
 
     primary = {
         "fuente": "https://openloto.test",
@@ -40,7 +40,7 @@ def test_ingest_draw_merges_pozo_data(monkeypatch, draw_record) -> None:
 
     monkeypatch.setattr(ingest, "POZO_FETCHERS", (lambda: primary, lambda: alternative))
 
-    record = ingest.ingest_draw("https://example.test/t13/5198", source="t13")
+    record = ingest.ingest_draw("https://example.test/24h/5198", source="24h")
 
     assert record["pozos_proximo"]["Loto Clásico"] == 123_000_000
     assert record["pozos_proximo"]["Recargado"] == 456_000_000
@@ -49,11 +49,11 @@ def test_ingest_draw_merges_pozo_data(monkeypatch, draw_record) -> None:
 
 
 def test_ingest_draw_without_pozos(monkeypatch, draw_record) -> None:
-    monkeypatch.setitem(ingest.PARSERS, "t13", lambda url: copy.deepcopy(draw_record))
+    monkeypatch.setitem(ingest.PARSERS, "24h", lambda url: copy.deepcopy(draw_record))
     monkeypatch.setattr(ingest, "POZO_FETCHERS", tuple())
 
-    record = ingest.ingest_draw("https://example.test/t13/5198", source="t13", include_pozos=False)
+    record = ingest.ingest_draw("https://example.test/24h/5198", source="24h", include_pozos=False)
 
     assert "pozos_proximo" not in record
-    assert record["provenance"]["source"] == "t13"
+    assert record["provenance"]["source"] == "24h"
     assert "ingested_at" in record["provenance"]

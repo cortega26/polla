@@ -16,7 +16,6 @@ from typing import Any, cast
 from .net import FetchMetadata, fetch_html
 from .sources import _24h as source_24h
 from .sources import pozos as pozos_module
-from .sources import t13 as source_t13
 
 LOGGER = logging.getLogger(__name__)
 
@@ -34,28 +33,15 @@ class SourceResult:
 SourceLoader = Callable[[str, int], SourceResult]
 
 
-def _load_t13(url: str, timeout: int) -> SourceResult:
-    metadata = fetch_html(url, ua=source_t13.DEFAULT_UA, timeout=timeout)
-    record = source_t13.parse_draw_from_metadata(metadata, source="t13")
-    if not record.get("premios"):
-        raise RuntimeError(f"No se encontraron premios en {url}")
-    return SourceResult(name="t13", url=url, metadata=metadata, record=record)
-
-
 def _load_24h(url: str, timeout: int) -> SourceResult:
     metadata = fetch_html(url, ua=source_24h.DEFAULT_UA, timeout=timeout)
-    record = source_t13.parse_draw_from_metadata(metadata, source="24horas")
-    if not record.get("premios"):
-        LOGGER.debug("Retrying %s with T13 user-agent after empty premio list", url)
-        metadata = fetch_html(url, ua=source_t13.DEFAULT_UA, timeout=timeout)
-        record = source_t13.parse_draw_from_metadata(metadata, source="24horas")
+    record = source_24h.parse_draw_from_metadata(metadata, source="24horas")
     if not record.get("premios"):
         raise RuntimeError(f"No se encontraron premios en {url}")
     return SourceResult(name="24h", url=url, metadata=metadata, record=record)
 
 
 SOURCE_LOADERS: dict[str, SourceLoader] = {
-    "t13": _load_t13,
     "24h": _load_24h,
 }
 

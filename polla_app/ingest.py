@@ -12,7 +12,6 @@ from .sources import (
     get_pozo_resultadosloto,
     list_24h_result_urls,
     parse_24h_draw,
-    parse_t13_draw,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -20,10 +19,7 @@ LOGGER = logging.getLogger(__name__)
 Parser = Callable[[str], dict[str, Any]]
 PozoFetcher = Callable[[], dict[str, Any]]
 
-PARSERS: dict[str, Parser] = {
-    "t13": parse_t13_draw,
-    "24h": parse_24h_draw,
-}
+PARSERS: dict[str, Parser] = {"24h": parse_24h_draw}
 
 POZO_FETCHERS: tuple[PozoFetcher, ...] = (
     # Prefer resultadoslotochile.com as primary; openloto as fallback
@@ -48,7 +44,7 @@ def _collect_pozos() -> tuple[dict[str, Any], ...]:
 def ingest_draw(
     sorteo_url: str,
     *,
-    source: str = "t13",
+    source: str = "24h",
     include_pozos: bool = True,
 ) -> dict[str, Any]:
     """Parse a draw from the chosen source and enrich it with próximo pozo data."""

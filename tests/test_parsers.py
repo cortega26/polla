@@ -6,7 +6,6 @@ from pathlib import Path
 from polla_app.net import FetchMetadata
 from polla_app.sources._24h import list_24h_result_urls, parse_24h_draw
 from polla_app.sources.pozos import get_pozo_openloto, get_pozo_resultadosloto
-from polla_app.sources.t13 import parse_t13_draw
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -21,26 +20,7 @@ def _metadata(name: str, *, url: str = "https://example.test") -> FetchMetadata:
     )
 
 
-def test_t13_table_parse(monkeypatch) -> None:
-    metadata = _metadata("t13_sorteo_5198.html")
-    monkeypatch.setattr("polla_app.sources.t13.fetch_html", lambda *_, **__: metadata)
-
-    record = parse_t13_draw("https://example.test/t13/5198")
-
-    assert record["sorteo"] == 5198
-    assert record["fecha"] == "2024-12-01"
-    assert any(p["categoria"].lower().startswith("quina") for p in record["premios"])
-
-
-def test_t13_paragraph_fallback(monkeypatch) -> None:
-    metadata = _metadata("t13_sorteo_5322.html")
-    monkeypatch.setattr("polla_app.sources.t13.fetch_html", lambda *_, **__: metadata)
-
-    record = parse_t13_draw("https://example.test/t13/5322")
-
-    categorias = {p["categoria"] for p in record["premios"]}
-    assert "Súper Terna (3 + comodín)" in categorias
-    assert record["fecha"] == "2025-09-16"
+## T13 parser removed; 24h parser remains the primary draw parser.
 
 
 def test_list_24h_result_urls(monkeypatch) -> None:

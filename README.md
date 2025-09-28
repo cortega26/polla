@@ -1,7 +1,7 @@
 # Polla App — Alternative Lottery Source Ingestor
 
 This project normalises **Loto Chile** results without touching `polla.cl`. It
-parses public news articles (T13, 24Horas) and community aggregators to produce
+parses public news articles (24Horas) and community aggregators to produce
 a consistent JSON structure containing per-categoría payouts and próximo pozo
 estimates.
 
@@ -9,8 +9,7 @@ estimates.
 
 - ✅ **No WAF interaction** – HTTP requests are performed with `requests` and a
   descriptive User-Agent, honouring `robots.txt`.
-- 📰 **Multiple draw sources** – Parse T13 draw articles and fall back to
-  24Horas posts when necessary.
+- 📰 **Draw source** – Parse 24Horas result articles.
 - 💰 **Próximo pozo enrichment** – Fetch jackpot estimates from OpenLoto and
   ResultadosLotoChile, keeping provenance metadata.
 - 🧪 **Deterministic tests** – Parsers are covered with fixture-based unit tests.
@@ -51,16 +50,17 @@ python -m polla_app run \
   --include-pozos
 ```
 
-- Sources: `all` includes `24h` and `t13`. The `24h` URL is auto-discovered (latest); `t13` requires an explicit URL override if you want cross-source comparison.
+- Sources: `all` includes `24h`. The `24h` URL is auto-discovered (latest).
 - Override URLs via `--source-url` (repeatable) or `ALT_SOURCE_URLS` env var (JSON):
 
 ```bash
 python -m polla_app run \
   --sources all \
-  --source-url t13=https://www.t13.cl/noticia/nacional/resultados-del-loto-sorteo-5198
+  # Optionally pin a specific 24h URL (otherwise latest is auto-discovered)
+  --source-url 24h=https://www.24horas.cl/te-sirve/loto/resultados-loto-sorteo-5322
 
 # Or with env var (JSON mapping)
-export ALT_SOURCE_URLS='{"t13": "https://www.t13.cl/noticia/..."}'
+export ALT_SOURCE_URLS='{"24h": "https://www.24horas.cl/te-sirve/loto/resultados-loto-sorteo-5322"}'
 python -m polla_app run --sources all
 ```
 
@@ -87,10 +87,10 @@ If the decision status is `quarantine`, the canonical worksheet is skipped and m
 ### Parse a draw
 
 ```bash
-python -m polla_app ingest --source t13 "https://www.t13.cl/noticia/nacional/resultados-del-loto-sorteo-5198"
+python -m polla_app ingest --source 24h "https://www.24horas.cl/te-sirve/loto/resultados-loto-sorteo-5322"
 ```
 
-- `--source` accepts `t13` (default) or `24h`.
+- `--source` accepts `24h`.
 - `--no-pozos` disables próximo pozo enrichment.
 - `--compact` prints the record on a single JSON line.
 
@@ -114,7 +114,7 @@ Each draw record emitted by `ingest` follows this schema:
 {
   "sorteo": 5322,
   "fecha": "2025-09-16",
-  "fuente": "https://www.t13.cl/…",
+  "fuente": "https://www.24horas.cl/…",
   "premios": [
     {"categoria": "Loto 6 aciertos", "premio_clp": 0, "ganadores": 0},
     {"categoria": "Quina (5)", "premio_clp": 757970, "ganadores": 3}
@@ -125,8 +125,8 @@ Each draw record emitted by `ingest` follows this schema:
     "Total estimado": 4300000000
   },
   "provenance": {
-    "source": "t13",
-    "url": "https://www.t13.cl/…",
+    "source": "24h",
+    "url": "https://www.24horas.cl/…",
     "ingested_at": "2025-09-17T02:15:00+00:00",
     "pozos": {"primary": {"fuente": "https://resultadoslotochile.com/pozo-para-el-proximo-sorteo/"}}
   }
@@ -157,7 +157,7 @@ GitHub Actions workflows are provided:
 
 Set these in your repository settings:
 - Secrets: `GOOGLE_SHEETS_CREDENTIALS`, `GOOGLE_SPREADSHEET_ID`
-- Optional Vars: `ALT_SOURCE_URLS` (JSON mapping like `{ "t13": "https://…" }`)
+- Optional Vars: `ALT_SOURCE_URLS` (JSON mapping like `{ "24h": "https://…" }`)
 
 ## Migration
 
@@ -167,7 +167,7 @@ HTTP pipeline.
 - Replace any `python -m polla_app scrape` calls with `python -m polla_app run`.
 - Remove Playwright installation steps from CI (`playwright install`, `install-deps`).
 - Ensure repo secrets are configured: `GOOGLE_SHEETS_CREDENTIALS` and `GOOGLE_SPREADSHEET_ID`.
-- Optionally set `ALT_SOURCE_URLS` (JSON) to pin source URLs (e.g., a T13 article).
+- Optionally set `ALT_SOURCE_URLS` (JSON) to pin source URLs (e.g., a 24Horas article).
 ```
 
 ## License

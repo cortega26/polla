@@ -1,17 +1,13 @@
-
+﻿
 # Alternative Data Sources for Loto Chile (No WAF Interaction)
 
 **Purpose**: Keep the repo updated with **post-draw prize breakdowns por categoría** and **next-draw jackpots (pozos)** without touching `polla.cl` or bypassing any WAF. This document provides **drop-in parsers**, **scheduling hints**, and **tests** optimized for an AI code assistant to implement quickly.
 
-> TL;DR: Parse **T13** post-draw pages for *“Resultados del Loto: Ganadores”* (categoría · premio · ganadores). Use **24Horas** posts as a backup, and optionally pull **próximo pozo** from **OpenLoto** or **ResultadosLotoChile**. Respect robots.txt, identify your UA, cache, and write provenance in your spreadsheet.
+> TL;DR: Parse **24Horas** post-draw pages for *“Resultados del Loto: Ganadores”* (categoría · premio · ganadores). Optionally pull **próximo pozo** from **ResultadosLotoChile** (primary) and **OpenLoto** (fallback). Respect robots.txt, identify your UA, cache, and write provenance in your spreadsheet.
 
 ---
 
 ## Sources (examples)
-
-- **T13** (per-draw article, includes the *Ganadores* table):  
-  - Example (Sorteo 5322): <https://www.t13.cl/noticia/nacional/resultados-del-loto-sorteo-5322-del-martes-16-septiembre-16-9-2025>  
-  - Example (Sorteo 5198): <https://www.t13.cl/noticia/nacional/resultados-del-loto-sorteo-5198-del-domingo-1-diciembre-2-12-2024>
 
 - **24Horas** (running tag index of Loto result articles; good backup):  
   - Tag index: <https://www.24horas.cl/24horas/site/tag/port/all/tagport_2312_1.html>  
@@ -25,7 +21,7 @@
 
 > Notes
 > - Treat *pozo* figures from aggregators as **estimados**. Record the URL + timestamp.
-> - If a T13 page structure changes, fall back to a text-scan heuristic (see parser below).
+> - If a 24Horas page structure changes, fall back to a text-scan heuristic (see parser below).
 
 ---
 
@@ -37,7 +33,7 @@
 {
   "sorteo": 5322,
   "fecha": "2025-09-16",
-  "fuente": "https://www.t13.cl/noticia/nacional/resultados-del-loto-sorteo-5322-del-martes-16-septiembre-16-9-2025",
+  "fuente": "https://www.24horas.cl/te-sirve/loto/resultados-loto-sorteo-5322",
   "premios": [
     {"categoria": "Loto 6 aciertos", "premio_clp": 0, "ganadores": 0},
     {"categoria": "Súper Quina (5 + comodín)", "premio_clp": 0, "ganadores": 0},
@@ -90,34 +86,7 @@ def fetch_html(url: str, ua: str, timeout: int = 20) -> str:
 
 ---
 
-### Task B — Parser: T13 *“Ganadores”* table
-
-**File**: `polla_app/sources/t13.py`
-
-**Function**:
-```python
-def parse_t13_draw(url: str) -> dict:
-    """
-    Return {"sorteo": int|None, "fecha": "YYYY-MM-DD"|None, "fuente": url, "premios": [..]}.
-    Strategy:
-      1) Find H2/H3 containing "Ganadores"; read the next <table> rows.
-      2) If no table, scan nearby paragraphs for "Categoría ... $monto ... n".
-      3) Extract 'sorteo' and 'fecha' from page text if present.
-    """
-```
-
-**Heuristics**:
-- Column headers typically: **Categoría | Premio | Ganadores**.
-- Clean numbers: remove `.` and `$`; parse to `int` (CLP). Default `ganadores=0` if blank.
-- Accept alternate category labels: `"Súper Cua Terna"` vs `"Súper Cuaterna"` (normalize spacing only).
-
-**Edge cases**:
-- Zero jackpot categories show `$0 | 0`.
-- Extra sections like `RECARGADO`, `REVANCHA`, `DESQUITE`, `Jubilazo` may appear; keep them.
-
----
-
-### Task C — Parser: 24Horas article (backup)
+### Task B — Parser: 24Horas article (primary)
 
 **File**: `polla_app/sources/24h.py`
 
@@ -127,13 +96,16 @@ def list_24h_result_urls(index_url: str, limit: int = 10) -> list[str]:
     """Return last N article URLs from the Loto tag index."""
 
 def parse_24h_draw(url: str) -> dict:
-    """Mirror Task B: try to read a table, else text-scan for Categoría/Premio/Ganadores."""
+    # Parser implemented in polla_app/sources/_24h.py
+    ...
 ```
+
+---
 
 **Notes**:
 - The tag index at `<https://www.24horas.cl/24horas/site/tag/port/all/tagport_2312_1.html>` lists recent result posts.
 - Check `<https://www.24horas.cl/robots.txt>` (they declare broad allow). Be polite (1–2 requests/run).
-- 24Horas article structure varies more than T13; keep a robust fallback (paragraph scan).
+- 24Horas article structure varies; keep a robust fallback (paragraph scan).
 
 ---
 
@@ -156,18 +128,18 @@ def get_pozo_resultadosloto(url: str = "https://resultadoslotochile.com/pozo-par
 
 ---
 
-### Task E — Integrate with your Spreadsheet writer
+### Task C — Integrate with your Spreadsheet writer
 
 **File**: `polla_app/ingest.py`
 
 **Function**:
 ```python
-def ingest_draw(sorteo_url: str, source: str = "t13") -> dict:
+def ingest_draw(sorteo_url: str, source: str = "24h") -> dict:
     """Parse + write a row to Sheets. Return the record. Fields: sorteo, fecha, premios[], fuente."""
 ```
 
 **Steps**:
-1. `record = parse_t13_draw(url)` or `parse_24h_draw(url)` depending on `source`.
+1. `record = parse_24h_draw(url)`.
 2. Append `"provenance"` column(s): `source`, `url`, and optional `"html_hash"` for idempotency.
 3. Write list of category rows (long format) **or** a single JSON blob (wide format)—match your current sheet layout.
 4. (Optional) Enrich with `pozos_proximo` from `get_pozo_openloto()` or `get_pozo_resultadosloto()`.
@@ -177,72 +149,7 @@ def ingest_draw(sorteo_url: str, source: str = "t13") -> dict:
 ## Code Snippets (copy/paste ready)
 
 ### `polla_app/sources/t13.py`
-```python
-import re, datetime as dt
-from bs4 import BeautifulSoup
-from .net import fetch_html
-
-def _to_int(s: str) -> int:
-    return int(re.sub(r"[^0-9]", "", s or "0") or "0")
-
-def parse_t13_draw(url: str) -> dict:
-    html = fetch_html(url, ua="OddsTransparencyBot/1.0 (+contact@example.com)")
-    soup = BeautifulSoup(html, "html.parser")
-    text = soup.get_text(" ", strip=True)
-
-    # sorteo and date (best-effort)
-    m_sor = re.search(r"[Ss]orteo\s+(\d{4,})", text)
-    sorteo = int(m_sor.group(1)) if m_sor else None
-
-    m_date = re.search(r"(\d{1,2}\s+de\s+\w+\s+de\s+\d{4})", text)  # e.g., 16 de septiembre de 2025
-    fecha = None
-    if m_date:
-        try:
-            months = {
-                "enero":1,"febrero":2,"marzo":3,"abril":4,"mayo":5,"junio":6,
-                "julio":7,"agosto":8,"septiembre":9,"setiembre":9,"octubre":10,"noviembre":11,"diciembre":12
-            }
-            d, mes, y = re.findall(r"(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})", m_date.group(1))[0]
-            fecha = dt.date(int(y), months[mes.lower()], int(d)).isoformat()
-        except Exception:
-            fecha = None
-
-    # Locate "Ganadores" table
-    anchor = None
-    for tag in soup.find_all(["h2","h3"]):
-        if "Ganadores" in tag.get_text(strip=True):
-            anchor = tag
-            break
-
-    premios = []
-    table = anchor.find_next("table") if anchor else None
-    if table:
-        rows = table.find_all("tr")
-        # Skip header if present
-        start = 1 if rows and "Categoría" in rows[0].get_text() else 0
-        for tr in rows[start:]:
-            cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td","th"])]
-            if len(cells) >= 3:
-                categoria, premio, ganadores = cells[0], cells[1], cells[2]
-                premios.append({
-                    "categoria": re.sub(r"\s+", " ", categoria).strip(),
-                    "premio_clp": _to_int(premio),
-                    "ganadores": _to_int(ganadores),
-                })
-
-    # Fallback: greedy pattern in paragraphs
-    if not premios:
-        block = " ".join(p.get_text(" ", strip=True) for p in soup.find_all("p"))
-        pat = re.compile(r"([A-Za-z\s\u00C0-\u017F\$\d\(\)\+]+?)\s*\$([\d\.]+)\s*(\d+)", re.I)
-        for cat, monto, gan in pat.findall(block):
-            premios.append({
-                "categoria": re.sub(r"\s+", " ", cat).strip(),
-                "premio_clp": _to_int(monto),
-                "ganadores": _to_int(gan),
-            })
-
-    return {"sorteo": sorteo, "fecha": fecha, "fuente": url, "premios": premios}
-```
+Removed in favor of a single 24Horas parser.
 
 ### `polla_app/sources/24h.py`
 ```python
@@ -267,9 +174,8 @@ def list_24h_result_urls(index_url: str = INDEX, limit: int = 10) -> list[str]:
     return urls
 
 def parse_24h_draw(url: str) -> dict:
-    # Mirror parse_t13_draw; structure varies more, so rely on text-fallback.
-    from .t13 import parse_t13_draw as _parse  # reuse logic
-    return _parse(url)
+    # Parser implemented in polla_app/sources/_24h.py
+    ...
 ```
 
 ### `polla_app/sources/pozos.py`
@@ -323,35 +229,7 @@ def get_pozo_resultadosloto(url: str = "https://resultadoslotochile.com/pozo-par
 - `24h_tag_index.html` — saved source of the tag index page.
 
 **File**: `tests/test_parsers.py`
-```python
-from polla_app.sources.t13 import parse_t13_draw
-from polla_app.sources.pozos import get_pozo_openloto
-from pathlib import Path
-
-FIX = Path(__file__).parent / "fixtures"
-
-def read_fixture(name: str) -> str:
-    return (FIX / name).read_text(encoding="utf-8")
-
-def test_t13_table_parse(monkeypatch):
-    def fake_fetch(url, ua, timeout=20):
-        return read_fixture("t13_sorteo_5198.html")
-    monkeypatch.setenv("NO_NET", "1")
-    from polla_app import net
-    net.fetch_html = fake_fetch
-    record = parse_t13_draw("https://example.test")
-    assert isinstance(record["premios"], list)
-    assert any(p["categoria"].lower().startswith("terna") for p in record["premios"])
-
-def test_openloto_pozo(monkeypatch):
-    def fake_fetch(url, ua, timeout=20):
-        return read_fixture("openloto_pozo.html")
-    from polla_app import net
-    net.fetch_html = fake_fetch
-    pozos = get_pozo_openloto()
-    assert "Loto Clásico" in pozos
-    assert pozos["Loto Clásico"] > 0
-```
+Includes fixture-based tests for 24Horas parsing and pozo aggregators.
 
 Run:
 ```bash
@@ -378,7 +256,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: pip install -r requirements.txt
-      - run: python -m polla_app.cli ingest --source t13 --latest-from 24h
+      - run: python -m polla_app ingest --source 24h "https://www.24horas.cl/te-sirve/loto/resultados-loto-sorteo-5322"
 ```
 
 ---
@@ -397,43 +275,20 @@ jobs:
 ## CLI (optional)
 
 **File**: `polla_app/cli.py`
-```python
-import argparse, json
-from .sources.t13 import parse_t13_draw
-from .sources._24h import parse_24h_draw, list_24h_result_urls
-from .sources.pozos import get_pozo_openloto, get_pozo_resultadosloto
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["t13", "24h", "pozos"])
-    ap.add_argument("--url")
-    args = ap.parse_args()
-
-    if args.cmd == "t13":
-        print(json.dumps(parse_t13_draw(args.url), ensure_ascii=False, indent=2))
-    elif args.cmd == "24h":
-        print(json.dumps(parse_24h_draw(args.url), ensure_ascii=False, indent=2))
-    else:
-        p = get_pozo_openloto() or {}
-        q = get_pozo_resultadosloto() or {}
-        print(json.dumps({"openloto": p, "resultadoslotochile": q}, ensure_ascii=False, indent=2))
-
-if __name__ == "__main__":
-    main()
-```
+Use the built-in `polla_app.__main__` CLI instead.
 
 Run:
 ```bash
-python -m polla_app.cli t13 --url "https://www.t13.cl/noticia/nacional/resultados-del-loto-sorteo-5198-del-domingo-1-diciembre-2-12-2024"
-python -m polla_app.cli 24h --url "https://www.24horas.cl/te-sirve/loto/resultados-loto-sorteo-5298-martes-22-de-julio-de-2025--"
-python -m polla_app.cli pozos
+python -m polla_app ingest --source 24h "https://www.24horas.cl/te-sirve/loto/resultados-loto-sorteo-5298-martes-22-de-julio-de-2025--"
+python -m polla_app pozos
 ```
 
 ---
 
 ## Troubleshooting
 
-- **Table missing**: Use the paragraph fallback; T13 sometimes renders *Ganadores* as text blocks.
+- **Table missing**: Use the paragraph fallback; some articles render *Ganadores* as text blocks.
 - **Label variance**: Normalize only whitespace; don’t force names—your spreadsheet can map them later.
 - **Pozo not found**: Switch aggregator or skip enrichment for that run; mark as `null` and continue.
 - **HTTP 429**: Back off 60s, then retry once. If still 429, skip this run and log.
+

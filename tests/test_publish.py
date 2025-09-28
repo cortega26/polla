@@ -13,7 +13,7 @@ def normalized_file(tmp_path: Path) -> Path:
     record = {
         "sorteo": 5198,
         "fecha": "2024-12-01",
-        "fuente": "https://example.test/t13",
+        "fuente": "https://example.test/24h",
         "premios": [
             {"categoria": "Loto 6 aciertos", "premio_clp": 0, "ganadores": 0},
         ],
