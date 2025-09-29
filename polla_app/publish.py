@@ -170,71 +170,6 @@ def _update_canonical_worksheet(
     return len(rows)
 
 
-def _prepare_chile_updates(record: Mapping[str, Any]) -> list[tuple[str, int]]:
-    """Return (A1_cell, value) updates for the 'Chile' worksheet.
-
-    The mapping is defined as follows (all values are integer CLP):
-    - L2: Loto Clásico
-    - L3: Recargado
-    - L4: Revancha
-    - L5: Desquite
-    - L6: Jubilazo $1.000.000 + Jubilazo $500.000
-    - L8: Jubilazo 50 años $1.000.000 + Jubilazo 50 años $500.000
-    """
-    pozos: Mapping[str, Any] = record.get("pozos_proximo", {}) or {}
-
-    def _amt(key: str) -> int:
-        try:
-            return int(pozos.get(key, 0))
-        except Exception:
-            return 0
-
-    def _sum(keys: Iterable[str]) -> int:
-        total = 0
-        for k in keys:
-            v = _amt(k)
-            total += v
-        return total
-
-    updates: list[tuple[str, int]] = [
-        ("L2", _amt("Loto Clásico")),
-        ("L3", _amt("Recargado")),
-        ("L4", _amt("Revancha")),
-        ("L5", _amt("Desquite")),
-        (
-            "L6",
-            _sum((
-                "Jubilazo $1.000.000",
-                "Jubilazo $500.000",
-            )),
-        ),
-        (
-            "L8",
-            _sum(
-                (
-                    "Jubilazo 50 años $1.000.000",
-                    "Jubilazo 50 años $500.000",
-                )
-            ),
-        ),
-    ]
-    return updates
-
-
-def _update_chile_worksheet(spreadsheet: Any, record: Mapping[str, Any]) -> int:
-    """Update the 'Chile' worksheet with jackpot values in fixed cells.
-
-    Returns the number of cells updated.
-    """
-    ws = _get_or_create_worksheet(spreadsheet, "Chile")
-    updates = _prepare_chile_updates(record)
-    updated = 0
-    for cell, value in updates:
-        # Use one-cell rectangular updates to keep logic simple and explicit
-        ws.update(cell, [[value]])
-        updated += 1
-    return updated
-
 
 def _update_discrepancy_sheet(
     spreadsheet: Any,
@@ -277,8 +212,7 @@ def publish_to_google_sheets(
 
     report = _load_json(comparison_report_path)
     summary_payload = _normalize_summary(summary)
-    first_record = normalized[0]
-    rows = _record_to_rows(first_record)
+    rows = _record_to_rows(normalized[0])
     mismatch_rows = _mismatch_rows(report)
 
     publish_allowed, status = _parse_publish_decision(
@@ -311,13 +245,7 @@ def publish_to_google_sheets(
     spreadsheet = client.open_by_key(spreadsheet_id)
 
     if publish_allowed or force_publish:
-        # Special handling for the 'Chile' worksheet which expects fixed-cell updates
-        if worksheet_name == "Chile":
-            result["updated_rows"] = _update_chile_worksheet(spreadsheet, first_record)
-        else:
-            result["updated_rows"] = _update_canonical_worksheet(
-                spreadsheet, worksheet_name, rows
-            )
+        result["updated_rows"] = _update_canonical_worksheet(spreadsheet, worksheet_name, rows)
 
     _update_discrepancy_sheet(
         spreadsheet, discrepancy_tab, report, mismatch_rows, allow_quarantine=allow_quarantine
