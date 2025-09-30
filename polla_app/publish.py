@@ -170,7 +170,6 @@ def _update_canonical_worksheet(
     return len(rows)
 
 
-
 def _update_discrepancy_sheet(
     spreadsheet: Any,
     discrepancy_tab: str,
