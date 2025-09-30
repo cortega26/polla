@@ -1,4 +1,6 @@
 name: health
+permissions:
+  contents: read
 
 on:
   schedule:
