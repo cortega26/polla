@@ -33,11 +33,11 @@ flowchart LR
   C -->|OpenLoto fallback| E[Fallback scrape]
   D --> F[Normalizer]
   E --> F[Normalizer]
-  F --> G[Artifacts<br/>(JSONL, reports, state)]
+  F --> G[Artifacts (JSONL, reports, state)]
   G --> H{Publish?}
   H -->|Yes| I[Google Sheets via gspread]
   H -->|No| J[Quarantine + logs]
-  B --> K[Structured logging<br/>(spans + metrics)]
+  B --> K[Structured logging (spans + metrics)]
 ```
 
 ## Quick Start
