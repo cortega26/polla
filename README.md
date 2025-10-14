@@ -26,8 +26,9 @@ Aggregate próximo pozo estimates from vetted community mirrors, enforce provena
 
 ## Architecture at a Glance
 ```mermaid
-flowchart LR
-  B[Pipeline Orchestrator]
+%%{init: {"themeVariables": {"fontSize": "16px"}}}%%
+flowchart TB
+  A[CLI command] --> B[Pipeline Orchestrator]
   B --> C{Source loader}
   C -->|ResultadosLotoChile| D[Primary scrape]
   C -->|OpenLoto fallback| E[Fallback scrape]
