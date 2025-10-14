@@ -31,12 +31,13 @@ flowchart LR
   B --> C{Source loader}
   C -->|ResultadosLotoChile| D[Primary scrape]
   C -->|OpenLoto fallback| E[Fallback scrape]
-  D & E --> F[Normalizer]
-  F --> G[Artifacts\n(JSONL, reports, state)]
+  D --> F[Normalizer]
+  E --> F[Normalizer]
+  F --> G[Artifacts\\n(JSONL, reports, state)]
   G --> H{Publish?}
   H -->|Yes| I[Google Sheets via gspread]
   H -->|No| J[Quarantine + logs]
-  B --> K[Structured logging\n(spans + metrics)]
+  B --> K[Structured logging\\n(spans + metrics)]
 ```
 
 ## Quick Start
