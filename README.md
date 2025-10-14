@@ -1,4 +1,4 @@
-# Polla App — Reliable jackpot ingestion for Chilean Loto ops
+# Polla App — Reliable jackpot ingestion for Chilean Loto
 
 Aggregate próximo pozo estimates from vetted community mirrors, enforce provenance, and publish Google Sheets updates without touching `polla.cl`.
 
