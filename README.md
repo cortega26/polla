@@ -26,7 +26,7 @@ Aggregate próximo pozo estimates from vetted community mirrors, enforce provena
 
 ## Architecture at a Glance
 ```mermaid
-%%{init: {"themeVariables": {"fontSize": "16px"}}}%%
+%%{init: {"themeVariables": {"fontSize":"16px"}, "flowchart": {"htmlLabels": false, "wrap": true}}}%%
 flowchart TB
   A[CLI command] --> B[Pipeline Orchestrator]
   B --> C{Source loader}
@@ -34,11 +34,11 @@ flowchart TB
   C -->|OpenLoto fallback| E[Fallback scrape]
   D --> F[Normalizer]
   E --> F[Normalizer]
-  F --> G["Artifacts (JSONL, reports, state)"]
+  F --> G["Artifacts<br/>(JSONL, reports, state)"]
   G --> H{Publish?}
   H -->|Yes| I[Google Sheets via gspread]
   H -->|No| J[Quarantine + logs]
-  B --> K["Structured logging (spans + metrics)"]
+  B --> K["Structured logging<br/>(spans + metrics)"]
 ```
 
 ## Quick Start
