@@ -110,9 +110,4 @@ Contributions are welcome—see [CONTRIBUTING.md](CONTRIBUTING.md) for style, te
 
 This project is distributed under the [MIT License](license.md).
 
-## Contact
-- GitHub – [@cortega26](https://github.com/cortega26)
-- Website – _Add your portfolio link_
-- LinkedIn – _Add your profile link_
-
 [^coverage]: TODO: Enable Codecov (or GitHub Actions coverage summary) to visualise and gate coverage in CI.
