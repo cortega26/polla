@@ -311,6 +311,7 @@ def _build_report_payload(
     merged_pozos: Mapping[str, Any],
     record_source: Any,
     decision_status: str,
+    decision_reason: str,
 ) -> dict[str, Any]:
     return {
         "run": {
@@ -326,6 +327,7 @@ def _build_report_payload(
             "status": decision_status,
             "total_categories": len(merged_pozos),
             "mismatched_categories": 0,
+            "reason": decision_reason,
         },
         "prizes_changed": decision_status != "skip",
         "mismatches": [],
@@ -344,6 +346,7 @@ def _build_summary_payload(
     raw_dir: Path,
     state_path: Path,
     publish_flag: bool,
+    publish_reason: str,
 ) -> dict[str, Any]:
     return {
         "run_id": run_id,
@@ -355,6 +358,7 @@ def _build_summary_payload(
         "raw_dir": str(raw_dir),
         "state_path": str(state_path),
         "publish": publish_flag,
+        "publish_reason": publish_reason,
     }
 
 
@@ -401,11 +405,18 @@ def _handle_pozos_only(
     _write_jsonl(normalized_path, [record])
     _write_jsonl(state_path, [record])
 
-    decision_status = "skip" if unchanged else "publish"
-    publish_flag = not unchanged
+    if unchanged:
+        decision_status = "skip"
+        publish_flag = False
+        publish_reason = "sorteo_fecha_and_amounts_unchanged"
+    else:
+        decision_status = "publish"
+        publish_flag = True
+        publish_reason = "updated_or_new_amounts"
     if force_publish and unchanged:
         decision_status = "publish_forced"
         publish_flag = True
+        publish_reason = "force_publish_requested"
 
     generated_at = datetime.now(timezone.utc).isoformat()
     report_payload = _build_report_payload(
@@ -420,6 +431,7 @@ def _handle_pozos_only(
         merged_pozos=merged_pozos,
         record_source=record["fuente"],
         decision_status=decision_status,
+        decision_reason=publish_reason,
     )
     report_payload["api_version"] = API_VERSION
     _write_json(comparison_report_path, report_payload)
@@ -433,6 +445,7 @@ def _handle_pozos_only(
         raw_dir=raw_dir,
         state_path=state_path,
         publish_flag=publish_flag,
+        publish_reason=publish_reason,
     )
     summary_payload["api_version"] = API_VERSION
 
@@ -452,9 +465,7 @@ def _handle_pozos_only(
             "decision": decision_status,
             "mismatch_ratio": 0.0,
             "prizes_changed": not unchanged,
-            "reason": (
-                "sorteo_fecha_and_amounts_unchanged" if unchanged else "updated_or_new_amounts"
-            ),
+            "reason": publish_reason,
         }
     )
     metric(
