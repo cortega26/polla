@@ -117,11 +117,40 @@ jobs:
         id: decision
         run: |
           python - <<'PY'
-          import json, pathlib, os
-          payload = json.loads(pathlib.Path('artifacts/run_summary.json').read_text())
-          value = 'true' if payload.get('publish') else 'false'
-          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
-              handle.write(f"publish={value}\n")
+          """Expose publish decision metadata for downstream jobs."""
+
+          from __future__ import annotations
+
+          import json
+          import os
+          from pathlib import Path
+
+          summary_path = Path("artifacts/run_summary.json")
+          if not summary_path.exists():
+              raise SystemExit("Run summary not found; cannot determine publish decision")
+
+          payload = json.loads(summary_path.read_text(encoding="utf-8"))
+          publish_flag = bool(payload.get("publish"))
+          decision = payload.get("decision", {}) or {}
+          status = str(decision.get("status", "unknown"))
+          reason = str(payload.get("publish_reason") or decision.get("reason") or "unknown")
+
+          outputs_path = Path(os.environ["GITHUB_OUTPUT"])
+          with outputs_path.open("a", encoding="utf-8") as handle:
+              handle.write(f"publish={'true' if publish_flag else 'false'}\n")
+              handle.write(f"publish_reason={reason}\n")
+              handle.write(f"decision_status={status}\n")
+
+          summary_output = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_output:
+              with Path(summary_output).open("a", encoding="utf-8") as handle:
+                  handle.write("### Publish decision\n")
+                  handle.write(f"- Publish: {'yes' if publish_flag else 'no'}\n")
+                  handle.write(f"- Status: {status}\n")
+                  handle.write(f"- Reason: {reason}\n")
+
+          if not publish_flag:
+              print(f"::notice::Publish job will be skipped because {reason} (status={status}).")
           PY
 
       - name: Save pipeline state
@@ -167,29 +196,40 @@ jobs:
 
   publish:
     needs: ingest
-    if: needs.ingest.outputs.publish == 'true'
+    if: needs.ingest.result == 'success'
     runs-on: ubuntu-latest
     steps:
+      - name: Publish decision summary
+        if: ${{ needs.ingest.outputs.publish != 'true' }}
+        run: |
+          echo "Publish step skipped: ${{ needs.ingest.outputs.publish_reason || 'no reason provided' }} (status=${{ needs.ingest.outputs.decision_status || 'unknown' }})"
+          exit 0
+
       - uses: actions/checkout@v4
+        if: ${{ needs.ingest.outputs.publish == 'true' }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
+        if: ${{ needs.ingest.outputs.publish == 'true' }}
         with:
           python-version: '3.11'
           cache: 'pip'
           cache-dependency-path: 'requirements.txt'
 
       - name: Install dependencies
+        if: ${{ needs.ingest.outputs.publish == 'true' }}
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Download artifacts
+        if: ${{ needs.ingest.outputs.publish == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: alt-sources-artifacts
 
       - name: Publish to Google Sheets
+        if: ${{ needs.ingest.outputs.publish == 'true' }}
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}

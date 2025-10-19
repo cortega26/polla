@@ -54,6 +54,7 @@ def test_pozos_pipeline_produces_artifacts(tmp_path: Path, monkeypatch: pytest.M
     assert (tmp_path / "normalized.jsonl").exists()
     assert (tmp_path / "comparison.json").exists()
     assert output["publish"] is True
+    assert output["publish_reason"] == "updated_or_new_amounts"
 
     normalized_rows = [
         json.loads(line)
@@ -129,6 +130,119 @@ def test_pozos_pipeline_skip_when_unchanged(
 
     # Previous state only had one category; current merge adds Recargado -> should publish
     assert summary["publish"] is True
+    assert summary["publish_reason"] == "updated_or_new_amounts"
+
+
+def test_pozos_pipeline_reason_when_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    primary = {
+        "fuente": "https://resultadoslotochile.com/pozo-para-el-proximo-sorteo/",
+        "fetched_at": "2025-09-28T00:00:00+00:00",
+        "montos": {"Loto Clásico": 111_000_000},
+        "user_agent": "pytest",
+        "estimado": True,
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+    }
+    fallback = {
+        "fuente": "https://www.openloto.cl/pozo-del-loto.html",
+        "fetched_at": "2025-09-28T00:00:10+00:00",
+        "montos": {"Loto Clásico": 111_000_000},
+        "user_agent": "pytest",
+        "estimado": True,
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+    }
+
+    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_resultadosloto", lambda: primary)
+    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", lambda: fallback)
+
+    state = tmp_path / "state.jsonl"
+    state.write_text(
+        json.dumps(
+            {
+                "sorteo": 6001,
+                "fecha": "2025-09-30",
+                "pozos_proximo": {"Loto Clásico": 111_000_000},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = run_pipeline(
+        sources=["pozos"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=state,
+        log_path=tmp_path / "run.log",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+    )
+
+    assert summary["publish"] is False
+    assert summary["publish_reason"] == "sorteo_fecha_and_amounts_unchanged"
+
+
+def test_pozos_pipeline_force_publish_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    payload = {
+        "fuente": "https://resultadoslotochile.com/pozo-para-el-proximo-sorteo/",
+        "fetched_at": "2025-09-28T00:00:00+00:00",
+        "montos": {"Loto Clásico": 111_000_000},
+        "user_agent": "pytest",
+        "estimado": True,
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+    }
+
+    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_resultadosloto", lambda: payload)
+    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", lambda: payload)
+
+    state = tmp_path / "state.jsonl"
+    state.write_text(
+        json.dumps(
+            {
+                "sorteo": 6001,
+                "fecha": "2025-09-30",
+                "pozos_proximo": {"Loto Clásico": 111_000_000},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = run_pipeline(
+        sources=["pozos"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=state,
+        log_path=tmp_path / "run.log",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+        force_publish=True,
+    )
+
+    assert summary["publish"] is True
+    assert summary["publish_reason"] == "force_publish_requested"
 
 
 def test_openloto_only_logs_pozos(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

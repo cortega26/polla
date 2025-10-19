@@ -14,7 +14,7 @@ True
 
 - Sources: `"pozos"` (primary + fallback) or `"openloto"` (fallback only).
 - `source_overrides`: case‑insensitive mapping of `{ "openloto": url, "resultadoslotochile": url }`.
-- Returns a run summary with `publish` boolean and artifact paths.
+- Returns a run summary with `publish` boolean, `publish_reason` string, and artifact paths.
 
 Example:
 
@@ -38,6 +38,7 @@ summary = run_pipeline(
     include_pozos=True,
 )
 print(summary["publish"])  # True/False
+print(summary["publish_reason"])  # e.g. "updated_or_new_amounts"
 ```
 
 ## Publishing
