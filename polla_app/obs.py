@@ -58,8 +58,6 @@ def sanitize(obj: Any) -> Any:
         return result
     if isinstance(obj, list):
         return [sanitize(x) for x in obj]
-    if isinstance(obj, str):
-        return redact(obj)
     return obj
 
 

@@ -11,6 +11,7 @@ from typing import Any
 
 from .contracts import API_VERSION
 from .exceptions import ConfigError
+from .notifiers import notify_slack
 
 # Optional at import time to allow dry-run in tests without gspread installed
 gspread: Any
@@ -231,9 +232,44 @@ def publish_to_google_sheets(
         spreadsheet_id = os.getenv("GOOGLE_SPREADSHEET_ID") or os.getenv(
             "GOOGLE_SHEETS_SPREADSHEET_ID"
         )
+        diff_text = ""
         if spreadsheet_id:
             result["spreadsheet_id"] = spreadsheet_id
-        result.update({"worksheet": worksheet_name, "discrepancy_tab": discrepancy_tab})
+            try:
+                client = _load_credentials()
+                spreadsheet = client.open_by_key(spreadsheet_id)
+                ws = spreadsheet.worksheet(worksheet_name)
+                current_values = ws.get_all_values()
+
+                # Convert to comparable strings
+                current_lines = [", ".join(map(str, r)) for r in current_values]
+                header = _canonical_rows_header(rows)
+                proposed_lines = [", ".join(map(str, r)) for r in [header] + rows]
+
+                import difflib
+
+                diff_text = "\n".join(
+                    difflib.unified_diff(
+                        current_lines,
+                        proposed_lines,
+                        fromfile=f"sheet:{worksheet_name}",
+                        tofile="proposed_update",
+                        lineterm="",
+                    )
+                )
+            except Exception as exc:
+                LOGGER.debug("Could not fetch current sheet for diff: %s", exc)
+                diff_text = f"(Diff unavailable: {exc})"
+
+        result.update(
+            {
+                "worksheet": worksheet_name,
+                "discrepancy_tab": discrepancy_tab,
+                "rows": rows,
+                "mismatch_rows": mismatch_rows,
+                "diff": diff_text or "(No changes detected against the current sheet)",
+            }
+        )
         return result
 
     spreadsheet_id = os.getenv("GOOGLE_SPREADSHEET_ID") or os.getenv("GOOGLE_SHEETS_SPREADSHEET_ID")
@@ -249,6 +285,9 @@ def publish_to_google_sheets(
     _update_discrepancy_sheet(
         spreadsheet, discrepancy_tab, report, mismatch_rows, allow_quarantine=allow_quarantine
     )
+
+    # Optional notifications
+    notify_slack(result)
 
     return result
 

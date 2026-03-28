@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
-from time import monotonic, sleep
+from time import monotonic
 from typing import Final
 from urllib.parse import urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
@@ -67,11 +67,25 @@ def _robots_allowed(url: str, ua: str) -> bool:
     return allowed
 
 
+def _calculate_backoff(attempt: int, factor: float, max_seconds: float) -> float:
+    """Calculate exponential backoff with jitter.
+
+    Uses the formula: (factor * 2^(attempt-1)) + jitter.
+    """
+    import random
+
+    delay = factor * (2 ** (attempt - 1))
+    # Add up to 25% jitter
+    jitter = random.uniform(0, 0.25 * delay)
+    return min(delay + jitter, max_seconds)
+
+
 def fetch_html(url: str, ua: str, timeout: int = 20) -> FetchMetadata:
     """GET ``url`` with a descriptive UA and return the body plus metadata.
 
-    A single retry with 60s back-off is attempted if the remote responds with
-    HTTP 429. Any other non-200 response raises ``HTTPError``.
+    Supports exponential backoff with jitter if the remote responds with HTTP 429.
+    Retries and backoff factor are configurable via POLLA_MAX_RETRIES and
+    POLLA_BACKOFF_FACTOR.
     """
 
     session = requests.Session()
@@ -108,7 +122,7 @@ def fetch_html(url: str, ua: str, timeout: int = 20) -> FetchMetadata:
         if last is not None:
             delta = now - last
             if delta < min_interval:
-                sleep(min_interval - delta)
+                time.sleep(min_interval - delta)
         last_seen[host] = monotonic()
         fetch_html._last_seen = last_seen  # type: ignore[attr-defined]
 
@@ -120,18 +134,33 @@ def fetch_html(url: str, ua: str, timeout: int = 20) -> FetchMetadata:
         response.raise_for_status()
         return response
 
+    max_retries = int(os.getenv("POLLA_MAX_RETRIES", "3"))
+    backoff_factor = float(os.getenv("POLLA_BACKOFF_FACTOR", "30.0"))
+    # Fallback to legacy env if set for backward compatibility
+    if "POLLA_429_BACKOFF_SECONDS" in os.environ and "POLLA_BACKOFF_FACTOR" not in os.environ:
+        backoff_factor = float(os.getenv("POLLA_429_BACKOFF_SECONDS", "30.0"))
+
     attempts = 0
     response: requests.Response | None = None
-    while attempts < 2:
+    while attempts < max_retries:
         try:
             response = _request()
             break
         except requests.HTTPError as err:
             attempts += 1
-            if attempts >= 2 or not getattr(err.response, "status_code", None) == 429:
+            status = getattr(err.response, "status_code", None)
+            if attempts >= max_retries or status != 429:
                 raise
-            LOGGER.info("429 received from %s; backing off before retry", url)
-            time.sleep(60)
+
+            sleep_time = _calculate_backoff(attempts, backoff_factor, 300.0)
+            LOGGER.info(
+                "429 received from %s (attempt %d/%d); backing off %.1fs",
+                url,
+                attempts,
+                max_retries,
+                sleep_time,
+            )
+            time.sleep(sleep_time)
 
     if response is None:  # pragma: no cover - safety guard
         raise RuntimeError(f"Failed to fetch {url}")

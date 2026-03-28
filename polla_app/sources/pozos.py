@@ -9,6 +9,7 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
+from ..exceptions import ParseError
 from ..net import fetch_html
 
 LOGGER = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ _LABEL_PATTERNS = {
 _NON_NUM = re.compile(r"[^0-9,\.]")
 _LABEL_REGEX: dict[str, re.Pattern[str]] = {
     label: re.compile(
-        pattern + r"[^0-9$]{0,40}\$?([\d\.,]+)\s*(?:MM|MILLON(?:ES)?)?",
+        pattern + r"[^0-9$]{0,50}\$?([\d\.,]+)",
         re.IGNORECASE,
     )
     for label, pattern in _LABEL_PATTERNS.items()
@@ -61,27 +62,85 @@ def _parse_millones_to_clp(raw: str) -> int:
     - "690" -> 690_000_000
     - "4.300" -> 4_300_000_000 (dot as thousands separator)
     - "4,75" -> 4_750_000 (comma as decimal separator)
-    - "1.234,56" -> 1_234_560
+    - "1.234,56" -> 1_234_560_000
+    - "4.300 MM" -> 4_300_000_000
     """
 
-    cleaned = _NON_NUM.sub("", raw or "")
+    cleaned = (raw or "").strip().lower()
     if not cleaned:
-        return 0
+        raise ParseError("Empty monetary value", context={"raw": raw})
 
-    if "," in cleaned and "." in cleaned:
-        # Assume dot thousands + comma decimal
+    # Detect explicit units
+    multiplier = 1_000_000
+    if cleaned.endswith("mm") or "millones" in cleaned:
+        multiplier = 1_000_000
+        cleaned = cleaned.replace("millones", "").replace("mm", "").strip()
+    elif cleaned.endswith("mil"):
+        # "1.000 mil" -> 1,000,000 (but in MILLONES context this is rare)
+        # If the input expects millions, "mil" might be a suffix for an absolute value
+        # that was accidentally passed. We'll honor the "mil" = 1000.
+        multiplier = 1_000
+        cleaned = cleaned.replace("mil", "").strip()
+    elif cleaned.endswith("m") and not cleaned.endswith("mm"):
+        # Single M usually means Millions in this context
+        multiplier = 1_000_000
+        cleaned = cleaned.rstrip("m").strip()
+
+    # Remove currency and whitespace
+    cleaned = cleaned.replace("$", "").replace(" ", "")
+
+    # Detect separator intent
+    if "." in cleaned and "," in cleaned:
+        # Mixed: 1.234,56 -> 1234.56
+        # Validate that dots are thousands (3 digits)
+        parts = cleaned.split(".")
+        for p in parts[1:-1]:
+            if len(p) != 3:
+                raise ParseError("Invalid thousands separator position", context={"raw": raw})
+        if len(parts[-1].split(",")[0]) != 3:
+            raise ParseError("Invalid last thousands separator", context={"raw": raw})
         cleaned = cleaned.replace(".", "").replace(",", ".")
     elif "," in cleaned:
-        cleaned = cleaned.replace(",", ".")
-    else:
-        cleaned = cleaned.replace(".", "")
+        # Only comma.
+        parts = cleaned.split(",")
+        if len(parts) > 2:
+            # 1,234,567
+            for p in parts[1:]:
+                if len(p) != 3:
+                    raise ParseError("Invalid multiple commas", context={"raw": raw})
+            cleaned = cleaned.replace(",", "")
+        elif len(parts) == 2 and len(parts[1]) == 3:
+            # 4,300 -> 4300
+            cleaned = cleaned.replace(",", "")
+        else:
+            # 4,75 -> 4.75
+            cleaned = cleaned.replace(",", ".")
+    elif "." in cleaned:
+        # Only dot.
+        parts = cleaned.split(".")
+        if len(parts) > 2:
+            # 1.234.567
+            for p in parts[1:]:
+                if len(p) != 3:
+                    raise ParseError("Invalid multiple dots", context={"raw": raw})
+            cleaned = cleaned.replace(".", "")
+        elif len(parts) == 2 and len(parts[1]) == 3:
+            # 4.300 -> 4300
+            cleaned = cleaned.replace(".", "")
+        else:
+            # 4.3 -> 4.3
+            pass
 
     try:
         value = float(cleaned)
-    except ValueError:
-        LOGGER.debug("Unable to parse monetary value from %s", raw)
-        return 0
-    return int(round(value * 1_000_000))
+    except ValueError as exc:
+        raise ParseError(
+            f"Unable to parse monetary value: {raw}",
+            original_error=exc,
+            context={"raw": raw, "processed": cleaned},
+        ) from exc
+
+    return int(round(value * multiplier))
 
 
 def _extract_amounts(text: str, *, allow_total: bool = True) -> dict[str, int]:
@@ -163,10 +222,16 @@ def _fetch_pozos(*, url: str, ua: str, timeout: int, allow_total: bool) -> dict[
     soup = BeautifulSoup(metadata.html, "html.parser")
     text = soup.get_text(" ", strip=True)
     amounts = _extract_amounts(text, allow_total=allow_total)
+    if not amounts:
+        raise ParseError(
+            f"No valid pozo amounts found in source content from {url}",
+            context={"url": url, "text_snippet": text[:200]},
+        )
     sorteo, fecha = _extract_proximo_info(text)
     return {
         "fuente": url,
         "fetched_at": metadata.fetched_at.isoformat(),
+        "sha256": metadata.sha256,
         "estimado": True,
         "montos": amounts,
         "user_agent": metadata.user_agent,

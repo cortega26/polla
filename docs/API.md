@@ -12,9 +12,9 @@ True
 
 `polla_app.pipeline.run_pipeline(*, sources, source_overrides, raw_dir, normalized_path, comparison_report_path, summary_path, state_path, log_path, retries, timeout, fail_fast, mismatch_threshold, include_pozos, force_publish=False) -> dict`
 
-- Sources: `"pozos"` (primary + fallback) or `"openloto"` (fallback only).
+- Sources: `"pozos"`, `"resultadoslotochile"`, or `"openloto"`. Sources use a unified registry for consistent results.
 - `source_overrides`: case‑insensitive mapping of `{ "openloto": url, "resultadoslotochile": url }`.
-- Returns a run summary with `publish` boolean, `publish_reason` string, and artifact paths.
+- Returns a result with `status` (publish/skip/quarantine), `publish_reason`, and `max_deviation`.
 
 Example:
 
@@ -79,8 +79,9 @@ Return a dict with `montos` per category, `fuente`, `fetched_at`, and best‑eff
 
 `polla_app.net.fetch_html(url: str, ua: str, timeout: int = 20) -> FetchMetadata`
 
-- Politely fetches HTML with robots.txt checks and a single retry on 429.
-- Returns `FetchMetadata(url, user_agent, fetched_at, html)`; `sha256` property for body hash.
+- Politely fetches HTML with robots.txt checks and jittered exponential backoff on 429.
+- Backoff is configurable via `POLLA_MAX_RETRIES` and `POLLA_BACKOFF_FACTOR`.
+- Returns `FetchMetadata(url, user_agent, fetched_at, html)`; `sha256` property provides body hash for bit-perfect deduplication.
 
 ## Exceptions
 

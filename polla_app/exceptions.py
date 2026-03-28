@@ -36,14 +36,17 @@ class ScriptError(Exception):
         return base_msg
 
     def log_error(self, logger: logging.Logger) -> None:
+        # Use localized import to avoid cyclic dependency
+        from .obs import sanitize
+
         payload = {
             "event": "error",
             "timestamp": self.timestamp.isoformat(),
             "error_code": self.error_code,
             "message": self.message,
-            "context": self.context,
+            "context": self.context or {},
         }
-        logger.error("%s", payload)
+        logger.error("%s", sanitize(payload))
         if self.traceback:
             logger.debug("traceback=%s", self.traceback)
 
@@ -73,19 +76,21 @@ class RobotsDisallowedError(PermissionError, ScriptError):
 
 
 def redact(text: str) -> str:
-    """Redact potentially sensitive tokens from text.
+    """Redact a sensitive token entirely.
 
-    This simple redactor masks long alphanumeric sequences that resemble keys.
-    It intentionally does not alter URLs or small tokens.
+    This mechanism relies on the caller (e.g. sanitization logic) to provide
+    only tokens that are already identified as sensitive. It no longer
+    blindly searches for long alphanumeric sequences to avoid affecting URLs.
     """
 
-    import re
+    if not text:
+        return ""
 
-    def _mask(match: re.Match[str]) -> str:
-        token = match.group(0)
-        return token[:4] + "…" + token[-2:]
-
-    return re.sub(r"[A-Za-z0-9_\-]{20,}", _mask, text or "")
+    text = str(text)
+    if len(text) <= 6:
+        return "…"
+    # Mask most of the token but keep prefixes for debugging
+    return f"{text[:4]}…{text[-2:]}"
 
 
 @dataclass(frozen=True)

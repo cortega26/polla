@@ -274,6 +274,9 @@ def publish(
     )
 
     _echo_json(result)
+    if dry_run and result.get("diff"):
+        click.echo("\n--- Proposed Changes (Unified Diff) ---")
+        click.echo(result["diff"])
 
 
 @cli.command()
@@ -288,6 +291,15 @@ def publish(
 )
 def health(online: bool, timeout: int) -> None:
     """Run health checks (offline by default). Prints JSON with status."""
+
+    def _validate_pozos(payload: dict[str, Any]) -> tuple[bool, str | None]:
+        montos = payload.get("montos", {}) or {}
+        if not montos:
+            return False, "no_amounts"
+        # Sanity check: at least one jackpot must be > 0 and < 50,000 MM
+        if not any(0 < int(m) < 50_000_000_000 for m in montos.values()):
+            return False, "amounts_out_of_range"
+        return True, None
 
     def _pkg_ver(name: str) -> str | None:
         try:
@@ -318,14 +330,21 @@ def health(online: bool, timeout: int) -> None:
             try:
                 payload = fn(timeout=timeout)
                 elapsed = time.monotonic() - start
+
+                is_valid, error_code = _validate_pozos(payload)
+
                 sources = checks["sources"]
                 assert isinstance(sources, dict)
                 sources[name] = {
-                    "ok": True,
+                    "ok": is_valid,
                     "ms": int(elapsed * 1000),
                     "keys": sorted((payload.get("montos", {}) or {}).keys()),
                 }
-                successes += 1
+                if not is_valid:
+                    sources[name]["error"] = error_code
+                    failures += 1
+                else:
+                    successes += 1
             except Exception as exc:  # pragma: no cover - network variability in live checks
                 elapsed = time.monotonic() - start
                 sources = checks["sources"]
