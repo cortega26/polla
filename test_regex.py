@@ -28,4 +28,3 @@ for label, pattern in _LABEL_PATTERNS.items():
     match = regex.search(text)
     if match:
         print(f"{label}: {match.group(1)}")
-
