@@ -118,7 +118,7 @@ def _collect_pozos(
 
 
 def _merge_pozos(
-    collected: Sequence[dict[str, Any]]
+    collected: Sequence[dict[str, Any]],
 ) -> tuple[dict[str, int], dict[str, Any], list[dict[str, Any]]]:
     """Merge pozos from multiple sources using a consensus strategy.
 
