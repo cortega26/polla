@@ -32,14 +32,12 @@ def test_pozos_command_error_handling(monkeypatch: pytest.MonkeyPatch) -> None:
     def failing_source(**_: object) -> None:
         raise ParseError("bad html", context={})
 
-    monkeypatch.setattr(main_mod, "get_pozo_resultadosloto", ok_source)
     monkeypatch.setattr(main_mod, "get_pozo_openloto", failing_source)
 
     runner = CliRunner()
     result = runner.invoke(cli, ["pozos"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
-    assert payload["resultadoslotochile"] == {"montos": {"Loto Clásico": 690_000_000}}
     assert payload["openloto"]["error"] == "ParseError"
     assert "message" in payload["openloto"]
 
@@ -54,10 +52,8 @@ def test_health_online_degraded(monkeypatch: pytest.MonkeyPatch) -> None:
     def failing_source(**_: object) -> dict[str, Any]:  # noqa: ARG001
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(main_mod, "get_pozo_resultadosloto", ok_source)
     monkeypatch.setattr(main_mod, "get_pozo_openloto", failing_source)
 
     _, payload = _invoke(["health", "--online", "--timeout", "1"])
-    assert payload["status"] == "degraded"
-    assert payload["checks"]["sources"]["resultadoslotochile"]["ok"] is True
+    assert payload["status"] == "fail"
     assert payload["checks"]["sources"]["openloto"]["ok"] is False

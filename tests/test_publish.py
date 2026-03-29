@@ -60,6 +60,12 @@ def test_discrepancy_sheet_written_on_allow_quarantine(
     # Arrange: stub credentials/client to avoid real gspread calls
     import polla_app.publish as pub
 
+    class MockGspread:
+        class WorksheetNotFound(Exception):
+            pass
+
+    pub.gspread = MockGspread
+
     class FakeWorksheet:
         def __init__(self, title: str) -> None:
             self.title = title

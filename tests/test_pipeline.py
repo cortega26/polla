@@ -31,8 +31,7 @@ def test_pozos_pipeline_produces_artifacts(tmp_path: Path, monkeypatch: pytest.M
         "fecha": "2025-09-30",
     }
 
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_resultadosloto", lambda: primary)
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", lambda: fallback)
+    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("resultadoslotochile", lambda: primary), ("openloto", lambda: fallback)))
 
     log_path = tmp_path / "run.jsonl"
     output = run_pipeline(
@@ -96,8 +95,7 @@ def test_pozos_pipeline_skip_when_unchanged(
         "fecha": "2025-09-30",
     }
 
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_resultadosloto", lambda: primary)
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", lambda: fallback)
+    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("resultadoslotochile", lambda: primary), ("openloto", lambda: fallback)))
 
     state = tmp_path / "state.jsonl"
     state.write_text(
@@ -157,8 +155,7 @@ def test_pozos_pipeline_reason_when_unchanged(
         "fecha": "2025-09-30",
     }
 
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_resultadosloto", lambda: primary)
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", lambda: fallback)
+    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("resultadoslotochile", lambda: primary), ("openloto", lambda: fallback)))
 
     state = tmp_path / "state.jsonl"
     state.write_text(
@@ -208,8 +205,7 @@ def test_pozos_pipeline_force_publish_reason(
         "fecha": "2025-09-30",
     }
 
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_resultadosloto", lambda: payload)
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", lambda: payload)
+    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("resultadoslotochile", lambda: payload), ("openloto", lambda: payload)))
 
     state = tmp_path / "state.jsonl"
     state.write_text(
@@ -255,7 +251,7 @@ def test_openloto_only_logs_pozos(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         "user_agent": "pytest",
         "estimado": True,
     }
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", lambda: payload)
+    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("openloto", lambda: payload),))
 
     log_path = tmp_path / "run.jsonl"
     run_pipeline(
@@ -312,8 +308,7 @@ def test_pozos_pipeline_applies_source_overrides(
             "fecha": "2025-10-01",
         }
 
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_resultadosloto", stub_resultados)
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", stub_openloto)
+    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("resultadoslotochile", stub_resultados), ("openloto", stub_openloto)))
 
     run_pipeline(
         sources=["pozos"],
@@ -444,7 +439,7 @@ def test_openloto_only_uses_override(tmp_path: Path, monkeypatch: pytest.MonkeyP
             "estimado": True,
         }
 
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", stub_openloto)
+    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("openloto", stub_openloto),))
 
     run_pipeline(
         sources=["openloto"],

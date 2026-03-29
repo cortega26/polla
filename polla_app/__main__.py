@@ -15,7 +15,7 @@ import click
 
 from .pipeline import run_pipeline
 from .publish import publish_to_google_sheets
-from .sources import get_pozo_openloto, get_pozo_resultadosloto
+from .sources import get_pozo_openloto
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - [%(name)s] - %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
@@ -56,7 +56,6 @@ def pozos() -> None:
 
     results: dict[str, Any] = {}
     for name, fn in (
-        ("resultadoslotochile", get_pozo_resultadosloto),
         ("openloto", get_pozo_openloto),
     ):
         try:
@@ -328,7 +327,6 @@ def health(online: bool, timeout: int) -> None:
         successes = 0
         failures = 0
         for name, fn in (
-            ("resultadoslotochile", get_pozo_resultadosloto),
             ("openloto", get_pozo_openloto),
         ):
             start = time.monotonic()

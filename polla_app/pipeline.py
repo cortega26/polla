@@ -72,6 +72,10 @@ def _load_previous_state(path: Path) -> list[dict[str, Any]]:
     return previous
 
 
+POZO_SOURCES = (
+    ("openloto", pozos_module.get_pozo_openloto),
+)
+
 def _collect_pozos(
     include: bool,
     source_overrides: Mapping[str, str] | None = None,
@@ -85,10 +89,7 @@ def _collect_pozos(
     collected: list[dict[str, Any]] = []
     overrides = {k.lower(): v for k, v in (source_overrides or {}).items()}
 
-    for name, fetcher in (
-        ("resultadoslotochile", pozos_module.get_pozo_resultadosloto),
-        ("openloto", pozos_module.get_pozo_openloto),
-    ):
+    for name, fetcher in POZO_SOURCES:
         target_url = overrides.get(name)
         if target_url == "skip":
             continue
@@ -523,12 +524,7 @@ def run_pipeline(
 SOURCE_LOADERS.update(
     {
         "pozos": _collect_pozos,
-        "resultadoslotochile": lambda include, opts, **kw: _collect_pozos(
-            include, source_overrides={**opts, "openloto": "skip"}, **kw
-        ),
-        "openloto": lambda include, opts, **kw: _collect_pozos(
-            include, source_overrides={**opts, "resultadoslotochile": "skip"}, **kw
-        ),
+        "openloto": _collect_pozos,
     }
 )
 

@@ -76,7 +76,6 @@ def test_health_online_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     def stub_fetcher(**_: Any) -> dict[str, Any]:
         return {"montos": {"Loto": 1000}}  # Within sane range
 
-    monkeypatch.setattr("polla_app.__main__.get_pozo_resultadosloto", stub_fetcher)
     monkeypatch.setattr("polla_app.__main__.get_pozo_openloto", stub_fetcher)
 
     runner = CliRunner()
@@ -94,7 +93,6 @@ def test_health_online_validation_insane_range(monkeypatch: pytest.MonkeyPatch) 
     def stub_fetcher(**_: Any) -> dict[str, Any]:
         return {"montos": {"Loto": 60_000_000_000}}  # Insane range (> 50,000 MM)
 
-    monkeypatch.setattr("polla_app.__main__.get_pozo_resultadosloto", stub_fetcher)
     monkeypatch.setattr("polla_app.__main__.get_pozo_openloto", stub_fetcher)
 
     runner = CliRunner()
@@ -102,4 +100,4 @@ def test_health_online_validation_insane_range(monkeypatch: pytest.MonkeyPatch) 
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data["status"] == "fail"
-    assert data["checks"]["sources"]["resultadoslotochile"]["error"] == "amounts_out_of_range"
+    assert data["checks"]["sources"]["openloto"]["error"] == "amounts_out_of_range"

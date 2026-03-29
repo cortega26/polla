@@ -53,12 +53,12 @@ def test_fetch_html_exponential_backoff(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_source_registry_unification() -> None:
     # Verify that all expected sources are in the registry
-    expected = {"pozos", "resultadoslotochile", "openloto"}
+    expected = {"pozos", "openloto"}
     assert expected.issubset(pipeline.SOURCE_LOADERS.keys())
 
-    # Verify that requesting 'resultadoslotochile' works and uses the registry
-    sources = pipeline._normalize_sources(["resultadoslotochile"])
-    assert sources == ["resultadoslotochile"]
+    # Verify that requesting 'openloto' works and uses the registry
+    sources = pipeline._normalize_sources(["openloto"])
+    assert sources == ["openloto"]
 
 
 def test_deprecated_internal_alias_is_commented_out() -> None:

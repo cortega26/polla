@@ -36,8 +36,14 @@ def test_normalized_and_report_schema_and_idempotency(
         "sorteo": 7001,
         "fecha": "2025-10-01",
     }
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_resultadosloto", lambda: primary)
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", lambda: fallback)
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (
+            ("resultadoslotochile", lambda: primary),
+            ("openloto", lambda: fallback),
+        ),
+    )
 
     # First run should publish
     summary1 = run_pipeline(

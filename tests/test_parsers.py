@@ -8,7 +8,7 @@ import pytest
 
 from polla_app.exceptions import ParseError
 from polla_app.net import FetchMetadata
-from polla_app.sources.pozos import get_pozo_openloto, get_pozo_resultadosloto
+from polla_app.sources.pozos import get_pozo_openloto
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -36,21 +36,7 @@ def test_openloto_pozo(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "Total estimado" not in pozos["montos"], "Totals are excluded from output"
 
 
-def test_resultadosloto_pozo_with_anniversary_jubilazo(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    metadata = _metadata("resultadosloto_pozo.html")
-    monkeypatch.setattr("polla_app.sources.pozos.fetch_html", lambda *_, **__: metadata)
 
-    pozos = get_pozo_resultadosloto()
-
-    assert pozos["montos"]["Jubilazo $1.000.000"] == 960_000_000
-    assert pozos["montos"]["Jubilazo $500.000"] == 480_000_000
-    assert pozos["sorteo"] == 5322
-    assert pozos["fecha"] == "2025-09-16"
-    # 50 años variants should also be present
-    assert pozos["montos"]["Jubilazo 50 años $1.000.000"] == 1_200_000_000
-    assert pozos["montos"]["Jubilazo 50 años $500.000"] == 300_000_000
 
 
 def test_env_user_agent_override_applied_openloto(monkeypatch: pytest.MonkeyPatch) -> None:

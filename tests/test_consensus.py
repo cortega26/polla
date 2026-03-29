@@ -21,10 +21,12 @@ def test_consensus_agreement(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         }
 
     monkeypatch.setattr(
-        pipeline_mod.pozos_module, "get_pozo_resultadosloto", lambda **kw: stub_fetcher("res", **kw)
-    )
-    monkeypatch.setattr(
-        pipeline_mod.pozos_module, "get_pozo_openloto", lambda **kw: stub_fetcher("open", **kw)
+        pipeline_mod,
+        "POZO_SOURCES",
+        (
+            ("resultadoslotochile", lambda **kw: stub_fetcher("resultadoslotochile", **kw)),
+            ("openloto", lambda **kw: stub_fetcher("openloto", **kw)),
+        ),
     )
 
     summary_path = tmp_path / "summary.json"
@@ -58,8 +60,14 @@ def test_consensus_disagreement_quarantine(tmp_path: Path, monkeypatch: pytest.M
     def stub_open(**_: Any) -> dict[str, Any]:
         return {"fuente": "open", "montos": {"Loto": 2000}, "sorteo": 1, "fecha": "2025-01-01"}
 
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_resultadosloto", stub_res)
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", stub_open)
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (
+            ("resultadoslotochile", stub_res),
+            ("openloto", stub_open),
+        ),
+    )
 
     summary_path = tmp_path / "summary.json"
     run_pipeline(

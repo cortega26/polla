@@ -14,7 +14,6 @@ from ..net import fetch_html
 
 LOGGER = logging.getLogger(__name__)
 OPENLOTO_URL = "https://www.openloto.cl/pozo-del-loto.html"
-RESULTADOS_URL = "https://resultadoslotochile.com/pozo-para-el-proximo-sorteo/"
 DEFAULT_UA = "PollaAltSourcesBot/1.0 (+contact@example.com)"
 
 _LABEL_PATTERNS = {
@@ -253,15 +252,3 @@ def get_pozo_openloto(
 
     return _fetch_pozos(url=url, ua=ua, timeout=timeout, allow_total=False, retries=retries)
 
-
-def get_pozo_resultadosloto(
-    url: str = RESULTADOS_URL,
-    *,
-    ua: str = DEFAULT_UA,
-    timeout: int = 20,
-    retries: int | None = None,
-) -> dict[str, Any]:
-    """Fetch próximo pozo data from resultadoslotochile.com."""
-
-    # Skip totals to avoid noise
-    return _fetch_pozos(url=url, ua=ua, timeout=timeout, allow_total=False, retries=retries)

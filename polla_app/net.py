@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from time import monotonic
 from typing import Final
+import urllib.request
 from urllib.parse import urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
 
@@ -36,13 +37,15 @@ class FetchMetadata:
         """Return the SHA-256 digest of the response body."""
         return hashlib.sha256(self.html.encode("utf-8")).hexdigest()
 
-
 @lru_cache(maxsize=64)
-def _get_robots_parser(robots_url: str) -> RobotFileParser | None:
+def _get_robots_parser(robots_url: str, ua: str) -> RobotFileParser | None:
     parser = RobotFileParser()
     try:
+        req = urllib.request.Request(robots_url, headers={"User-Agent": ua})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            lines = [line.decode("utf-8", errors="ignore") for line in response.readlines()]
         parser.set_url(robots_url)
-        parser.read()
+        parser.parse(lines)
     except Exception as exc:  # pragma: no cover - network/IO edge cases
         LOGGER.warning("Failed to read robots.txt from %s: %s", robots_url, exc)
         return None
@@ -59,7 +62,7 @@ def _robots_allowed(url: str, ua: str) -> bool:
 
     parsed = urlparse(url)
     robots_url = urlunparse((parsed.scheme, parsed.netloc, "/robots.txt", "", "", ""))
-    parser = _get_robots_parser(robots_url)
+    parser = _get_robots_parser(robots_url, ua)
     if parser is None:
         return True
     allowed = parser.can_fetch(ua, url)
