@@ -1,8 +1,5 @@
 name: Alt Sources Dry Run
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 on:
   schedule:
     - cron: '0 2 * * *'  # Supplemental early-morning verification
@@ -22,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -38,7 +35,7 @@ jobs:
 
       - name: Restore pipeline state
         id: restore-state
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v4
         with:
           path: pipeline_state
           key: dry-run-state-${{ github.ref_name }}-${{ github.run_number }}
@@ -76,7 +73,7 @@ jobs:
             --dry-run
 
       - name: Save pipeline state
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v4
         if: always()
         with:
           path: pipeline_state
@@ -84,7 +81,7 @@ jobs:
 
       - name: Upload dry-run artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dry-run-artifacts
           path: |

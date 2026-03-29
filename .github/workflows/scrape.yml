@@ -1,8 +1,5 @@
 name: Ingest Alternative Sources
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 permissions:
   contents: read
 
@@ -33,10 +30,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -59,7 +56,7 @@ jobs:
         run: pytest tests -v --cov=polla_app --cov-report=xml
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
@@ -70,10 +67,10 @@ jobs:
     if: ${{ needs.test.result == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch' || github.event_name == 'push') }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -81,7 +78,7 @@ jobs:
 
       - name: Restore pipeline state
         id: restore-state
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v4
         with:
           path: pipeline_state
           key: pipeline-state-${{ github.ref_name }}-${{ github.run_number }}
@@ -159,7 +156,7 @@ jobs:
           PY
 
       - name: Save pipeline state
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v4
         if: always()
         with:
           path: pipeline_state
@@ -167,7 +164,7 @@ jobs:
 
       - name: Upload pipeline artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: alt-sources-artifacts
           path: |
@@ -210,11 +207,11 @@ jobs:
           echo "Publish step skipped: ${{ needs.ingest.outputs.publish_reason || 'no reason provided' }} (status=${{ needs.ingest.outputs.decision_status || 'unknown' }})"
           exit 0
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: ${{ needs.ingest.outputs.publish == 'true' }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         if: ${{ needs.ingest.outputs.publish == 'true' }}
         with:
           python-version: '3.11'
@@ -229,7 +226,7 @@ jobs:
 
       - name: Download artifacts
         if: ${{ needs.ingest.outputs.publish == 'true' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: alt-sources-artifacts
 

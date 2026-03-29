@@ -1,4 +1,3 @@
 {
-    "makefile.configureOnOpen": false,
-    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python"
+    "makefile.configureOnOpen": false
 }
