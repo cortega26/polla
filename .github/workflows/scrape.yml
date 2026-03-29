@@ -1,4 +1,4 @@
-﻿name: Ingest Alternative Sources
+name: Ingest Alternative Sources
 
 permissions:
   contents: read
@@ -64,7 +64,7 @@ jobs:
   ingest:
     runs-on: ubuntu-latest
     needs: test
-    if: ${{ needs.test.result == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch') }}
+    if: ${{ needs.test.result == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch' || github.event_name == 'push') }}
 
     steps:
       - uses: actions/checkout@v4
