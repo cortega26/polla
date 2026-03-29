@@ -1,7 +1,11 @@
+from pathlib import Path
+
+import pytest
+
 from polla_app import publish
 
 
-def test_dry_run_diff_calculation(monkeypatch, tmp_path):
+def test_dry_run_diff_calculation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     # Setup mock data files
     norm_file = tmp_path / "normalized.jsonl"
     norm_file.write_text('{"pozos_proximo": {"Loto": 1000}, "fuente": "A"}\n')
@@ -12,15 +16,15 @@ def test_dry_run_diff_calculation(monkeypatch, tmp_path):
     # Mock current sheet values
     # Return different values to force a diff
     class MockWorksheet:
-        def get_all_values(self):
+        def get_all_values(self) -> list[list[str]]:
             return [["categoria", "pozo_clp"], ["Loto", "900"]]
 
     class MockSpreadsheet:
-        def worksheet(self, name):
+        def worksheet(self, name: str) -> MockWorksheet:
             return MockWorksheet()
 
     class MockClient:
-        def open_by_key(self, key):
+        def open_by_key(self, key: str) -> MockSpreadsheet:
             return MockSpreadsheet()
 
     # Mock credentials and spreadsheet ID
@@ -46,22 +50,22 @@ def test_dry_run_diff_calculation(monkeypatch, tmp_path):
     assert "+Loto, 1000" in result["diff"]
 
 
-def test_dry_run_no_diff_if_equal(monkeypatch, tmp_path):
+def test_dry_run_no_diff_if_equal(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     norm_file = tmp_path / "normalized.jsonl"
     norm_file.write_text('{"pozos_proximo": {"Loto": 1000}, "fuente": "A"}\n')
     comp_file = tmp_path / "comparison.json"
     comp_file.write_text('{"decision": {"status": "publish"}, "mismatches": []}')
 
     class MockWorksheet:
-        def get_all_values(self):
+        def get_all_values(self) -> list[list[str]]:
             return [["categoria", "pozo_clp"], ["Loto", "1000"]]
 
     class MockSpreadsheet:
-        def worksheet(self, name):
+        def worksheet(self, name: str) -> MockWorksheet:
             return MockWorksheet()
 
     class MockClient:
-        def open_by_key(self, key):
+        def open_by_key(self, key: str) -> MockSpreadsheet:
             return MockSpreadsheet()
 
     monkeypatch.setattr(publish, "_load_credentials", lambda: MockClient())

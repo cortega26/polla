@@ -24,7 +24,7 @@ from polla_app.sources.pozos import _parse_millones_to_clp
         ("7500", 7_500_000_000),
     ],
 )
-def test_parse_millones_to_clp_valid(raw, expected):
+def test_parse_millones_to_clp_valid(raw: str, expected: int) -> None:
     assert _parse_millones_to_clp(raw) == expected
 
 
@@ -38,7 +38,7 @@ def test_parse_millones_to_clp_valid(raw, expected):
         "1.2.3.4",  # Ambiguous
     ],
 )
-def test_parse_millones_to_clp_invalid(raw):
+def test_parse_millones_to_clp_invalid(raw: str) -> None:
     with pytest.raises(ParseError):
         _parse_millones_to_clp(raw)
 
@@ -51,5 +51,5 @@ def test_parse_millones_to_clp_invalid(raw):
         ("1.234.567", 1_234_567_000_000),  # three-part dot-separated thousands
     ],
 )
-def test_parse_millones_to_clp_large_ranges(raw, expected):
+def test_parse_millones_to_clp_large_ranges(raw: str, expected: int) -> None:
     assert _parse_millones_to_clp(raw) == expected

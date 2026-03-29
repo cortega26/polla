@@ -1,11 +1,13 @@
 import logging
 
+import pytest
+
 from polla_app.exceptions import ScriptError
 from polla_app.obs import sanitize
 from polla_app.pipeline import _merge_pozos
 
 
-def test_contextual_redaction_logic():
+def test_contextual_redaction_logic() -> None:
     # Long strings should NOT be redacted if the key is safe
     safe_data = {
         "url": "https://example.com/very/long/path/that/used/to/be/redacted/because/of/length"
@@ -20,7 +22,7 @@ def test_contextual_redaction_logic():
     assert "…" in sanitized_sensitive["api_key"]
 
 
-def test_script_error_logs_are_sanitized(caplog):
+def test_script_error_logs_are_sanitized(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.ERROR)
     logger = logging.getLogger("test_logger")
 
@@ -32,7 +34,7 @@ def test_script_error_logs_are_sanitized(caplog):
     assert "supe…ad" in caplog.text
 
 
-def test_magnitude_quarantine_calculation():
+def test_magnitude_quarantine_calculation() -> None:
     collected = [
         {"fuente": "A", "montos": {"Loto": 1000}},
         {"fuente": "B", "montos": {"Loto": 1010}},  # 1% deviation

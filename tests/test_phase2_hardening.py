@@ -1,19 +1,22 @@
+from typing import Any
+
+import pytest
 import requests
 
 from polla_app import net, pipeline
 
 
-def test_fetch_html_exponential_backoff(monkeypatch):
+def test_fetch_html_exponential_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
     url = "https://example.test/429"
     ua = "test-bot"
 
     # Mock sequence: 429, 429, 200
     class MockResponse:
-        def __init__(self, status_code, text=""):
+        def __init__(self, status_code: int, text: str = "") -> None:
             self.status_code = status_code
             self.text = text
 
-        def raise_for_status(self):
+        def raise_for_status(self) -> None:
             if self.status_code >= 400:
                 raise requests.HTTPError(response=self)
 
@@ -23,7 +26,7 @@ def test_fetch_html_exponential_backoff(monkeypatch):
         MockResponse(200, "<html>success</html>"),
     ]
 
-    def mock_get(self, url, **kwargs):
+    def mock_get(self: requests.Session, url: str, **kwargs: Any) -> MockResponse:
         return responses_queue.pop(0)
 
     monkeypatch.setattr(requests.Session, "get", mock_get)
@@ -48,7 +51,7 @@ def test_fetch_html_exponential_backoff(monkeypatch):
     assert sleep_calls[1] > sleep_calls[0]
 
 
-def test_source_registry_unification():
+def test_source_registry_unification() -> None:
     # Verify that all expected sources are in the registry
     expected = {"pozos", "resultadoslotochile", "openloto"}
     assert expected.issubset(pipeline.SOURCE_LOADERS.keys())
@@ -58,6 +61,6 @@ def test_source_registry_unification():
     assert sources == ["resultadoslotochile"]
 
 
-def test_deprecated_internal_alias_is_commented_out():
+def test_deprecated_internal_alias_is_commented_out() -> None:
     # Verify the internal alias was removed from the namespace
     assert not hasattr(pipeline, "_normalise_sources")
