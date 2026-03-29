@@ -3,6 +3,6 @@
 This module centralizes the API version used in artifacts and results.
 """
 
-API_VERSION = "v1"
+API_VERSION = "v1.1"
 
 __all__ = ["API_VERSION"]

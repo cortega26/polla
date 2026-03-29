@@ -30,8 +30,10 @@ def test_parse_millones_to_clp_invalid(raw):
     with pytest.raises(ParseError):
         _parse_millones_to_clp(raw)
 
-def test_parse_millones_to_clp_absolute_large():
-    # If the value is already in the billions range absolute, it should be treated as such
-    # However, the current contract is Millions context.
-    # We'll see how the implementation handles "1.234.567.890"
-    pass
+@pytest.mark.parametrize("raw, expected", [
+    ("99.999", 99_999_000_000),       # large thousands separator (dot = thousands)
+    ("0,1", 100_000),                  # sub-million (comma = decimal)
+    ("1.234.567", 1_234_567_000_000),  # three-part dot-separated thousands
+])
+def test_parse_millones_to_clp_large_ranges(raw, expected):
+    assert _parse_millones_to_clp(raw) == expected

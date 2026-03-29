@@ -2,7 +2,7 @@
 name = "polla-scraper"
 dynamic = ["version"]
 description = "Alternative-source ingestion for Chilean Loto draws"
-authors = [{name = "Your Name", email = "your.email@example.com"}]
+authors = [{name = "Carlos Ortega"}]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

@@ -17,3 +17,7 @@ storage_state.json
 # Node modules for Playwright dependencies (if any)
 node_modules/
 .vscode/
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

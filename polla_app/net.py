@@ -80,12 +80,13 @@ def _calculate_backoff(attempt: int, factor: float, max_seconds: float) -> float
     return min(delay + jitter, max_seconds)
 
 
-def fetch_html(url: str, ua: str, timeout: int = 20) -> FetchMetadata:
+def fetch_html(url: str, ua: str, timeout: int = 20, *, retries: int | None = None) -> FetchMetadata:
     """GET ``url`` with a descriptive UA and return the body plus metadata.
 
     Supports exponential backoff with jitter if the remote responds with HTTP 429.
     Retries and backoff factor are configurable via POLLA_MAX_RETRIES and
-    POLLA_BACKOFF_FACTOR.
+    POLLA_BACKOFF_FACTOR. If ``retries`` is provided it takes precedence over the
+    environment variable.
     """
 
     session = requests.Session()
@@ -134,7 +135,7 @@ def fetch_html(url: str, ua: str, timeout: int = 20) -> FetchMetadata:
         response.raise_for_status()
         return response
 
-    max_retries = int(os.getenv("POLLA_MAX_RETRIES", "3"))
+    max_retries = retries if retries is not None else int(os.getenv("POLLA_MAX_RETRIES", "3"))
     backoff_factor = float(os.getenv("POLLA_BACKOFF_FACTOR", "30.0"))
     # Fallback to legacy env if set for backward compatibility
     if "POLLA_429_BACKOFF_SECONDS" in os.environ and "POLLA_BACKOFF_FACTOR" not in os.environ:

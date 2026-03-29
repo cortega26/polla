@@ -1,6 +1,6 @@
 """Utilities for Chilean Loto próximo pozo aggregation."""
 
-__version__ = "3.0.0"
+__version__ = "3.1.0"
 
 from .exceptions import ScriptError
 from .pipeline import run_pipeline

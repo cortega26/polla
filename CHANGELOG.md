@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## [3.1.0] - 2026-03-28
+
+### Added
+
+- **Consensus Engine:** Majority-vote logic for jackpots when scraping multiple sources.
+- **Data Provenance:** SHA-256 content hashing for original HTML sources, stored in artifacts.
+- **Slack Notifications:** Automated run summaries and discrepancy alerts via webhooks.
+- **Enhanced Health Checks:** Range-based validation for monetary amounts in `health --online`.
+- **Configurability:** Environment support for `POLLA_429_BACKOFF_SECONDS` and `SLACK_WEBHOOK_URL`.
+
+### Changed
+
+- **Unified Pipeline:** Refactored multiple ingestion handlers into a single, high-integrity orchestrator.
+- **Redaction Logic:** Restricted masking to confirmed sensitive keys (preserving URLs in logs).
+- **Dry-run Visibility:** `publish --dry-run` now reports the exact tabular payload for audit.
+
+### Fixed
+
+- **Monetary Parser:** Deterministic handling of Chilean decimal/thousand separators (dots vs commas).
+- **Graceful Fail-fast:** Improved error taxonomy and controlled parsing failures.
+
 ## [3.0.0] - 2025-09-27
 
 - Alt-source ingestion pipeline replaces browser-based scraper.

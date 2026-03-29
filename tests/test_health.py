@@ -22,6 +22,28 @@ def test_health_offline_pass() -> None:
     assert "python" in payload["checks"]
 
 
+def test_pozos_command_error_handling(monkeypatch: pytest.MonkeyPatch) -> None:
+    from polla_app import __main__ as main_mod
+    from polla_app.exceptions import ParseError
+
+    def ok_source(**_: object) -> dict[str, Any]:
+        return {"montos": {"Loto Clásico": 690_000_000}}
+
+    def failing_source(**_: object) -> None:
+        raise ParseError("bad html", context={})
+
+    monkeypatch.setattr(main_mod, "get_pozo_resultadosloto", ok_source)
+    monkeypatch.setattr(main_mod, "get_pozo_openloto", failing_source)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["pozos"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["resultadoslotochile"] == {"montos": {"Loto Clásico": 690_000_000}}
+    assert payload["openloto"]["error"] == "ParseError"
+    assert "message" in payload["openloto"]
+
+
 def test_health_online_degraded(monkeypatch: pytest.MonkeyPatch) -> None:
     # Stub one source to fail, the other to succeed
     from polla_app import __main__ as main_mod

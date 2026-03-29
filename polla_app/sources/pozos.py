@@ -217,8 +217,8 @@ def _effective_ua(ua: str) -> str:
     return os.getenv("POLLA_USER_AGENT") or ua
 
 
-def _fetch_pozos(*, url: str, ua: str, timeout: int, allow_total: bool) -> dict[str, Any]:
-    metadata = fetch_html(url, ua=_effective_ua(ua), timeout=timeout)
+def _fetch_pozos(*, url: str, ua: str, timeout: int, allow_total: bool, retries: int | None = None) -> dict[str, Any]:
+    metadata = fetch_html(url, ua=_effective_ua(ua), timeout=timeout, retries=retries)
     soup = BeautifulSoup(metadata.html, "html.parser")
     text = soup.get_text(" ", strip=True)
     amounts = _extract_amounts(text, allow_total=allow_total)
@@ -245,10 +245,11 @@ def get_pozo_openloto(
     *,
     ua: str = DEFAULT_UA,
     timeout: int = 20,
+    retries: int | None = None,
 ) -> dict[str, Any]:
     """Fetch próximo pozo data from OpenLoto."""
 
-    return _fetch_pozos(url=url, ua=ua, timeout=timeout, allow_total=False)
+    return _fetch_pozos(url=url, ua=ua, timeout=timeout, allow_total=False, retries=retries)
 
 
 def get_pozo_resultadosloto(
@@ -256,8 +257,9 @@ def get_pozo_resultadosloto(
     *,
     ua: str = DEFAULT_UA,
     timeout: int = 20,
+    retries: int | None = None,
 ) -> dict[str, Any]:
     """Fetch próximo pozo data from resultadoslotochile.com."""
 
     # Skip totals to avoid noise
-    return _fetch_pozos(url=url, ua=ua, timeout=timeout, allow_total=False)
+    return _fetch_pozos(url=url, ua=ua, timeout=timeout, allow_total=False, retries=retries)

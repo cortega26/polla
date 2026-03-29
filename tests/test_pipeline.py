@@ -344,6 +344,88 @@ def test_pozos_pipeline_applies_source_overrides(
     assert prov.get("alternatives", [])[0].get("fuente") == open_override
 
 
+def test_timeout_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import datetime, timezone
+
+    import polla_app.sources.pozos as pozos_mod
+    from polla_app.net import FetchMetadata
+
+    received_timeouts: list[int] = []
+
+    html_with_amounts = "<html><body>Loto Clásico $690 Recargado $4.300</body></html>"
+
+    def stub_fetch(url: str, ua: str, timeout: int = 20, *, retries: int | None = None) -> FetchMetadata:
+        received_timeouts.append(timeout)
+        return FetchMetadata(
+            url=url,
+            user_agent=ua,
+            fetched_at=datetime.now(timezone.utc),
+            html=html_with_amounts,
+        )
+
+    monkeypatch.setattr(pozos_mod, "fetch_html", stub_fetch)
+
+    run_pipeline(
+        sources=["pozos"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=tmp_path / "run.jsonl",
+        retries=3,
+        timeout=7,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+    )
+
+    assert len(received_timeouts) > 0
+    assert received_timeouts[0] == 7
+
+
+def test_retries_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import datetime, timezone
+
+    import polla_app.sources.pozos as pozos_mod
+    from polla_app.net import FetchMetadata
+
+    received_retries: list[int | None] = []
+
+    html_with_amounts = "<html><body>Loto Clásico $690 Recargado $4.300</body></html>"
+
+    def stub_fetch(url: str, ua: str, timeout: int = 20, *, retries: int | None = None) -> FetchMetadata:
+        received_retries.append(retries)
+        return FetchMetadata(
+            url=url,
+            user_agent=ua,
+            fetched_at=datetime.now(timezone.utc),
+            html=html_with_amounts,
+        )
+
+    monkeypatch.setattr(pozos_mod, "fetch_html", stub_fetch)
+
+    run_pipeline(
+        sources=["pozos"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+    )
+
+    assert len(received_retries) > 0
+    assert received_retries[0] == 1
+
+
 def test_openloto_only_uses_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from polla_app import pipeline as pipeline_mod
 

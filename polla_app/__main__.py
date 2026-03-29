@@ -54,10 +54,15 @@ def _echo_json(payload: dict[str, Any], *, indent: int | None = 2) -> None:
 def pozos() -> None:
     """Print próximo pozo estimates from known aggregators."""
 
-    results = {
-        "resultadoslotochile": get_pozo_resultadosloto(),
-        "openloto": get_pozo_openloto(),
-    }
+    results: dict[str, Any] = {}
+    for name, fn in (
+        ("resultadoslotochile", get_pozo_resultadosloto),
+        ("openloto", get_pozo_openloto),
+    ):
+        try:
+            results[name] = fn()
+        except Exception as exc:
+            results[name] = {"error": type(exc).__name__, "message": str(exc)}
     _echo_json(results)
 
 

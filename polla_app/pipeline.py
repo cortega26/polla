@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import inspect
+
 from .contracts import API_VERSION
 from .obs import metric, sanitize, set_correlation_id, span
 from .sources import pozos as pozos_module
@@ -18,7 +20,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 # Source registry for dynamic orchestration
-SOURCE_LOADERS: dict[str, Callable[[bool, Mapping[str, str]], tuple[dict[str, Any], ...]]] = {}
+SOURCE_LOADERS: dict[str, Callable[..., tuple[dict[str, Any], ...]]] = {}
 
 
 def _normalize_sources(requested: Sequence[str]) -> list[str]:
@@ -80,7 +82,11 @@ def _load_previous_state(path: Path) -> list[dict[str, Any]]:
 
 
 def _collect_pozos(
-    include: bool, source_overrides: Mapping[str, str] | None = None
+    include: bool,
+    source_overrides: Mapping[str, str] | None = None,
+    *,
+    timeout: int = 20,
+    retries: int = 3,
 ) -> tuple[dict[str, Any], ...]:
     if not include:
         return tuple()
@@ -97,7 +103,23 @@ def _collect_pozos(
             continue
 
         try:
-            payload = fetcher(url=target_url) if target_url else fetcher()
+            kw: dict[str, Any] = {}
+            try:
+                sig = inspect.signature(fetcher)
+                params = sig.parameters
+                has_var_kw = any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+                )
+                if "timeout" in params or has_var_kw:
+                    kw["timeout"] = timeout
+                if "retries" in params or has_var_kw:
+                    kw["retries"] = retries
+                if target_url and ("url" in params or has_var_kw):
+                    kw["url"] = target_url
+            except (ValueError, TypeError):
+                if target_url:
+                    kw["url"] = target_url
+            payload = fetcher(**kw)
             if payload.get("montos"):
                 collected.append(payload)
         except Exception as exc:  # pragma: no cover
@@ -329,7 +351,7 @@ def _run_ingestion_for_sources(
                 # This should be caught by _normalize_sources but safety guard
                 LOGGER.error("Source %s requested but not in registry", name)
                 continue
-            collected.extend(loader(True, source_overrides or {}))
+            collected.extend(loader(True, source_overrides or {}, timeout=timeout, retries=retries))
 
     if not collected:
         raise RuntimeError(f"No sources returned data for {requested_sources}")
@@ -517,11 +539,11 @@ def run_pipeline(
 SOURCE_LOADERS.update(
     {
         "pozos": _collect_pozos,
-        "resultadoslotochile": lambda include, opts: _collect_pozos(
-            include, source_overrides={**opts, "openloto": "skip"}
+        "resultadoslotochile": lambda include, opts, **kw: _collect_pozos(
+            include, source_overrides={**opts, "openloto": "skip"}, **kw
         ),
-        "openloto": lambda include, opts: _collect_pozos(
-            include, source_overrides={**opts, "resultadoslotochile": "skip"}
+        "openloto": lambda include, opts, **kw: _collect_pozos(
+            include, source_overrides={**opts, "resultadoslotochile": "skip"}, **kw
         ),
     }
 )
