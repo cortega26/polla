@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import uuid
@@ -9,8 +10,6 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
-import inspect
 
 from .contracts import API_VERSION
 from .obs import metric, sanitize, set_correlation_id, span
@@ -34,9 +33,7 @@ def _normalize_sources(requested: Sequence[str]) -> list[str]:
             # Also allow direct source names even if they are just subsets
             if key == "pozos":  # Legacy default
                 return ["pozos"]
-            raise ValueError(
-                f"Unsupported source '{item}'. Available: {', '.join(SOURCE_LOADERS)}"
-            )
+            raise ValueError(f"Unsupported source '{item}'. Available: {', '.join(SOURCE_LOADERS)}")
         if key not in normalised:
             normalised.append(key)
     return normalised
@@ -44,8 +41,6 @@ def _normalize_sources(requested: Sequence[str]) -> list[str]:
 
 # Backward-compat alias removed (deprecated)
 # _normalise_sources = _normalize_sources
-
-
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -59,8 +54,6 @@ def _write_jsonl(path: Path, rows: Iterable[Mapping[str, Any]]) -> None:
         for row in rows:
             handle.write(json.dumps(row, ensure_ascii=False))
             handle.write("\n")
-
-
 
 
 def _load_previous_state(path: Path) -> list[dict[str, Any]]:
@@ -77,8 +70,6 @@ def _load_previous_state(path: Path) -> list[dict[str, Any]]:
             except json.JSONDecodeError:
                 LOGGER.warning("Invalid JSON line in %s; ignoring", path)
     return previous
-
-
 
 
 def _collect_pozos(
@@ -107,9 +98,7 @@ def _collect_pozos(
             try:
                 sig = inspect.signature(fetcher)
                 params = sig.parameters
-                has_var_kw = any(
-                    p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
-                )
+                has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
                 if "timeout" in params or has_var_kw:
                     kw["timeout"] = timeout
                 if "retries" in params or has_var_kw:
@@ -325,7 +314,6 @@ def _build_summary_payload(
     }
 
 
-
 def _run_ingestion_for_sources(
     *,
     run_id: str,
@@ -380,6 +368,7 @@ def _run_ingestion_for_sources(
             src_name = requested_sources[0]
         else:
             from urllib.parse import urlparse
+
             src_name = urlparse(entry.get("fuente", "")).netloc.replace(".", "_") or "source"
         _write_json(raw_dir / f"{src_name}.json", entry)
 
@@ -399,9 +388,7 @@ def _run_ingestion_for_sources(
         decision_status = "quarantine"
         publish_flag = False
         if max_deviation > 0.10:
-            publish_reason = (
-                f"max_deviation_{max_deviation:.2f}_exceeds_threshold_0.10"
-            )
+            publish_reason = f"max_deviation_{max_deviation:.2f}_exceeds_threshold_0.10"
         else:
             publish_reason = (
                 f"mismatch_ratio_{mismatch_ratio:.2f}_exceeds_threshold_{mismatch_threshold}"
@@ -482,8 +469,6 @@ def _run_ingestion_for_sources(
     return summary_payload
 
 
-
-
 def run_pipeline(
     *,
     sources: Sequence[str],
@@ -532,7 +517,6 @@ def run_pipeline(
         closer = getattr(log_event, "close", None)
         if callable(closer):  # pragma: no branch - trivial guard
             closer()
-
 
 
 # Populate source loaders for dynamic dispatch

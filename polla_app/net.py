@@ -80,7 +80,9 @@ def _calculate_backoff(attempt: int, factor: float, max_seconds: float) -> float
     return min(delay + jitter, max_seconds)
 
 
-def fetch_html(url: str, ua: str, timeout: int = 20, *, retries: int | None = None) -> FetchMetadata:
+def fetch_html(
+    url: str, ua: str, timeout: int = 20, *, retries: int | None = None
+) -> FetchMetadata:
     """GET ``url`` with a descriptive UA and return the body plus metadata.
 
     Supports exponential backoff with jitter if the remote responds with HTTP 429.

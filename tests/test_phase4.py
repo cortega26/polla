@@ -16,14 +16,14 @@ def test_publish_dry_run_includes_rows(tmp_path: Path) -> None:
         "fecha": "2025-01-01",
         "fuente": "http://example.com",
         "pozos_proximo": {"Loto": 1000},
-        "premios": []
+        "premios": [],
     }
     normalized_path.write_text(json.dumps(record) + "\n", encoding="utf-8")
 
     report_path = tmp_path / "report.json"
     report = {
         "decision": {"status": "publish"},
-        "mismatches": [{"categoria": "Loto", "consensus": {}, "disagreeing": {}}]
+        "mismatches": [{"categoria": "Loto", "consensus": {}, "disagreeing": {}}],
     }
     report_path.write_text(json.dumps(report), encoding="utf-8")
 
@@ -35,7 +35,7 @@ def test_publish_dry_run_includes_rows(tmp_path: Path) -> None:
         discrepancy_tab="Discrepancies",
         dry_run=True,
         force_publish=False,
-        allow_quarantine=False
+        allow_quarantine=False,
     )
 
     assert "rows" in result
@@ -43,14 +43,21 @@ def test_publish_dry_run_includes_rows(tmp_path: Path) -> None:
     assert "mismatch_rows" in result
     assert len(result["mismatch_rows"]) == 1
 
-def test_slack_notifier_skips_without_url(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+
+def test_slack_notifier_skips_without_url(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
     notify_slack({"status": "publish"})
     assert "Slack notification sent" not in caplog.text
 
-def test_slack_notifier_handles_failure(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+
+def test_slack_notifier_handles_failure(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     monkeypatch.setenv("SLACK_WEBHOOK_URL", "http://invalid")
     import requests
+
     def mock_post(*args: Any, **kwargs: Any) -> MagicMock:
         raise requests.exceptions.ConnectionError("Failed")
 
@@ -60,13 +67,14 @@ def test_slack_notifier_handles_failure(monkeypatch: pytest.MonkeyPatch, caplog:
         notify_slack({"status": "publish"})
     assert "Failed to send Slack" in caplog.text
 
+
 def test_health_online_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     from click.testing import CliRunner
 
     from polla_app.__main__ import cli
 
     def stub_fetcher(**_: Any) -> dict[str, Any]:
-        return {"montos": {"Loto": 1000}} # Within sane range
+        return {"montos": {"Loto": 1000}}  # Within sane range
 
     monkeypatch.setattr("polla_app.__main__.get_pozo_resultadosloto", stub_fetcher)
     monkeypatch.setattr("polla_app.__main__.get_pozo_openloto", stub_fetcher)
@@ -77,13 +85,14 @@ def test_health_online_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     data = json.loads(result.output)
     assert data["status"] == "pass"
 
+
 def test_health_online_validation_insane_range(monkeypatch: pytest.MonkeyPatch) -> None:
     from click.testing import CliRunner
 
     from polla_app.__main__ import cli
 
     def stub_fetcher(**_: Any) -> dict[str, Any]:
-        return {"montos": {"Loto": 60_000_000_000}} # Insane range (> 50,000 MM)
+        return {"montos": {"Loto": 60_000_000_000}}  # Insane range (> 50,000 MM)
 
     monkeypatch.setattr("polla_app.__main__.get_pozo_resultadosloto", stub_fetcher)
     monkeypatch.setattr("polla_app.__main__.get_pozo_openloto", stub_fetcher)

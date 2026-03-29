@@ -78,7 +78,10 @@ def test_pozo_parsing_malformed_amounts(monkeypatch: pytest.MonkeyPatch) -> None
     metadata = _metadata("malformed_pozo.html")
     monkeypatch.setattr("polla_app.sources.pozos.fetch_html", lambda *_, **__: metadata)
 
-    with pytest.raises(ParseError, match=r"Unable to parse monetary value|Empty monetary value|No valid pozo amounts"):
+    with pytest.raises(
+        ParseError,
+        match=r"Unable to parse monetary value|Empty monetary value|No valid pozo amounts",
+    ):
         get_pozo_openloto()
 
 

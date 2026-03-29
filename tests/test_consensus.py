@@ -17,11 +17,15 @@ def test_consensus_agreement(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
             "sha256": "abc",
             "montos": {"Loto": 1000},
             "sorteo": 1,
-            "fecha": "2025-01-01"
+            "fecha": "2025-01-01",
         }
 
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_resultadosloto", lambda **kw: stub_fetcher("res", **kw))
-    monkeypatch.setattr(pipeline_mod.pozos_module, "get_pozo_openloto", lambda **kw: stub_fetcher("open", **kw))
+    monkeypatch.setattr(
+        pipeline_mod.pozos_module, "get_pozo_resultadosloto", lambda **kw: stub_fetcher("res", **kw)
+    )
+    monkeypatch.setattr(
+        pipeline_mod.pozos_module, "get_pozo_openloto", lambda **kw: stub_fetcher("open", **kw)
+    )
 
     summary_path = tmp_path / "summary.json"
     run_pipeline(
@@ -37,12 +41,13 @@ def test_consensus_agreement(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.25,
-        include_pozos=True
+        include_pozos=True,
     )
 
     summary = json.loads(summary_path.read_text())
     assert summary["decision"]["status"] == "publish"
     assert summary["decision"]["mismatched_categories"] == 0
+
 
 def test_consensus_disagreement_quarantine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from polla_app import pipeline as pipeline_mod
@@ -70,7 +75,7 @@ def test_consensus_disagreement_quarantine(tmp_path: Path, monkeypatch: pytest.M
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.1,
-        include_pozos=True
+        include_pozos=True,
     )
 
     summary = json.loads(summary_path.read_text())
@@ -78,6 +83,7 @@ def test_consensus_disagreement_quarantine(tmp_path: Path, monkeypatch: pytest.M
 
     report = json.loads((tmp_path / "report.json").read_text())
     assert len(report["mismatches"]) == 1
+
 
 def test_multi_source_majority_vote(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from polla_app import pipeline as pipeline_mod
@@ -106,7 +112,7 @@ def test_multi_source_majority_vote(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         fail_fast=True,
         mismatch_threshold=0.25,
         force_publish=False,
-        log_event=lambda x: None
+        log_event=lambda x: None,
     )
 
     # Check consensus

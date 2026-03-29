@@ -354,7 +354,9 @@ def test_timeout_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
     html_with_amounts = "<html><body>Loto Clásico $690 Recargado $4.300</body></html>"
 
-    def stub_fetch(url: str, ua: str, timeout: int = 20, *, retries: int | None = None) -> FetchMetadata:
+    def stub_fetch(
+        url: str, ua: str, timeout: int = 20, *, retries: int | None = None
+    ) -> FetchMetadata:
         received_timeouts.append(timeout)
         return FetchMetadata(
             url=url,
@@ -395,7 +397,9 @@ def test_retries_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
     html_with_amounts = "<html><body>Loto Clásico $690 Recargado $4.300</body></html>"
 
-    def stub_fetch(url: str, ua: str, timeout: int = 20, *, retries: int | None = None) -> FetchMetadata:
+    def stub_fetch(
+        url: str, ua: str, timeout: int = 20, *, retries: int | None = None
+    ) -> FetchMetadata:
         received_retries.append(retries)
         return FetchMetadata(
             url=url,
