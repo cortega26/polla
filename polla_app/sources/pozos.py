@@ -148,6 +148,8 @@ def _extract_amounts(text: str, *, allow_total: bool = True) -> dict[str, int]:
         match = regex.search(text)
         if match:
             amounts[label] = _parse_millones_to_clp(match.group(1))
+        elif label != "Total estimado":
+            amounts[label] = 0
     return amounts
 
 
@@ -221,7 +223,7 @@ def _fetch_pozos(
     soup = BeautifulSoup(metadata.html, "html.parser")
     text = soup.get_text(" ", strip=True)
     amounts = _extract_amounts(text, allow_total=allow_total)
-    if not amounts:
+    if not amounts or sum(amounts.values()) == 0:
         raise ParseError(
             f"No valid pozo amounts found in source content from {url}",
             context={"url": url, "text_snippet": text[:200]},
