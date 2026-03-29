@@ -66,6 +66,7 @@ def test_missing_spreadsheet_id_raises_config_error(
 def test_invalid_credentials_json_is_redacted(monkeypatch: pytest.MonkeyPatch) -> None:
     # Provide invalid JSON in env; ensure the error type and generic message
     from polla_app import publish as pub_mod
+
     monkeypatch.setattr(pub_mod, "gspread", object())
     monkeypatch.setenv("GOOGLE_SERVICE_ACCOUNT_JSON", "{")
     with pytest.raises(ConfigError) as exc:

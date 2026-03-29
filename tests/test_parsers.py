@@ -36,9 +36,6 @@ def test_openloto_pozo(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "Total estimado" not in pozos["montos"], "Totals are excluded from output"
 
 
-
-
-
 def test_env_user_agent_override_applied_openloto(monkeypatch: pytest.MonkeyPatch) -> None:
     # Ensure POLLA_USER_AGENT overrides provided UA
     ua_env = "EnvUA/2.0"

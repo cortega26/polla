@@ -61,7 +61,7 @@ def test_discrepancy_sheet_written_on_allow_quarantine(
     import polla_app.publish as pub
 
     class MockGspread:
-        class WorksheetNotFound(Exception):
+        class WorksheetNotFound(Exception):  # noqa: N818
             pass
 
     pub.gspread = MockGspread

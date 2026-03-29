@@ -251,4 +251,3 @@ def get_pozo_openloto(
     """Fetch próximo pozo data from OpenLoto."""
 
     return _fetch_pozos(url=url, ua=ua, timeout=timeout, allow_total=False, retries=retries)
-

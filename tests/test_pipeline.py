@@ -31,7 +31,11 @@ def test_pozos_pipeline_produces_artifacts(tmp_path: Path, monkeypatch: pytest.M
         "fecha": "2025-09-30",
     }
 
-    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("resultadoslotochile", lambda: primary), ("openloto", lambda: fallback)))
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (("resultadoslotochile", lambda: primary), ("openloto", lambda: fallback)),
+    )
 
     log_path = tmp_path / "run.jsonl"
     output = run_pipeline(
@@ -95,7 +99,11 @@ def test_pozos_pipeline_skip_when_unchanged(
         "fecha": "2025-09-30",
     }
 
-    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("resultadoslotochile", lambda: primary), ("openloto", lambda: fallback)))
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (("resultadoslotochile", lambda: primary), ("openloto", lambda: fallback)),
+    )
 
     state = tmp_path / "state.jsonl"
     state.write_text(
@@ -155,7 +163,11 @@ def test_pozos_pipeline_reason_when_unchanged(
         "fecha": "2025-09-30",
     }
 
-    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("resultadoslotochile", lambda: primary), ("openloto", lambda: fallback)))
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (("resultadoslotochile", lambda: primary), ("openloto", lambda: fallback)),
+    )
 
     state = tmp_path / "state.jsonl"
     state.write_text(
@@ -205,7 +217,11 @@ def test_pozos_pipeline_force_publish_reason(
         "fecha": "2025-09-30",
     }
 
-    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("resultadoslotochile", lambda: payload), ("openloto", lambda: payload)))
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (("resultadoslotochile", lambda: payload), ("openloto", lambda: payload)),
+    )
 
     state = tmp_path / "state.jsonl"
     state.write_text(
@@ -308,7 +324,11 @@ def test_pozos_pipeline_applies_source_overrides(
             "fecha": "2025-10-01",
         }
 
-    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("resultadoslotochile", stub_resultados), ("openloto", stub_openloto)))
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (("resultadoslotochile", stub_resultados), ("openloto", stub_openloto)),
+    )
 
     run_pipeline(
         sources=["pozos"],

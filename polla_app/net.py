@@ -7,12 +7,12 @@ import logging
 import os
 import random
 import time
+import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from time import monotonic
 from typing import Final
-import urllib.request
 from urllib.parse import urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
 
@@ -36,6 +36,7 @@ class FetchMetadata:
     def sha256(self) -> str:
         """Return the SHA-256 digest of the response body."""
         return hashlib.sha256(self.html.encode("utf-8")).hexdigest()
+
 
 @lru_cache(maxsize=64)
 def _get_robots_parser(robots_url: str, ua: str) -> RobotFileParser | None:

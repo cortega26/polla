@@ -55,9 +55,7 @@ def pozos() -> None:
     """Print próximo pozo estimates from known aggregators."""
 
     results: dict[str, Any] = {}
-    for name, fn in (
-        ("openloto", get_pozo_openloto),
-    ):
+    for name, fn in (("openloto", get_pozo_openloto),):
         try:
             results[name] = fn()
         except Exception as exc:
@@ -326,9 +324,7 @@ def health(online: bool, timeout: int) -> None:
     if online:
         successes = 0
         failures = 0
-        for name, fn in (
-            ("openloto", get_pozo_openloto),
-        ):
+        for name, fn in (("openloto", get_pozo_openloto),):
             start = time.monotonic()
             try:
                 payload = fn(timeout=timeout)
