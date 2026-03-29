@@ -21,15 +21,13 @@ _LABEL_PATTERNS = {
     "Recargado": r"Recargado",
     "Revancha": r"Revancha",
     "Desquite": r"Desquite",
-    "Jubilazo $1.000.000": r"Jubilazo(?:\s*\$?1\.000\.000)?",
+    "Jubilazo $1.000.000": r"Jubilazo(?:\s*(?:de\s*)?\$?1\.000\.000)?(?!\s*(?:50\s*a(?:ñ|n)os|Aniversario))",
     # Also include the anniversary/500k variant explicitly so we don't miss it
     # on sources that enumerate both Jubilazo prizes.
-    "Jubilazo $500.000": (
-        r"(?:Jubilazo\s+Aniversario(?:\s*de\s*\$?500\.000)?|Jubilazo\s*\$?500\.000)"
-    ),
+    "Jubilazo $500.000": r"Jubilazo\s*(?:de\s*)?\$?500\.000",
     # Long-term annuity variants ("Jubilazo 50 años ...")
-    "Jubilazo 50 años $1.000.000": r"Jubilazo\s*50\s*a(?:ñ|n)os(?:\s*de)?\s*\$?1\.000\.000",
-    "Jubilazo 50 años $500.000": r"Jubilazo\s*50\s*a(?:ñ|n)os(?:\s*de)?\s*\$?500\.000",
+    "Jubilazo 50 años $1.000.000": r"Jubilazo\s*(?:50\s*a(?:ñ|n)os|Aniversario)(?:\s*de)?\s*\$?1\.000\.000",
+    "Jubilazo 50 años $500.000": r"Jubilazo\s*(?:50\s*a(?:ñ|n)os|Aniversario)(?:\s*de)?\s*\$?500\.000",
     "Total estimado": r"Total\s+estimado",
 }
 
