@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -59,7 +60,7 @@ def test_env_user_agent_override_applied_openloto(monkeypatch: pytest.MonkeyPatc
 
     html = (FIXTURES / "openloto_pozo.html").read_text(encoding="utf-8")
 
-    def stub_fetch_html(url: str, ua: str, timeout: int) -> FetchMetadata:  # noqa: ARG002
+    def stub_fetch_html(url: str, ua: str, timeout: int, **_: Any) -> FetchMetadata:  # noqa: ARG002
         # The UA received by fetch_html should be the env override, not the default
         assert ua == ua_env
         return FetchMetadata(

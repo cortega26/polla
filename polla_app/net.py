@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import random
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -72,12 +73,10 @@ def _calculate_backoff(attempt: int, factor: float, max_seconds: float) -> float
 
     Uses the formula: (factor * 2^(attempt-1)) + jitter.
     """
-    import random
-
     delay = factor * (2 ** (attempt - 1))
     # Add up to 25% jitter
     jitter = random.uniform(0, 0.25 * delay)
-    return min(delay + jitter, max_seconds)
+    return float(min(delay + jitter, max_seconds))
 
 
 def fetch_html(
