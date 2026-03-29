@@ -35,7 +35,7 @@ jobs:
 
       - name: Restore pipeline state
         id: restore-state
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: pipeline_state
           key: dry-run-state-${{ github.ref_name }}-${{ github.run_number }}
@@ -73,7 +73,7 @@ jobs:
             --dry-run
 
       - name: Save pipeline state
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         if: always()
         with:
           path: pipeline_state
