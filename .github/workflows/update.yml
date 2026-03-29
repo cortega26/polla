@@ -1,4 +1,7 @@
-﻿name: Alt Sources Dry Run
+name: Alt Sources Dry Run
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
   schedule:
