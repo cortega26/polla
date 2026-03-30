@@ -1,5 +1,8 @@
 name: Alt Sources Dry Run
 
+permissions:
+  contents: read
+
 on:
   schedule:
     - cron: '0 2 * * *'  # Supplemental early-morning verification
