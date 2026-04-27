@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import types
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
