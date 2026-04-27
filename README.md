@@ -1,116 +1,116 @@
-# Polla App — Reliable jackpot ingestion for Chilean Loto
+# Polla App — Ingesta confiable de pozos para el Loto de Chile
 
-Aggregate próximo pozo estimates from vetted community mirrors, enforce provenance, and publish Google Sheets updates without touching `polla.cl`.
+Agrega estimaciones del próximo pozo integrando la fuente oficial de `polla.cl` con espejos comunitarios verificados, garantiza la procedencia mediante consenso y publica actualizaciones en Google Sheets.
 
 [![Tests](https://github.com/cortega26/polla/actions/workflows/tests.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/tests.yml) [![Docs](https://github.com/cortega26/polla/actions/workflows/docs.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/docs.yml) [![Health](https://github.com/cortega26/polla/actions/workflows/health.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/health.yml) [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3100/) [![License](https://img.shields.io/github/license/cortega26/polla)](license.md) [![Last commit](https://img.shields.io/github/last-commit/cortega26/polla)](https://github.com/cortega26/polla/commits/main)
 
-## Features
+## Características
 
-- Orchestrates multi-source ingestion with a unified registry (`pozos`, `resultadoslotochile`, `openloto`, `polla`) and deterministic fallbacks.
-- Ensures data integrity via SHA-256 content-hash verification and magnitude-based consensus quarantine (10% threshold).
-- Features a **Confidence Scoring System** (`full`, `degraded`, `single_source`) to signal data reliability.
-- Sends **Rich Slack Notifications** for successful runs and detailed **Quarantine Alerts** for discrepancies.
-- Publishes structured JSONL outputs and comparison reports with full provenance traceability.
-- Ships a Click-based CLI (`run`, `publish`, `pozos`, `health`) with dry-run diffing and automated guardrails.
-- Handles rate-limiting gracefully with jittered exponential backoff and polite robots.txt enforcement.
-- Locks behavior with fixture-driven pytest suites and automated coverage enforcement (80% threshold).
-- Simplifies day-to-day DX with Make targets, Black/Ruff/Mypy automation, and GitHub Actions parity.
+- Orquestación de ingesta multi-fuente con un registro unificado (`pozos`, `resultadoslotochile`, `openloto`, `polla`) y mecanismos de respaldo deterministas.
+- Garantía de integridad de datos mediante verificación de hash SHA-256 y cuarentena por consenso basada en magnitud (umbral del 10%).
+- Sistema de **Puntaje de Confianza** (`full`, `degraded`, `single_source`) para señalar la fiabilidad de los datos.
+- Envío de **Notificaciones Enriquecidas en Slack** para ejecuciones exitosas y **Alertas de Cuarentena** detalladas ante discrepancias.
+- Generación de salidas estructuradas en JSONL y reportes de comparación con trazabilidad completa de procedencia.
+- CLI basado en Click (`run`, `publish`, `pozos`, `health`) con previsualización de cambios (dry-run) y salvaguardas automatizadas.
+- Manejo elegante de límites de tasa (rate-limiting) con retroceso exponencial (jittered backoff) y respeto a robots.txt.
+- Comportamiento asegurado con suites de pytest basadas en fixtures y cumplimiento automático de cobertura (umbral del 80%).
+- Experiencia de desarrollo (DX) simplificada con objetivos Make, automatización con Black/Ruff/Mypy y paridad con GitHub Actions.
 
-## Tech Stack
+## Stack Tecnológico
 
-- Python 3.10+, Click CLI, Requests + BeautifulSoup parsers
-- Google Sheets integration via `gspread` + `google-auth`
-- Testing: Pytest (+ doctests), Faker fixtures
-- Tooling: Ruff, Black, Mypy, GitHub Actions (tests, docs, health)
+- Python 3.10+, Click CLI, Requests + parsers BeautifulSoup
+- Integración con Google Sheets vía `gspread` + `google-auth`
+- Pruebas: Pytest (+ doctests), fixtures de Faker
+- Herramientas: Ruff, Black, Mypy, GitHub Actions (tests, docs, health)
 
-## Architecture at a Glance
+## Arquitectura de un Vistazo
 
 ```mermaid
 %%{init: {"themeVariables": {"fontSize":"16px"}, "flowchart": {"htmlLabels": false, "wrap": true}}}%%
 flowchart TB
-  A[CLI command] --> B[Pipeline Orchestrator]
-  B --> C{Source registry}
-  C -->|Polla.cl| D[Stealth Fetcher]
-  C -->|ResultadosLotoChile| E[Mirror Source A]
-  C -->|OpenLoto| F[Mirror Source B]
-  D & E & F --> G[Normalizer]
-  G --> H[Consensus Engine]
-  H --> I["Artifacts<br/>(JSONL, reports, state)"]
-  I --> J{Decision}
-  J -->|Publish| K[Google Sheets via gspread]
-  J -->|Quarantine| L[Detailed Slack Alert]
-  J -->|Skip| M[Silent completion]
-  B --> N["Structured logging<br/>(spans + metrics)"]
+  A[Comando CLI] --> B[Orquestador de Pipeline]
+  B --> C{Registro de fuentes}
+  C -->|Polla.cl| D[Fetcher Sigiloso]
+  C -->|ResultadosLotoChile| E[Fuente Espejo A]
+  C -->|OpenLoto| F[Fuente Espejo B]
+  D & E & F --> G[Normalizador]
+  G --> H[Motor de Consenso]
+  H --> I["Artifacts<br/>(JSONL, reportes, estado)"]
+  I --> J{Decisión}
+  J -->|Publicar| K[Google Sheets vía gspread]
+  J -->|Cuarentena| L[Alerta Detallada en Slack]
+  J -->|Omitir| M[Finalización silenciosa]
+  B --> N["Logging estructurado<br/>(spans + métricas)"]
 
 ```
 
-## Quick Start
+## Inicio Rápido
 
-1. **Validate your environment**: Run the automated check to ensure everything is correctly configured:
+1. **Valida tu entorno**: Ejecuta la verificación automática para asegurar que todo esté configurado correctamente:
 
    ```bash
    make ready
    ```
 
-2. **Run the pozos pipeline locally**:
+2. **Ejecuta el pipeline de pozos localmente**:
 
    ```bash
    python -m polla_app run --sources pozos
    ```
 
-3. **Dry-run publishing** (requires credentials):
+3. **Simulacro de publicación** (requiere credenciales):
 
    ```bash
    python -m polla_app publish --dry-run
    ```
 
-### Configuration
+### Configuración
 
-| Name                                 | Type        | Default         | Required      | Description                                               |
-| ------------------------------------ | ----------- | --------------- | ------------- | --------------------------------------------------------- |
-| `GOOGLE_SPREADSHEET_ID`              | string      | —               | For `publish` | Target worksheet key for Google Sheets publishing.        |
-| `GOOGLE_SERVICE_ACCOUNT_JSON`        | JSON string | —               | Conditional   | Inline service account credentials (alternative to file). |
-| `GOOGLE_CREDENTIALS` / `CREDENTIALS` | JSON string | —               | Conditional   | Legacy env vars recognised for service account auth.      |
-| `service_account.json`               | file        | —               | Conditional   | Disk-based credentials if env vars are not supplied.      |
-| `ALT_SOURCE_URLS`                    | JSON string | `{}`            | No            | Override source URLs for mirrors or testing.              |
-| `POLLA_USER_AGENT`                   | string      | Library default | No            | Custom HTTP user agent for polite scraping.               |
-| `POLLA_RATE_LIMIT_RPS`               | float       | unset           | No            | Per-host requests-per-second throttle.                    |
-| `POLLA_MAX_RETRIES`                  | integer     | `3`             | No            | Max retry attempts per request.                           |
-| `POLLA_BACKOFF_FACTOR`               | float       | `0.3`           | No            | Multiplier for exponential backoff delay.                 |
-| `POLLA_429_BACKOFF_SECONDS`          | integer     | —               | No            | Fixed delay to wait after a 429 status code (fallback).   |
-| `SLACK_WEBHOOK_URL`                  | string      | —               | No            | Target for run summaries and discrepancy alerts.          |
+| Nombre | Tipo | Por defecto | Requerido | Descripción |
+| :--- | :--- | :--- | :--- | :--- |
+| `GOOGLE_SPREADSHEET_ID` | string | — | Para `publish` | ID de la hoja de cálculo de Google para la publicación. |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | string JSON | — | Condicional | Credenciales de cuenta de servicio en línea (alternativa a archivo). |
+| `GOOGLE_CREDENTIALS` / `CREDENTIALS` | string JSON | — | Condicional | Variables de entorno legacy para autenticación de cuenta de servicio. |
+| `service_account.json` | archivo | — | Condicional | Credenciales en disco si no se proporcionan variables de entorno. |
+| `ALT_SOURCE_URLS` | string JSON | `{}` | No | Sobrescribe las URLs de las fuentes para espejos o pruebas. |
+| `POLLA_USER_AGENT` | string | Library default | No | User-agent HTTP personalizado para scraping respetuoso. |
+| `POLLA_RATE_LIMIT_RPS` | float | sin definir | No | Límite de peticiones por segundo por host. |
+| `POLLA_MAX_RETRIES` | entero | `3` | No | Máximo de intentos de reintento por petición. |
+| `POLLA_BACKOFF_FACTOR` | float | `0.3` | No | Multiplicador para el retraso del retroceso exponencial. |
+| `POLLA_429_BACKOFF_SECONDS` | entero | — | No | Retraso fijo tras recibir un código de estado 429 (fallback). |
+| `SLACK_WEBHOOK_URL` | string | — | No | Destino para resúmenes de ejecución y alertas de discrepancia. |
 
-## Quality & Tests
+## Calidad y Pruebas
 
-- `pytest -q` – executes unit/integration suites with offline fixtures; expect `N passed` in <10s.
-- `ruff check polla_app tests` – enforces linting, naming, and import hygiene.
-- `mypy polla_app` – verifies strict typing (3rd-party stubs ignored where unavailable).
-- `black --check polla_app tests` – maintains consistent formatting.
-- `pytest --doctest-glob='*.md' README.md docs -q` – ensures documentation examples stay executable.
+- `pytest -q` – ejecuta las suites de unidad e integración con fixtures offline; espera `N passed` en menos de 10s.
+- `ruff check polla_app tests` – impone reglas de linting, nomenclatura e higiene de importaciones.
+- `mypy polla_app` – verifica el tipado estricto (se ignoran stubs de terceros no disponibles).
+- `black --check polla_app tests` – mantiene un formato consistente.
+- `pytest --doctest-glob='*.md' README.md docs -q` – asegura que los ejemplos de la documentación sigan siendo ejecutables.
 
-CI mirrors these commands through `.github/workflows/tests.yml` and `.github/workflows/docs.yml` so local runs match automation. Add `pytest --cov=polla_app` when you need a coverage report.[^coverage]
+CI refleja estos comandos a través de `.github/workflows/tests.yml` y `.github/workflows/docs.yml` para que las ejecuciones locales coincidan con la automatización. Añade `pytest --cov=polla_app` cuando necesites un reporte de cobertura.[^coverage]
 
-## Performance & Reliability
+## Rendimiento y Confiabilidad
 
-- **High-Performance Parsing**: `scripts/benchmark_pozos_parsing.py` ensures we maintain a median scrape time under **150ms**.
-- **Observability**: Structured metrics and spans provide deep visibility into the consensus decision-making process.
-- **Reliability**: Scheduled `health.yml` exercises the pipeline daily to detect source drift before it impacts production.
+- **Parsing de Alto Rendimiento**: `scripts/benchmark_pozos_parsing.py` asegura que mantengamos un tiempo medio de scraping inferior a **150ms**.
+- **Observabilidad**: Métricas y tramas (spans) estructuradas brindan visibilidad profunda sobre el proceso de toma de decisiones de consenso.
+- **Confiabilidad**: El flujo programado `health.yml` ejercita el pipeline diariamente para detectar derivas en las fuentes antes de que impacten la producción.
 
-## Roadmap
+## Hoja de Ruta
 
-- Add smoke-test fixtures for newly emerging aggregator mirrors.
-- Implement more granular prize-tier parsing for Polla source.
+- Agregar fixtures de prueba de humo para nuevos espejos agregadores emergentes.
+- Implementar parsing de niveles de premios más granulares para la fuente de Polla.
 
-## Why It Matters
+## Por Qué es Importante
 
-- Demonstrates operational empathy: dry-run defaults, quarantine support, and explicit provenance reduce on-call stress.
-- Highlights disciplined scraping practices respectful of third-party infrastructure and legal boundaries.
-- Shows ability to automate reliability checks end-to-end (health workflow, observability hooks, structured metrics).
-- Illustrates developer-experience focus through reproducible CLI, Make targets, and strict typing/linting gates.
-- Proves comfort with secure credential handling when integrating with Google Workspace APIs.
+- Demuestra empatía operativa: valores por defecto de dry-run, soporte para cuarentena y procedencia explícita reducen el estrés de guardia (on-call).
+- Destaca prácticas disciplinadas de scraping respetuosas de la infraestructura de terceros y los límites legales.
+- Muestra capacidad para automatizar verificaciones de confiabilidad de extremo a extremo (workflow de salud, ganchos de observabilidad, métricas estructuradas).
+- Ilustra el enfoque en la experiencia del desarrollador mediante CLI reproducible, objetivos Make y puertas estrictas de tipado y linting.
+- Prueba comodidad con el manejo seguro de credenciales al integrar con APIs de Google Workspace.
 
-## Contributing & License
+## Contribución y Licencia
 
-Contributions are welcome—see [CONTRIBUTING.md](CONTRIBUTING.md) for style, testing, and review expectations.
+Las contribuciones son bienvenidas—consulta [CONTRIBUTING.md](CONTRIBUTING.md) para conocer las expectativas de estilo, pruebas y revisión.
 
-This project is distributed under the [MIT License](license.md).
+Este proyecto se distribuye bajo la [Licencia MIT](license.md).
