@@ -2,7 +2,7 @@
 
 Aggregate próximo pozo estimates from vetted community mirrors, enforce provenance, and publish Google Sheets updates without touching `polla.cl`.
 
-[![Tests](https://github.com/cortega26/polla/actions/workflows/tests.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/tests.yml) [![Docs](https://github.com/cortega26/polla/actions/workflows/docs.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/docs.yml) [![Health](https://github.com/cortega26/polla/actions/workflows/health.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/health.yml) [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3100/) [![License](https://img.shields.io/github/license/cortega26/polla)](license.md) [![Last commit](https://img.shields.io/github/last-commit/cortega26/polla)](https://github.com/cortega26/polla/commits/main)
+[![Tests](https://github.com/cortega26/polla/actions/workflows/tests.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/tests.yml) [![Docs](https://github.com/cortega26/polla/actions/workflows/docs.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/docs.yml) [![Health](https://github.com/cortega26/polla/actions/workflows/health.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/health.yml) [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3100/) [![License](https://img.shields.io/github/license/cortega26/polla)](license.md) [![Last commit](https://img.shields.io/github/last-commit/cortega26/polla)](https://github.com/cortega26/polla/commits/main)
 
 ## Features
 
@@ -79,7 +79,6 @@ flowchart TB
 | `POLLA_BACKOFF_FACTOR`               | float       | `0.3`           | No            | Multiplier for exponential backoff delay.                 |
 | `POLLA_429_BACKOFF_SECONDS`          | integer     | —               | No            | Fixed delay to wait after a 429 status code (fallback).   |
 | `SLACK_WEBHOOK_URL`                  | string      | —               | No            | Target for run summaries and discrepancy alerts.          |
-
 
 ## Quality & Tests
 
