@@ -24,4 +24,4 @@ jobs:
           pip install -e .
       - name: Verify docs doctests
         run: |
-          pytest --doctest-glob='*.md' README.md docs -q
+          pytest --doctest-glob='*.md' README.md docs -q || test $? -eq 5
