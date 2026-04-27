@@ -170,3 +170,71 @@ def test_publish_pozos_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     # Verify 4-column format: sorteo, fecha, categoria, pozo_clp
     assert rows[0] == [5417, "2026-04-26", "Loto Clásico", 140000000]
     assert rows[1] == [5417, "2026-04-26", "Revancha", 50000000]
+
+
+def test_publish_multiple_records_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    import polla_app.publish as pub
+
+    # Two records
+    r1 = {"sorteo": 1, "fecha": "2025-01-01", "pozos_proximo": {"Loto": 100}}
+    r2 = {"sorteo": 2, "fecha": "2025-01-02", "pozos_proximo": {"Loto": 200}}
+
+    path = tmp_path / "multi.jsonl"
+    path.write_text(json.dumps(r1) + "\n" + json.dumps(r2), encoding="utf-8")
+
+    comparison_path = tmp_path / "comp.json"
+    comparison_path.write_text(
+        json.dumps({"decision": {"status": "publish"}, "mismatches": []}), encoding="utf-8"
+    )
+
+    monkeypatch.setenv("GOOGLE_SPREADSHEET_ID", "dummy")
+
+    with caplog.at_level("WARNING"):
+        result = pub.publish_to_google_sheets(
+            normalized_path=path,
+            comparison_report_path=comparison_path,
+            summary=None,
+            worksheet_name="Pozos",
+            discrepancy_tab="Discrepancies",
+            dry_run=True,
+            force_publish=False,
+            allow_quarantine=True,
+        )
+
+    assert "Multiple records found in normalized file (2)" in caplog.text
+    # Ensure only r1 was processed
+    assert result["rows"][0][0] == 1
+
+
+def test_publish_with_empty_pozos(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import polla_app.publish as pub
+
+    record = {
+        "sorteo": 5417,
+        "fecha": "2026-04-26",
+        "pozos_proximo": {},  # Empty
+    }
+    normalized_path = tmp_path / "empty.jsonl"
+    normalized_path.write_text(json.dumps(record), encoding="utf-8")
+
+    comparison_path = tmp_path / "comp.json"
+    comparison_path.write_text(
+        json.dumps({"decision": {"status": "publish"}, "mismatches": []}), encoding="utf-8"
+    )
+
+    monkeypatch.setenv("GOOGLE_SPREADSHEET_ID", "dummy")
+    result = pub.publish_to_google_sheets(
+        normalized_path=normalized_path,
+        comparison_report_path=comparison_path,
+        summary=None,
+        worksheet_name="Pozos",
+        discrepancy_tab="Discrepancies",
+        dry_run=True,
+        force_publish=False,
+        allow_quarantine=True,
+    )
+
+    assert result["updated_rows"] == 0
+    assert result["rows"] == []

@@ -316,7 +316,8 @@
 | **Prioridad** | P1 |
 | **Esfuerzo** | S |
 | **Riesgo** | Bajo (podría revelar bugs en el exception path) |
-| **Estado** | `todo` |
+| **Estado** | `done` |
+
 | **Dependencias** | BUG-01 (firma de _collect_pozos estable) |
 | **Fase** | 2 |
 | **Archivos** | `polla_app/pipeline.py`, `tests/test_pipeline.py` |
@@ -367,7 +368,8 @@
 | **Prioridad** | P1 |
 | **Esfuerzo** | S |
 | **Riesgo** | Ninguno |
-| **Estado** | `todo` |
+| **Estado** | `done` |
+
 | **Dependencias** | BUG-01 |
 | **Fase** | 2 |
 | **Archivos** | `tests/test_pipeline.py` |
@@ -395,7 +397,7 @@
 | **Prioridad** | P2 |
 | **Esfuerzo** | M |
 | **Riesgo** | Ninguno |
-| **Estado** | `todo` |
+| **Estado** | `done` |
 | **Dependencias** | Ninguna |
 | **Fase** | 2 |
 | **Archivos** | `tests/test_publish.py` |
@@ -421,7 +423,8 @@
 | **Prioridad** | P1 |
 | **Esfuerzo** | S |
 | **Riesgo** | Ninguno |
-| **Estado** | `todo` |
+| **Estado** | `done` |
+
 | **Dependencias** | TEST-01 |
 | **Fase** | 2 |
 | **Archivos** | `tests/test_pipeline.py` |
@@ -452,7 +455,8 @@
 | **Prioridad** | P2 |
 | **Esfuerzo** | S |
 | **Riesgo** | Bajo |
-| **Estado** | `todo` |
+| **Estado** | `done` |
+
 | **Dependencias** | BUG-01 (la firma está estabilizada) |
 | **Fase** | 3 |
 | **Archivos** | `polla_app/__main__.py`, `CHANGELOG.md` |
@@ -482,7 +486,8 @@
 | **Prioridad** | P2 |
 | **Esfuerzo** | S |
 | **Riesgo** | Bajo (fix mínimo en _normalize_sources) |
-| **Estado** | `todo` |
+| **Estado** | `done` |
+
 | **Dependencias** | Ninguna |
 | **Fase** | 3 |
 | **Archivos** | `polla_app/pipeline.py` |
@@ -516,7 +521,8 @@
 | **Prioridad** | P2 |
 | **Esfuerzo** | S |
 | **Riesgo** | Ninguno |
-| **Estado** | `todo` |
+| **Estado** | `done` |
+
 | **Dependencias** | Ninguna |
 | **Fase** | 3 |
 | **Archivos** | `polla_app/__main__.py` |
@@ -547,7 +553,8 @@
 | **Prioridad** | P2 |
 | **Esfuerzo** | S |
 | **Riesgo** | Bajo |
-| **Estado** | `todo` |
+| **Estado** | `done` |
+
 | **Dependencias** | Ninguna |
 | **Fase** | 3 |
 | **Archivos** | `polla_app/obs.py` |
@@ -582,7 +589,8 @@
 | **Prioridad** | P2 |
 | **Esfuerzo** | M |
 | **Riesgo** | Bajo (comportamiento idéntico, solo tipos mejoran) |
-| **Estado** | `todo` |
+| **Estado** | `done` |
+
 | **Dependencias** | Ninguna |
 | **Fase** | 3 |
 | **Archivos** | `polla_app/pipeline.py` |
@@ -618,7 +626,8 @@
 | **Prioridad** | P3 |
 | **Esfuerzo** | S |
 | **Riesgo** | Bajo |
-| **Estado** | `todo` |
+| **Estado** | `done` |
+
 | **Dependencias** | Ninguna |
 | **Fase** | 3 |
 | **Archivos** | `polla_app/pipeline.py` |
@@ -643,7 +652,8 @@
 | **Prioridad** | P3 |
 | **Esfuerzo** | S |
 | **Riesgo** | Bajo (solo añade información al report, no cambia decisión) |
-| **Estado** | `todo` |
+| **Estado** | `done` |
+
 | **Dependencias** | Ninguna |
 | **Fase** | 3 |
 | **Archivos** | `polla_app/pipeline.py` |
@@ -669,7 +679,8 @@
 | **Prioridad** | P3 |
 | **Esfuerzo** | S |
 | **Riesgo** | Bajo (puede hacer fallar CI si la cobertura cae, que es el objetivo) |
-| **Estado** | `todo` |
+| **Estado** | `done` |
+
 | **Dependencias** | TEST-01, TEST-03 (para que el baseline de coverage sea real) |
 | **Fase** | 3 |
 | **Archivos** | `.github/workflows/scrape.yml` o `.codecov.yml` |
@@ -726,7 +737,8 @@
 | **Prioridad** | P3 |
 | **Esfuerzo** | S |
 | **Riesgo** | Ninguno |
-| **Estado** | `todo` |
+| **Estado** | `done` |
+
 | **Dependencias** | BUG-01 (para documentar el comportamiento correcto post-fix) |
 | **Fase** | 3 |
 | **Archivos** | `README.md` |
@@ -805,7 +817,7 @@
 | **Prioridad** | P4 |
 | **Esfuerzo** | M |
 | **Riesgo** | Medio (cambio de schema → API_VERSION bump requerido) |
-| **Estado** | `todo` |
+| **Estado** | `done` |
 | **Dependencias** | TEST-01 (comportamiento de fallo verificado), Fases 0-3 cerradas |
 | **Fase** | 4 |
 | **Archivos** | `polla_app/pipeline.py`, `polla_app/contracts.py`, `docs/API.md` |

@@ -4,19 +4,34 @@ Programmatic entry points for integrating the pipeline into other tooling.
 
 Sanity check doctest:
 
->>> from polla_app.sources import pozos
->>> isinstance(pozos.OPENLOTO_URL, str)
-True
+> > > from polla_app.sources import pozos
+> > > isinstance(pozos.OPENLOTO_URL, str)
+> > > True
 
 ## Pipeline
 
-`polla_app.pipeline.run_pipeline(*, sources, source_overrides, raw_dir, normalized_path, comparison_report_path, summary_path, state_path, log_path, retries, timeout, fail_fast, mismatch_threshold, include_pozos, force_publish=False) -> dict`
+`polla_app.pipeline.run_pipeline(...)`
 
-- Sources: `"pozos"`, `"resultadoslotochile"`, or `"openloto"`. Sources use a unified registry for consistent results.
-- `source_overrides`: case‑insensitive mapping of `{ "openloto": url, "resultadoslotochile": url }`.
-- Returns a result with `status` (publish/skip/quarantine), `publish_reason`, and `max_deviation`.
+| Parameter                | Type                | Description                                                       |
+| ------------------------ | ------------------- | ----------------------------------------------------------------- |
+| `sources`                | `Sequence[str]`     | List of sources to ingest: `"pozos"`, `"polla"`, or `"openloto"`. |
+| `source_overrides`       | `Mapping[str, str]` | Case-insensitive mapping of `{ "openloto": url, "polla": url }`.  |
+| `raw_dir`                | `Path`              | Directory where per-source raw outputs will be written.           |
+| `normalized_path`        | `Path`              | Path to the normalized NDJSON output file.                        |
+| `comparison_report_path` | `Path`              | Path to the comparison report JSON file.                          |
+| `summary_path`           | `Path`              | Path to the machine-readable run summary.                         |
+| `state_path`             | `Path`              | File used to persist the last successful normalized record.       |
+| `log_path`               | `Path`              | Structured log file emitted by the pipeline.                      |
+| `retries`                | `int`               | Number of retries per source (default 3).                         |
+| `timeout`                | `int`               | HTTP timeout in seconds (default 30).                             |
+| `fail_fast`              | `bool`              | Abort on the first source failure.                                |
+| `mismatch_threshold`     | `float`             | Max ratio of category mismatches tolerated before quarantine.     |
+| `include_pozos`          | `bool`              | Include próximo pozo enrichment (deprecated, always True).        |
+| `force_publish`          | `bool`              | Force ingestion and state update even if data is unchanged.       |
 
-Example:
+**Returns**: A dictionary containing `status` (publish/skip/quarantine), `publish_reason`, and `max_deviation`.
+
+### Example
 
 ```python
 from pathlib import Path
@@ -41,39 +56,33 @@ print(summary["publish"])  # True/False
 print(summary["publish_reason"])  # e.g. "updated_or_new_amounts"
 ```
 
+---
+
 ## Publishing
 
-`polla_app.publish.publish_to_google_sheets(*, normalized_path, comparison_report_path, summary, worksheet_name, discrepancy_tab, dry_run, force_publish, allow_quarantine) -> dict`
+`polla_app.publish.publish_to_google_sheets(...)`
 
-- Reads artifacts produced by the pipeline and updates Google Sheets.
-- Credentials are loaded from `service_account.json` (cwd) or the `GOOGLE_SERVICE_ACCOUNT_JSON`/`GOOGLE_CREDENTIALS` envs.
+| Parameter                | Type   | Description                                                          |
+| ------------------------ | ------ | -------------------------------------------------------------------- |
+| `normalized_path`        | `Path` | Path to the normalized NDJSON file produced by the pipeline.         |
+| `comparison_report_path` | `Path` | Path to the comparison report JSON file.                             |
+| `summary`                | `dict` | Optional run summary JSON to honour publish/quarantine decisions.    |
+| `worksheet_name`         | `str`  | Worksheet name to update with canonical data (default "Normalized"). |
+| `discrepancy_tab`        | `str`  | Worksheet name used to store comparison mismatches.                  |
+| `dry_run`                | `bool` | Skip calls to the Google Sheets API and only print actions.          |
+| `force_publish`          | `bool` | Override quarantine and publish regardless of discrepancies.         |
+| `allow_quarantine`       | `bool` | Write discrepancies even if the canonical update is skipped.         |
 
-Example (dry‑run):
-
-```python
-from pathlib import Path
-from polla_app.publish import publish_to_google_sheets
-
-result = publish_to_google_sheets(
-    normalized_path=Path("artifacts/normalized.jsonl"),
-    comparison_report_path=Path("artifacts/comparison_report.json"),
-    summary=Path("artifacts/run_summary.json").read_text() and None,
-    worksheet_name="Normalized",
-    discrepancy_tab="Discrepancies",
-    dry_run=True,
-    force_publish=False,
-    allow_quarantine=True,
-)
-print(result)
-```
+---
 
 ## Sources
 
-`polla_app.sources.get_pozo_openloto(url: str = DEFAULT, *, ua: str = DEFAULT, timeout: int = 20) -> dict`
+| Function                           | Description                                                                                        |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `get_pozo_openloto(url, **kwargs)` | Returns a dict with `montos`, `fuente`, `fetched_at`, `sorteo`, `fecha` from OpenLoto.             |
+| `get_pozo_polla(url, **kwargs)`    | Returns a dict with `montos`, `fuente`, `fetched_at`, `sorteo`, `fecha` from Polla/ResultadosLoto. |
 
-`polla_app.sources.get_pozo_resultadosloto(url: str = DEFAULT, *, ua: str = DEFAULT, timeout: int = 20) -> dict`
-
-Return a dict with `montos` per category, `fuente`, `fetched_at`, and best‑effort `sorteo`/`fecha`.
+---
 
 ## HTTP Helpers
 
@@ -83,10 +92,12 @@ Return a dict with `montos` per category, `fuente`, `fetched_at`, and best‑eff
 - Backoff is configurable via `POLLA_MAX_RETRIES` and `POLLA_BACKOFF_FACTOR`.
 - Returns `FetchMetadata(url, user_agent, fetched_at, html)`; `sha256` property provides body hash for bit-perfect deduplication.
 
+---
+
 ## Exceptions
 
-`polla_app.exceptions.ScriptError` — base class with `error_code`, `context` and structured `log_error()`.
-
-`ConfigError` — configuration/env problems (e.g., missing Google credentials or spreadsheet ID).
-
-`RobotsDisallowedError` — raised when robots policy forbids a fetch (subclasses `PermissionError`).
+| Class                   | Description                                                           |
+| ----------------------- | --------------------------------------------------------------------- |
+| `ScriptError`           | Base class with `error_code`, `context` and structured `log_error()`. |
+| `ConfigError`           | Raised for missing Google credentials or spreadsheet ID.              |
+| `RobotsDisallowedError` | Raised when robots policy forbids a fetch.                            |

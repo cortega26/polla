@@ -210,7 +210,14 @@ def publish_to_google_sheets(
     if not normalized:
         raise RuntimeError("Normalized dataset is empty; nothing to publish")
 
+    if len(normalized) > 1:
+        LOGGER.warning(
+            "Multiple records found in normalized file (%d); only the first one will be published",
+            len(normalized),
+        )
+
     report = _load_json(comparison_report_path)
+
     summary_payload = _normalize_summary(summary)
     rows = _record_to_rows(normalized[0])
     mismatch_rows = _mismatch_rows(report)

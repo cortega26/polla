@@ -52,3 +52,37 @@ def test_magnitude_quarantine_calculation() -> None:
     m = mismatches[0]
     # Max deviation between 1000 and 1150 is 15% (0.15)
     assert m["max_deviation"] >= 0.14
+
+
+def test_redaction_false_positives() -> None:
+    from polla_app.obs import _should_redact_key
+
+    # Should NOT redact
+    assert not _should_redact_key("monkey")
+    assert not _should_redact_key("jockey")
+    assert not _should_redact_key("keyhole")
+
+    # SHOULD redact
+    assert _should_redact_key("key")
+    assert _should_redact_key("api_key")
+    assert _should_redact_key("secret_key")
+    assert _should_redact_key("key_id")
+    assert _should_redact_key("_key_")
+
+
+def test_normalize_sources_deduplication() -> None:
+    from polla_app.pipeline import _normalize_sources
+
+    # "all" or "pozos" should collapse to just "pozos"
+    assert _normalize_sources(["all"]) == ["pozos"]
+    assert _normalize_sources(["pozos"]) == ["pozos"]
+    assert _normalize_sources(["openloto", "pozos"]) == ["pozos"]
+    assert _normalize_sources(["openloto", "polla", "pozos"]) == ["pozos"]
+    assert _normalize_sources(["all", "openloto"]) == ["pozos"]
+
+    # Individual sources stay individual
+    assert _normalize_sources(["openloto"]) == ["openloto"]
+    assert sorted(_normalize_sources(["openloto", "polla"])) == [
+        "openloto",
+        "polla",
+    ]

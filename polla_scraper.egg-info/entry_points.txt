@@ -1,0 +1,2 @@
+[console_scripts]
+polla = polla_app.__main__:cli

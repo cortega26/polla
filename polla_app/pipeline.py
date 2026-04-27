@@ -389,14 +389,19 @@ def _run_ingestion_for_sources(
     primary = collected[0]
 
     # Calculate confidence scoring (FEAT-01)
-    if len(requested_sources) == 1:
-        confidence = "single_source"
-    elif len(collected) == len(requested_sources):
-        confidence = "full"
-    elif len(collected) > 1:
+    expected_sources_count = 0
+    for name in requested_sources:
+        if name == "pozos":
+            expected_sources_count += len(POZO_SOURCES)
+        else:
+            expected_sources_count += 1
+
+    if len(collected) < expected_sources_count or mismatch_ratio > 0:
         confidence = "degraded"
-    else:
+    elif len(collected) == 1:
         confidence = "single_source"
+    else:
+        confidence = "full"
 
     sorteo = primary.get("sorteo")
     fecha = primary.get("fecha")

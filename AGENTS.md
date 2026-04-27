@@ -3,6 +3,7 @@
 This repository uses AGENTS.md to guide AI/automation and humans on how to make safe, high‑quality changes quickly. Everything here applies to the entire repo.
 
 ## Prime Directives
+
 - Keep public behavior stable unless explicitly requested. Avoid breaking changes.
 - Prefer minimal, surgical diffs that fix the root cause.
 - All linters, type checks, tests, and docs doctests must pass.
@@ -10,6 +11,7 @@ This repository uses AGENTS.md to guide AI/automation and humans on how to make 
 - Document non‑obvious code with concise, helpful docstrings.
 
 ## Project Overview
+
 - Language: Python 3.10+
 - Package: `polla_app` – alternative‑source ingestion for Chilean Loto (pozos only)
 - CLI entry: `python -m polla_app` with commands: `run`, `publish`, `pozos`, `health`
@@ -19,6 +21,7 @@ This repository uses AGENTS.md to guide AI/automation and humans on how to make 
 - Contracts: artifacts/results include `api_version` (see `polla_app/contracts.py`)
 
 ## Engineering Principles (MANDATORY)
+
 - SOLID
   - Single Responsibility: keep modules/functions focused on one concern. Split large functions into helpers.
   - Open/Closed: prefer additive changes (new helpers/flags/fields). Avoid breaking existing behavior/outputs.
@@ -31,26 +34,27 @@ This repository uses AGENTS.md to guide AI/automation and humans on how to make 
 - PEP‑8: enforced by Ruff + Black. Naming: `snake_case` for functions/vars, `CapWords` for classes, `UPPER_SNAKE` for constants. Keep imports sorted; write meaningful docstrings.
 
 ## What to Change (and What Not)
+
 - OK: bug fixes, test additions, small refactors that preserve behavior, performance improvements that keep outputs the same, docs changes.
 - ASK FIRST: adding new dependencies, changing CLI flags or outputs, network‑heavy features, schema or API changes (see Contracts).
 - DO NOT: commit secrets, hardcode credentials, add flakey/online tests, remove existing public flags or keys without a migration.
 
 ## Repository Hygiene
+
 - **No Scratch Files**: Do not commit one-off test scripts (`test_*.py`), migration scripts (`fix_*.py`), or temporary HTML/data files to the repository.
 - **Local vs. Persisted Scratch**: Use the conversation-specific scratch directory (`<appDataDir>/brain/<conversation-id>/scratch/`) for temporary work. Files in the project root must be production-ready and tracked.
 - **Ignore Awareness**: Keep `.gitignore` updated. Generated artifacts (logs, coverage, pipeline state) must never be tracked.
 
-
 ## Versioning & Contracts
+
 - Package version single‑source: `polla_app/__init__.py: __version__`.
   - `pyproject.toml` reads it dynamically (`[tool.setuptools.dynamic]`). Don’t add another version constant.
 - Artifact/result API version: `polla_app/contracts.py: API_VERSION`.
   - If you add fields: keep them additive and update tests & docs. If you must remove/rename, bump `API_VERSION` and provide migration notes.
 - Deprecations: keep backward‑compat aliases for at least one MINOR version (e.g., `_normalise_*` → `_normalize_*`).
 
-Note: Keep this file named `AGENTS.md`. The automation reads `AGENTS.md` automatically; renaming to another filename (e.g., `AGENTS_AI.md`) may cause it to be ignored.
-
 ## Environment & Config (12‑Factor)
+
 - Inputs via env vars (don’t hardcode):
   - `GOOGLE_SPREADSHEET_ID` (required for publish, not for dry‑run)
   - Credentials: `service_account.json` file OR `GOOGLE_SERVICE_ACCOUNT_JSON` OR `GOOGLE_CREDENTIALS`/`CREDENTIALS`
@@ -59,6 +63,7 @@ Note: Keep this file named `AGENTS.md`. The automation reads `AGENTS.md` automat
   - `POLLA_RATE_LIMIT_RPS` (optional per‑host rate limit)
 
 ## Observability
+
 - Use `polla_app.obs`:
   - `set_correlation_id` and correlation propagation is handled by the pipeline logger.
   - `span(name, log, attrs=...)` around meaningful phases.
@@ -67,6 +72,7 @@ Note: Keep this file named `AGENTS.md`. The automation reads `AGENTS.md` automat
 - Logs must be structured JSON; avoid logging secrets or large payloads.
 
 ## Error Handling
+
 - Use the taxonomy in `polla_app/exceptions.py`:
   - `ConfigError` for missing/invalid config
   - `RobotsDisallowedError` for robots.txt denials (subclasses PermissionError)
@@ -74,11 +80,13 @@ Note: Keep this file named `AGENTS.md`. The automation reads `AGENTS.md` automat
 - Error messages should be actionable and safe (no secret values).
 
 ## Source Parsers
+
 - DRY: prefer shared helpers (e.g., `_fetch_pozos`) and precompiled regexes.
 - Respect robots.txt and env UA override.
 - Never add network calls to tests; stub or provide fixtures.
 
 ## CLI
+
 - `run`: pozos‑only ingestion; preserves state; emits artifacts and JSON logs.
 - `publish`: dry‑run by default in tests; requires spreadsheet + credentials to write.
 - `pozos`: prints current estimates.
@@ -86,6 +94,7 @@ Note: Keep this file named `AGENTS.md`. The automation reads `AGENTS.md` automat
 - Add new commands only if they are testable and documented.
 
 ## Testing & CI
+
 - Run locally:
   - `ruff check .`
   - `black .`
@@ -99,12 +108,14 @@ Note: Keep this file named `AGENTS.md`. The automation reads `AGENTS.md` automat
 - Tests must be deterministic; use fixtures and monkeypatching for IO/HTTP.
 
 ## Coding Standards
+
 - Keep functions small and single‑purpose; write docstrings for non‑obvious logic.
 - Use typing everywhere (Mapping/Iterable for read‑only params).
 - Names: snake_case for functions/vars; CapWords for classes; avoid abbreviations.
 - Do not introduce global mutable state except via controlled caches (e.g., rate limiter). Guard with tests.
 
 ## Contracts: When Schema Changes Are Needed
+
 1. Propose change, indicating:
    - Affected artifacts/fields
    - Backward compatibility strategy
@@ -114,23 +125,26 @@ Note: Keep this file named `AGENTS.md`. The automation reads `AGENTS.md` automat
 4. Ship with additive fields wherever possible.
 
 ## Release Checklist (Human‑run)
+
 - [ ] All CI checks green (tests, docs doctests, health offline)
 - [ ] Bump `polla_app.__version__` and add CHANGELOG entry
 - [ ] Verify artifacts include correct `api_version`
 - [ ] Sanity check `health --online` in a safe environment
 
 ## Performance & Latency
+
 - **Parsing Speed**: Maintain a median parsing time under 150ms for all sources. Use precompiled regexes and avoid redundant DOM traversals.
 - **Network Efficiency**: Reuse `requests.Session()` where possible and respect `POLLA_RATE_LIMIT_RPS` to avoid 429 errors.
 - **Resource Limits**: Avoid unnecessary network or parsing work. Reuse precompiled regexes and cached robots.txt parsers.
 
-
 ## Security & Privacy
+
 - Never log tokens or credentials; rely on redaction.
 - Treat environment values as sensitive unless documented otherwise.
 - Do not add telemetry that sends data to third parties.
 
 ## Documentation
+
 - Keep README concise with runnable snippets.
 - Update `docs/API.md`, `docs/SLOs.md`, and `docs/VERSIONING.md` when changing APIs, reliability SLOs, or contracts.
 - Prefer doctest‑style examples for small code snippets.
@@ -140,17 +154,19 @@ Note: Keep this file named `AGENTS.md`. The automation reads `AGENTS.md` automat
 To ensure high-velocity delivery without regression, the following automated guardrails are enforced:
 
 ### Zero-Conflict Quality Policy
+
 - **Local Enforcement (Primary)**: Always run `make ready` before committing. This target runs all linters, formatters, and tests locally, ensuring a "clean" commit that won't conflict with CI.
 - **CI Enforcement**:
-    - `tests.yml`: Automatically fixes and commits minor formatting issues to keep the history clean.
-    - `scrape.yml` (Production): Performs strict checks (`--check`) without auto-fixing to ensure the integrity of the production pipeline.
+  - `tests.yml`: Automatically fixes and commits minor formatting issues to keep the history clean.
+  - `scrape.yml` (Production): Performs strict checks (`--check`) without auto-fixing to ensure the integrity of the production pipeline.
 - **Fail-Fast**: If `mypy` or `pytest` fail in any CI pipeline, the build is marked as failed and requires manual intervention.
 
-
 ### Development Workflow
-1.  Work on your changes.
-2.  Run `make ready`.
-3.  Commit and push.
+
+1. Work on your changes.
+2. Run `make ready`.
+3. Commit and push.
 
 ---
+
 Following this guide ensures consistent, safe updates that respect user trust, testing, and operations. If a change requires bending these rules, document the exception and rationale in the PR description and the code.

@@ -496,3 +496,253 @@ def test_openloto_only_uses_override(tmp_path: Path, monkeypatch: pytest.MonkeyP
     # Verify raw payload wrote the override URL
     raw_payload = json.loads((tmp_path / "raw" / "openloto.json").read_text(encoding="utf-8"))
     assert raw_payload["fuente"] == open_override
+
+
+def test_pipeline_continues_when_one_source_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    def raises(**_: object) -> None:
+        raise RuntimeError("source down")
+
+    valid = {
+        "fuente": "https://www.openloto.cl/pozo-del-loto.html",
+        "fetched_at": "2025-09-28T00:00:10+00:00",
+        "montos": {"Recargado": 333_000_000},
+        "user_agent": "pytest",
+        "estimado": True,
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+    }
+
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (
+            ("polla", raises),
+            ("openloto", lambda **_: valid),
+        ),
+    )
+
+    summary = run_pipeline(
+        sources=["pozos"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+    )
+
+    assert summary["publish"] is True
+    # Verify that confidence is "degraded" (since 1 success out of 2 requested)
+    assert summary["decision"]["confidence"] == "degraded"
+    assert (tmp_path / "normalized.jsonl").exists()
+
+
+def test_pipeline_raises_when_all_sources_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    def raises(**_: object) -> None:
+        raise RuntimeError("source down")
+
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (
+            ("polla", raises),
+            ("openloto", raises),
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="No sources returned data"):
+        run_pipeline(
+            sources=["pozos"],
+            source_overrides={},
+            raw_dir=tmp_path / "raw",
+            normalized_path=tmp_path / "normalized.jsonl",
+            comparison_report_path=tmp_path / "comparison.json",
+            summary_path=tmp_path / "summary.json",
+            state_path=tmp_path / "state.jsonl",
+            log_path=tmp_path / "run.jsonl",
+            retries=1,
+            timeout=5,
+            fail_fast=True,
+            mismatch_threshold=0.5,
+            include_pozos=True,
+        )
+
+
+def test_pipeline_single_source_openloto(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    payload = {
+        "fuente": "https://www.openloto.cl/pozo-del-loto.html",
+        "fetched_at": "2025-09-28T00:00:10+00:00",
+        "montos": {"Recargado": 333_000_000},
+        "user_agent": "pytest",
+        "estimado": True,
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+    }
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (("openloto", lambda **_: payload),),
+    )
+
+    summary = run_pipeline(
+        sources=["openloto"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+    )
+
+    assert summary["publish"] is True
+    assert summary["decision"]["confidence"] == "single_source"
+
+
+def test_pipeline_unsupported_source_raises_error(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Unsupported source 'invalid'"):
+        run_pipeline(
+            sources=["invalid"],
+            source_overrides={},
+            raw_dir=tmp_path / "raw",
+            normalized_path=tmp_path / "normalized.jsonl",
+            comparison_report_path=tmp_path / "comparison.json",
+            summary_path=tmp_path / "summary.json",
+            state_path=tmp_path / "state.jsonl",
+            log_path=tmp_path / "run.jsonl",
+            retries=1,
+            timeout=5,
+            fail_fast=True,
+            mismatch_threshold=0.5,
+            include_pozos=True,
+        )
+
+
+def test_pipeline_handles_mismatched_pozos(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    # Primary says 100, Fallback says 200
+    primary = {
+        "fuente": "https://www.polla.cl/es/",
+        "fetched_at": "2025-09-28T00:00:00+00:00",
+        "montos": {"Loto Clásico": 100_000_000},
+        "user_agent": "pytest",
+        "estimado": True,
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+    }
+    fallback = {
+        "fuente": "https://www.openloto.cl/pozo-del-loto.html",
+        "fetched_at": "2025-09-28T00:00:10+00:00",
+        "montos": {"Loto Clásico": 105_000_000},
+        "user_agent": "pytest",
+        "estimado": True,
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+    }
+
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (
+            ("polla", lambda **_: primary),
+            ("openloto", lambda **_: fallback),
+        ),
+    )
+
+    summary = run_pipeline(
+        sources=["pozos"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=2.0,
+        include_pozos=True,
+    )
+
+    assert summary["publish"] is True
+    # Verify degraded confidence due to mismatch (mismatch_ratio > 0)
+    assert summary["decision"]["confidence"] == "degraded"
+
+    # Verify comparison report exists and contains the mismatch
+    comparison = json.loads((tmp_path / "comparison.json").read_text())
+    assert len(comparison["mismatches"]) > 0
+    mismatch = comparison["mismatches"][0]
+
+    assert mismatch["categoria"] == "Loto Clásico"
+    assert "100000000" in mismatch["consensus"]
+    assert "105000000" in mismatch["disagreeing"]
+
+
+def test_pipeline_consensus_tie_breaking(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    # Two sources with different values -> First one in POZO_SOURCES should win a 1v1 tie
+    s1 = {
+        "fuente": "s1",
+        "montos": {"Loto Clásico": 100},
+        "sorteo": 1,
+        "fecha": "2025-01-01",
+    }
+    s2 = {
+        "fuente": "s2",
+        "montos": {"Loto Clásico": 200},
+        "sorteo": 1,
+        "fecha": "2025-01-01",
+    }
+
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (
+            ("source1", lambda **_: s1),
+            ("source2", lambda **_: s2),
+        ),
+    )
+
+    run_pipeline(
+        sources=["pozos"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+    )
+
+    record = json.loads((tmp_path / "normalized.jsonl").read_text().splitlines()[0])
+    # s1 should win because it was registered first
+    assert record["pozos_proximo"]["Loto Clásico"] == 100

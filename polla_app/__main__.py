@@ -137,7 +137,7 @@ def pozos(timeout: int, retries: int) -> None:
     "--force-publish/--no-force-publish",
     default=False,
     show_default=True,
-    help="Force ingestion and state update even if sorteo/fecha and amounts are unchanged in previous records.",
+    help="Force ingestion and state update even if sorteo/fecha and amounts are unchanged (does NOT override quarantine — use 'publish --force-publish' for that).",
 )
 def run(
     sources: str,
@@ -246,13 +246,13 @@ def run(
     "--force-publish/--no-force-publish",
     default=False,
     show_default=True,
-    help="Publish even if the run summary requested quarantine (ignoring discrepancies).",
+    help="Override quarantine and publish regardless of run summary decision.",
 )
 @click.option(
     "--allow-quarantine/--no-allow-quarantine",
     default=False,
     show_default=True,
-    help="When set, discrepancies are still written even if the canonical update is skipped.",
+    help="When set, discrepancies are still written (ignoring discrepancies) even if the canonical update is skipped.",
 )
 def publish(
     normalized: str,
