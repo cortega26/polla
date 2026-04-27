@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 import pytest
+
 from polla_app.pipeline import run_pipeline
 from polla_app.publish import publish_to_google_sheets
 
+
 def test_pipeline_to_publish_e2e(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """E2E test: Run pipeline -> Run publisher -> Verify output rows."""
-    
+
     # 1. Setup paths
     raw_dir = tmp_path / "raw"
     normalized_path = tmp_path / "normalized.jsonl"
@@ -36,6 +37,7 @@ def test_pipeline_to_publish_e2e(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 
     # We need to monkeypatch SOURCE_LOADERS in polla_app.pipeline
     import polla_app.pipeline as pipeline
+
     monkeypatch.setitem(pipeline.SOURCE_LOADERS, "pozos", mock_collect_pozos)
 
     # 3. Run Pipeline
@@ -61,7 +63,7 @@ def test_pipeline_to_publish_e2e(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 
     # 4. Run Publisher (Dry Run)
     monkeypatch.setenv("GOOGLE_SPREADSHEET_ID", "fake-sheet-id")
-    
+
     publish_result = publish_to_google_sheets(
         normalized_path=normalized_path,
         comparison_report_path=comparison_report_path,
@@ -75,10 +77,10 @@ def test_pipeline_to_publish_e2e(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 
     # 5. Verify Publication Rows
     rows = publish_result["rows"]
-    # Expect 2 rows (Loto Clásico, Revancha) + 1 header? 
+    # Expect 2 rows (Loto Clásico, Revancha) + 1 header?
     # Actually publish_to_google_sheets returns the data rows in "rows" key
     assert len(rows) == 2
-    
+
     # Format: [sorteo, fecha, categoria, pozo_clp]
     assert rows[0] == [5418, "2026-04-28", "Loto Clásico", 1000000000]
     assert rows[1] == [5418, "2026-04-28", "Revancha", 500000000]
