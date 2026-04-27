@@ -35,6 +35,12 @@ This repository uses AGENTS.md to guide AI/automation and humans on how to make 
 - ASK FIRST: adding new dependencies, changing CLI flags or outputs, network‑heavy features, schema or API changes (see Contracts).
 - DO NOT: commit secrets, hardcode credentials, add flakey/online tests, remove existing public flags or keys without a migration.
 
+## Repository Hygiene
+- **No Scratch Files**: Do not commit one-off test scripts (`test_*.py`), migration scripts (`fix_*.py`), or temporary HTML/data files to the repository.
+- **Local vs. Persisted Scratch**: Use the conversation-specific scratch directory (`<appDataDir>/brain/<conversation-id>/scratch/`) for temporary work. Files in the project root must be production-ready and tracked.
+- **Ignore Awareness**: Keep `.gitignore` updated. Generated artifacts (logs, coverage, pipeline state) must never be tracked.
+
+
 ## Versioning & Contracts
 - Package version single‑source: `polla_app/__init__.py: __version__`.
   - `pyproject.toml` reads it dynamically (`[tool.setuptools.dynamic]`). Don’t add another version constant.
@@ -113,10 +119,11 @@ Note: Keep this file named `AGENTS.md`. The automation reads `AGENTS.md` automat
 - [ ] Verify artifacts include correct `api_version`
 - [ ] Sanity check `health --online` in a safe environment
 
-## Performance Guidelines
-- Avoid unnecessary network or parsing work.
-- Reuse precompiled regexes and cached robots.txt parsers.
-- Use opt‑in `POLLA_RATE_LIMIT_RPS` to be a good citizen when sources are polled frequently.
+## Performance & Latency
+- **Parsing Speed**: Maintain a median parsing time under 150ms for all sources. Use precompiled regexes and avoid redundant DOM traversals.
+- **Network Efficiency**: Reuse `requests.Session()` where possible and respect `POLLA_RATE_LIMIT_RPS` to avoid 429 errors.
+- **Resource Limits**: Avoid unnecessary network or parsing work. Reuse precompiled regexes and cached robots.txt parsers.
+
 
 ## Security & Privacy
 - Never log tokens or credentials; rely on redaction.
@@ -133,9 +140,12 @@ Note: Keep this file named `AGENTS.md`. The automation reads `AGENTS.md` automat
 To ensure high-velocity delivery without regression, the following automated guardrails are enforced:
 
 ### Zero-Conflict Quality Policy
-- **Local Enforcement**: Always run `make ready` before committing. This target runs all linters/formatters and stages fixes, preventing `pre-commit` stash conflicts.
-- **Pipeline Auto-Fix**: The GitHub Actions pipeline (`tests.yml`) automatically fixes and commits minor linting and formatting issues. If you push code that is "almost correct," the pipeline will finish the job for you.
-- **Fail-Fast**: If `mypy` or `pytest` fail in CI, the build is marked as failed and requires manual intervention.
+- **Local Enforcement (Primary)**: Always run `make ready` before committing. This target runs all linters, formatters, and tests locally, ensuring a "clean" commit that won't conflict with CI.
+- **CI Enforcement**:
+    - `tests.yml`: Automatically fixes and commits minor formatting issues to keep the history clean.
+    - `scrape.yml` (Production): Performs strict checks (`--check`) without auto-fixing to ensure the integrity of the production pipeline.
+- **Fail-Fast**: If `mypy` or `pytest` fail in any CI pipeline, the build is marked as failed and requires manual intervention.
+
 
 ### Development Workflow
 1.  Work on your changes.

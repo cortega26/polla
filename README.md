@@ -31,8 +31,8 @@ flowchart TB
   A[CLI command] --> B[Pipeline Orchestrator]
   B --> C{Source registry}
   C -->|Polla.cl| D[Stealth Fetcher]
-  C -->|ResultadosLotoChile| E[Primary mirror]
-  C -->|OpenLoto| F[Fallback mirror]
+  C -->|ResultadosLotoChile| E[Mirror Source A]
+  C -->|OpenLoto| F[Mirror Source B]
   D & E & F --> G[Normalizer]
   G --> H[Consensus Engine]
   H --> I["Artifacts<br/>(JSONL, reports, state)"]
@@ -41,41 +41,29 @@ flowchart TB
   J -->|Quarantine| L[Detailed Slack Alert]
   J -->|Skip| M[Silent completion]
   B --> N["Structured logging<br/>(spans + metrics)"]
+
 ```
 
 ## Quick Start
 
-1. Ensure Python 3.10+ is available (use `pyenv local 3.10.13` or your preferred manager).
-2. Create an isolated environment and install dependencies:
+3. **Validate your environment**: Run the automated check to ensure everything is correctly configured:
 
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   pip install -r requirements-dev.txt
+   make ready
    ```
 
-3. Run the pozos pipeline locally:
+4. **Run the pozos pipeline locally**:
 
    ```bash
-   python -m polla_app run \
-     --sources pozos \
-     --normalized artifacts/normalized.jsonl \
-     --comparison-report artifacts/comparison_report.json \
-     --summary artifacts/run_summary.json
+   python -m polla_app run --sources pozos
    ```
 
-4. Optional: dry-run publishing to Google Sheets once credentials are configured:
+5. **Dry-run publishing** (requires credentials):
 
    ```bash
-   python -m polla_app publish \
-     --normalized artifacts/normalized.jsonl \
-     --comparison-report artifacts/comparison_report.json \
-     --summary artifacts/run_summary.json \
-     --worksheet "Normalized" \
-     --discrepancy-tab "Discrepancies" \
-     --dry-run
+   python -m polla_app publish --dry-run
    ```
+
 
 ### Configuration
 
@@ -102,9 +90,10 @@ CI mirrors these commands through `.github/workflows/tests.yml` and `.github/wor
 
 ## Performance & Reliability
 
-- Scheduled `health.yml` workflow exercises offline health checks daily to catch data source drift before operators do.
-- `scripts/benchmark_pozos_parsing.py` offers a quick regression guard for parsing speed—keep median scrape under 150ms on commodity hardware.
-- Structured metrics emitted via `polla_app.obs.metric` simplify alerting and feed SLO reviews (`docs/SLOs.md`).
+- **High-Performance Parsing**: `scripts/benchmark_pozos_parsing.py` ensures we maintain a median scrape time under **150ms**.
+- **Observability**: Structured metrics and spans provide deep visibility into the consensus decision-making process.
+- **Reliability**: Scheduled `health.yml` exercises the pipeline daily to detect source drift before it impacts production.
+
 
 ## Roadmap
 
