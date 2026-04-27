@@ -262,7 +262,7 @@ def get_pozo_polla(
     retries: int | None = None,
 ) -> dict[str, Any]:
     """Fetch próximo pozo data directly from polla.cl using Playwright.
-    
+
     Note: polla.cl is an SPA. This function uses Playwright to render the DOM,
     clicks the 'VER DETALLE POR CATEGORÍA' button to expand granular prizes,
     and then parses the structured HTML.
@@ -274,6 +274,7 @@ def get_pozo_polla(
 
     import hashlib
     from datetime import datetime, timezone
+
     from bs4 import BeautifulSoup
 
     shared_data: dict[str, str] = {}
@@ -297,7 +298,7 @@ def get_pozo_polla(
         page = fetcher.fetch(url, page_action=click_detalle)
         if page.status != 200:
             raise ParseError(f"Polla.cl returned status {page.status}", context={"url": url})
-        
+
         html_content = shared_data.get("html") or page.text
         text_content = shared_data.get("text") or getattr(page, "text_content", html_content)
     except ParseError:
@@ -306,10 +307,10 @@ def get_pozo_polla(
         raise ParseError(f"Scrapling failed to fetch {url}", original_error=exc) from exc
 
     fetched_at = datetime.now(timezone.utc)
-    
-    soup = BeautifulSoup(html_content, 'html.parser')
+
+    soup = BeautifulSoup(html_content, "html.parser")
     amounts: dict[str, int] = {}
-    
+
     # 1. Total Estimado
     total_text = soup.find(string=lambda s: s and "POZO TOTAL ESTIMADO" in s)
     if total_text and total_text.parent:
@@ -318,48 +319,50 @@ def get_pozo_polla(
             prize_span = parent_li.find(class_="prize")
             if prize_span:
                 try:
-                    amounts["Total estimado"] = _parse_millones_to_clp(prize_span.get_text(strip=True))
+                    amounts["Total estimado"] = _parse_millones_to_clp(
+                        prize_span.get_text(strip=True)
+                    )
                 except Exception:
                     pass
 
     # 2. Sub-games
-    for li in soup.select('.sub-game'):
-        img = li.select_one('img')
+    for li in soup.select(".sub-game"):
+        img = li.select_one("img")
         if not img:
             continue
-        src = img.get('src', '').lower()
-        
+        src = img.get("src", "").lower()
+
         texts = list(li.stripped_strings)
-        prize_span = li.find(class_='prize')
+        prize_span = li.find(class_="prize")
         if not prize_span:
             continue
-            
+
         prize_str = prize_span.get_text(strip=True)
         try:
             prize_val = _parse_millones_to_clp(prize_str)
         except Exception:
             continue
-            
+
         category = None
-        if 'loto_logo' in src:
+        if "loto_logo" in src:
             category = "Loto Clásico"
-        elif 'recargado' in src:
+        elif "recargado" in src:
             category = "Recargado"
-        elif 'revancha' in src:
+        elif "revancha" in src:
             category = "Revancha"
-        elif 'desquite' in src:
+        elif "desquite" in src:
             category = "Desquite"
-        elif 'jubilazo' in src and '50' not in src:
-            if '$1.000.000' in texts:
+        elif "jubilazo" in src and "50" not in src:
+            if "$1.000.000" in texts:
                 category = "Jubilazo $1.000.000"
-            elif '$500.000' in texts:
+            elif "$500.000" in texts:
                 category = "Jubilazo $500.000"
-        elif 'jubilazo-50' in src:
-            if '$1.000.000' in texts:
+        elif "jubilazo-50" in src:
+            if "$1.000.000" in texts:
                 category = "Jubilazo 50 años $1.000.000"
-            elif '$500.000' in texts:
+            elif "$500.000" in texts:
                 category = "Jubilazo 50 años $500.000"
-                
+
         if category:
             amounts[category] = prize_val
 
@@ -368,11 +371,11 @@ def get_pozo_polla(
             f"No valid pozo amounts found in source content from {url}",
             context={"url": url, "text_snippet": text_content[:200]},
         )
-        
+
     sorteo, fecha = _extract_proximo_info(text_content)
-    
+
     sha256 = hashlib.sha256(html_content.encode("utf-8")).hexdigest()
-    
+
     return {
         "fuente": url,
         "fetched_at": fetched_at.isoformat(),
@@ -383,4 +386,3 @@ def get_pozo_polla(
         "sorteo": sorteo,
         "fecha": fecha,
     }
-

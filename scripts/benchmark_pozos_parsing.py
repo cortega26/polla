@@ -85,13 +85,15 @@ def bench() -> dict[str, Any]:
             lambda t=text: old_extract_amounts(t, allow_total=False), number=iters
         )
         t_new = timeit.timeit(
-            lambda t=text: new._extract_amounts(t, allow_total=False), number=iters  # type: ignore[attr-defined]
+            lambda t=text: new._extract_amounts(t, allow_total=False),
+            number=iters,  # type: ignore[attr-defined]
         )
         timings["amounts"][name] = t_old / max(1, iters), t_new / max(1, iters)
 
         t_old2 = timeit.timeit(lambda t=text: old_extract_proximo_info(t), number=iters)
         t_new2 = timeit.timeit(
-            lambda t=text: new._extract_proximo_info(t), number=iters  # type: ignore[attr-defined]
+            lambda t=text: new._extract_proximo_info(t),
+            number=iters,  # type: ignore[attr-defined]
         )
         timings["proximo"][name] = t_old2 / max(1, iters), t_new2 / max(1, iters)
 
