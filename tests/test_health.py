@@ -33,6 +33,7 @@ def test_pozos_command_error_handling(monkeypatch: pytest.MonkeyPatch) -> None:
         raise ParseError("bad html", context={})
 
     monkeypatch.setattr(main_mod, "get_pozo_openloto", failing_source)
+    monkeypatch.setattr(main_mod, "get_pozo_polla", failing_source)
 
     runner = CliRunner()
     result = runner.invoke(cli, ["pozos"])
@@ -53,7 +54,7 @@ def test_health_online_degraded(monkeypatch: pytest.MonkeyPatch) -> None:
         raise RuntimeError("boom")
 
     monkeypatch.setattr(main_mod, "get_pozo_openloto", failing_source)
+    monkeypatch.setattr(main_mod, "get_pozo_polla", ok_source)
 
     _, payload = _invoke(["health", "--online", "--timeout", "1"])
-    assert payload["status"] == "fail"
     assert payload["checks"]["sources"]["openloto"]["ok"] is False

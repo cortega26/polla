@@ -72,7 +72,10 @@ def _load_previous_state(path: Path) -> list[dict[str, Any]]:
     return previous
 
 
-POZO_SOURCES = (("openloto", pozos_module.get_pozo_openloto),)
+POZO_SOURCES = (
+    ("openloto", pozos_module.get_pozo_openloto),
+    ("polla", pozos_module.get_pozo_polla),
+)
 
 
 def _collect_pozos(
@@ -524,6 +527,7 @@ SOURCE_LOADERS.update(
     {
         "pozos": _collect_pozos,
         "openloto": _collect_pozos,
+        "polla": _collect_pozos,
     }
 )
 

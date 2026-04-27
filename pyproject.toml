@@ -11,6 +11,8 @@ dependencies = [
     "requests>=2.32.4",
     "gspread>=6.1.0",
     "google-auth>=2.30.0",
+    "scrapling[all]>=0.4.7",
+    "playwright>=1.49.0",
 ]
 
 [project.scripts]
@@ -51,4 +53,16 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "bs4.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "scrapling.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "scrapling"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "playwright.*"
 ignore_missing_imports = true

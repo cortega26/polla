@@ -15,7 +15,7 @@ import click
 
 from .pipeline import run_pipeline
 from .publish import publish_to_google_sheets
-from .sources import get_pozo_openloto
+from .sources import get_pozo_openloto, get_pozo_polla
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - [%(name)s] - %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
@@ -55,7 +55,7 @@ def pozos() -> None:
     """Print próximo pozo estimates from known aggregators."""
 
     results: dict[str, Any] = {}
-    for name, fn in (("openloto", get_pozo_openloto),):
+    for name, fn in (("openloto", get_pozo_openloto), ("polla", get_pozo_polla)):
         try:
             results[name] = fn()
         except Exception as exc:
@@ -324,7 +324,7 @@ def health(online: bool, timeout: int) -> None:
     if online:
         successes = 0
         failures = 0
-        for name, fn in (("openloto", get_pozo_openloto),):
+        for name, fn in (("openloto", get_pozo_openloto), ("polla", get_pozo_polla)):
             start = time.monotonic()
             try:
                 payload = fn(timeout=timeout)

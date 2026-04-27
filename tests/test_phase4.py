@@ -77,6 +77,7 @@ def test_health_online_validation(monkeypatch: pytest.MonkeyPatch) -> None:
         return {"montos": {"Loto": 1000}}  # Within sane range
 
     monkeypatch.setattr("polla_app.__main__.get_pozo_openloto", stub_fetcher)
+    monkeypatch.setattr("polla_app.__main__.get_pozo_polla", stub_fetcher)
 
     runner = CliRunner()
     result = runner.invoke(cli, ["health", "--online"])
@@ -94,6 +95,7 @@ def test_health_online_validation_insane_range(monkeypatch: pytest.MonkeyPatch) 
         return {"montos": {"Loto": 60_000_000_000}}  # Insane range (> 50,000 MM)
 
     monkeypatch.setattr("polla_app.__main__.get_pozo_openloto", stub_fetcher)
+    monkeypatch.setattr("polla_app.__main__.get_pozo_polla", stub_fetcher)
 
     runner = CliRunner()
     result = runner.invoke(cli, ["health", "--online"])
