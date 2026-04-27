@@ -93,8 +93,10 @@ def _record_to_rows(record: Mapping[str, Any]) -> list[list[Any]]:
         return rows
 
     # Pozos-only mode: emit one row per category with jackpot amount
+    sorteo = record.get("sorteo")
+    fecha = record.get("fecha")
     for categoria, monto in (record.get("pozos_proximo", {}) or {}).items():
-        rows.append([categoria, int(monto)])
+        rows.append([sorteo, fecha, categoria, int(monto)])
     return rows
 
 
@@ -134,8 +136,8 @@ def _parse_publish_decision(
 def _canonical_rows_header(rows: Iterable[Iterable[Any]]) -> list[str]:
     """Return the header row matching the row width of `rows`."""
     row_width = len(next(iter(rows), []))  # type: ignore[arg-type]
-    if row_width == 2:
-        return ["categoria", "pozo_clp"]
+    if row_width == 4:
+        return ["sorteo", "fecha", "categoria", "pozo_clp"]
     return [
         "sorteo",
         "fecha",

@@ -135,3 +135,38 @@ def test_discrepancy_sheet_written_on_allow_quarantine(
     assert ws.last_update[0] == expected_headers
     # Placeholder row uses last_draw.sorteo from report fixture (5198)
     assert ws.last_update[1][0] == 5198
+
+
+def test_publish_pozos_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import polla_app.publish as pub
+
+    record = {
+        "sorteo": 5417,
+        "fecha": "2026-04-26",
+        "pozos_proximo": {"Loto Clásico": 140000000, "Revancha": 50000000},
+    }
+    normalized_path = tmp_path / "pozos.jsonl"
+    normalized_path.write_text(json.dumps(record), encoding="utf-8")
+
+    comparison_path = tmp_path / "comp.json"
+    comparison_path.write_text(
+        json.dumps({"decision": {"status": "publish"}, "mismatches": []}), encoding="utf-8"
+    )
+
+    monkeypatch.setenv("GOOGLE_SPREADSHEET_ID", "dummy")
+    result = pub.publish_to_google_sheets(
+        normalized_path=normalized_path,
+        comparison_report_path=comparison_path,
+        summary=None,
+        worksheet_name="Pozos",
+        discrepancy_tab="Discrepancies",
+        dry_run=True,
+        force_publish=False,
+        allow_quarantine=True,
+    )
+
+    rows = result["rows"]
+    assert len(rows) == 2
+    # Verify 4-column format: sorteo, fecha, categoria, pozo_clp
+    assert rows[0] == [5417, "2026-04-26", "Loto Clásico", 140000000]
+    assert rows[1] == [5417, "2026-04-26", "Revancha", 50000000]
