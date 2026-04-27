@@ -90,7 +90,7 @@ TEST-01 y TEST-03 están vinculados: TEST-03 es el test que cubre el path que TE
 | ID | Problema |
 |----|----------|
 | CI-03 | No hay umbral de cobertura en Codecov |
-| CI-04 | `sync-main-to-master.yml` posiblemente vestigial |
+| CI-04 | `sync-main-to-master.yml` vestigial (Eliminado) | [x] |
 | DOCS-01 | README no documenta `POLLA_BACKOFF_FACTOR` ni `POLLA_429_BACKOFF_SECONDS` |
 | DOCS-02 | `pyproject.toml` tiene autor placeholder |
 | DOCS-03 | Diagrama Mermaid del README llama "fallback" a OpenLoto (no es condicional) |
@@ -253,7 +253,7 @@ El test debe:
 - `DEBT-05`: Poplar `missing_sources` en el consensus mismatch report
 - `DEBT-06`: Documentar tie-breaking del consensus engine en docstring de `_merge_pozos`
 - `CI-03`: Añadir umbral de cobertura en Codecov (≥80%)
-- `CI-04`: Evaluar `sync-main-to-master.yml` — eliminar si no hay dependencias externas de `master`
+- [x] `CI-04`: Evaluar `sync-main-to-master.yml` — eliminado (rama master consolidada en main)
 - `DOCS-01`: Documentar `POLLA_BACKOFF_FACTOR` y `POLLA_429_BACKOFF_SECONDS` en README
 - `DOCS-03`: Corregir descripción del diagrama Mermaid en README
 
@@ -338,7 +338,7 @@ FEAT-05 es el más complejo y queda para cuando el registry esté limpio (post B
 15. `DEBT-03` — Refactor _init_log_stream
 16. `DEBT-04` + `DEBT-05` + `DEBT-06` — Consensus engine cleanup (un PR)
 17. `CI-03` — Codecov threshold
-18. `CI-04` — Evaluar sync-main-to-master
+18. [x] `CI-04` — Evaluar sync-main-to-master (Completado)
 19. `DOCS-01` + `DOCS-03` — README updates
 
 ### Quinta ronda (features):

@@ -702,7 +702,7 @@
 | **Prioridad** | P3 |
 | **Esfuerzo** | S |
 | **Riesgo** | Bajo (solo si nadie depende de `master`) |
-| **Estado** | `todo` |
+| **Estado** | `done` |
 | **Dependencias** | Ninguna |
 | **Fase** | 3 |
 | **Archivos** | `.github/workflows/sync-main-to-master.yml` |
