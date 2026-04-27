@@ -56,3 +56,25 @@ def test_get_pozo_polla_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(ParseError, match="Polla.cl returned status 403"):
         get_pozo_polla()
+
+
+def test_extract_proximo_info_new_formats() -> None:
+    from polla_app.sources.pozos import _extract_proximo_info
+
+    # Test format: Resultados Sorteo : 5417 Fecha : abril 26, 2026
+    text = "Resultados Sorteo : 5417 Fecha : abril 26, 2026"
+    sorteo, fecha = _extract_proximo_info(text)
+    assert sorteo == 5417
+    assert fecha == "2026-04-26"
+
+    # Test format: Próximo sorteo número 5418, será sorteado el martes, 28 de abril del 2026.
+    text2 = "Próximo sorteo número 5418, será sorteado el martes, 28 de abril del 2026."
+    sorteo2, fecha2 = _extract_proximo_info(text2)
+    assert sorteo2 == 5418
+    assert fecha2 == "2026-04-28"
+
+    # Test format: Sorteo #24298 abril 27, 2026
+    text3 = "Sorteo #24298 abril 27, 2026"
+    sorteo3, fecha3 = _extract_proximo_info(text3)
+    assert sorteo3 == 24298
+    assert fecha3 == "2026-04-27"

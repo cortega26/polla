@@ -43,14 +43,18 @@ _LABEL_REGEX: dict[str, re.Pattern[str]] = {
     for label, pattern in _LABEL_PATTERNS.items()
 }
 _DATE_RE = re.compile(
-    r"(\d{1,2})\s+de\s+([a-zA-Z\u00C0-\u017F]+)\s+de\s+(\d{4})",
+    r"(\d{1,2})\s+de\s+([a-zA-Z\u00C0-\u017F]+)\s+(?:de|del)\s+(\d{4})",
+    re.IGNORECASE,
+)
+_DATE_ALT_RE = re.compile(
+    r"([a-zA-Z\u00C0-\u017F]+)\s+(\d{1,2}),\s+(\d{4})",
     re.IGNORECASE,
 )
 _PROX_FECHA_BLOCK_RE = re.compile(
-    r"Fecha\s+Pr[oó]ximo\s+Sorteo[:\s]*([^\n]+)",
+    r"(?:Fecha|Pr[oó]ximo\s+Sorteo)[:\s]*([^\n]+)",
     re.IGNORECASE,
 )
-_SORTEO_RE = re.compile(r"Sorteo\s*(?:N[°º]\s*)?(\d{4,})", re.IGNORECASE)
+_SORTEO_RE = re.compile(r"Sorteo\s*(?:N[°º]|#|:|n[úu]mero|nro)?\s*(\d{4,})", re.IGNORECASE)
 
 
 def _parse_millones_to_clp(raw: str) -> int:
@@ -172,20 +176,31 @@ _MONTHS = {
 
 
 def _parse_spanish_date(text: str) -> str | None:
-    # Match e.g., 16 de septiembre de 2025
-    m = _DATE_RE.search(text)
-    if not m:
-        return None
-    day, month_name, year = m.group(1), m.group(2), m.group(3)
-    month = _MONTHS.get(month_name.lower())
-    if not month:
-        return None
-    try:
-        from datetime import date
+    from datetime import date
 
-        return date(int(year), int(month), int(day)).isoformat()
-    except Exception:
-        return None
+    # Match e.g., 16 de septiembre de 2025 or 16 de septiembre del 2025
+    m = _DATE_RE.search(text)
+    if m:
+        day, month_name, year = m.group(1), m.group(2), m.group(3)
+        month = _MONTHS.get(month_name.lower())
+        if month:
+            try:
+                return date(int(year), int(month), int(day)).isoformat()
+            except Exception:
+                pass
+
+    # Match e.g., abril 27, 2026
+    m_alt = _DATE_ALT_RE.search(text)
+    if m_alt:
+        month_name, day, year = m_alt.group(1), m_alt.group(2), m_alt.group(3)
+        month = _MONTHS.get(month_name.lower())
+        if month:
+            try:
+                return date(int(year), int(month), int(day)).isoformat()
+            except Exception:
+                pass
+
+    return None
 
 
 def _extract_proximo_info(text: str) -> tuple[int | None, str | None]:
@@ -281,8 +296,11 @@ def get_pozo_polla(
 
     def click_detalle(page: Any) -> None:
         try:
+            # Wait for the main Loto logo or some content to be visible first
+            page.wait_for_selector(".jackpot-banner", timeout=5000)
+            # Expand details
             page.locator("text=VER DETALLE POR CATEGORÍA").first.click(timeout=3000)
-            page.wait_for_timeout(1000)
+            page.wait_for_timeout(2000)  # Wait for animation and bindings
         except Exception:
             pass
         # Scrapling sometimes fails to serialize the DOM text correctly, returning an empty string.

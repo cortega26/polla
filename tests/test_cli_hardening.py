@@ -17,7 +17,7 @@ def test_dry_run_diff_calculation(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     # Return different values to force a diff
     class MockWorksheet:
         def get_all_values(self) -> list[list[str]]:
-            return [["categoria", "pozo_clp"], ["Loto", "900"]]
+            return [["sorteo", "fecha", "categoria", "pozo_clp"], ["None", "None", "Loto", "900"]]
 
     class MockSpreadsheet:
         def worksheet(self, name: str) -> MockWorksheet:
@@ -46,8 +46,8 @@ def test_dry_run_diff_calculation(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     assert "current_sheet" not in result["diff"]  # We named it sheet:Normalized
     assert "sheet:Normalized" in result["diff"]
     # Check that it identifies the change from 900 to 1000
-    assert "-Loto, 900" in result["diff"]
-    assert "+Loto, 1000" in result["diff"]
+    assert "-None, None, Loto, 900" in result["diff"]
+    assert "+None, None, Loto, 1000" in result["diff"]
 
 
 def test_dry_run_no_diff_if_equal(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -58,7 +58,7 @@ def test_dry_run_no_diff_if_equal(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
 
     class MockWorksheet:
         def get_all_values(self) -> list[list[str]]:
-            return [["categoria", "pozo_clp"], ["Loto", "1000"]]
+            return [["sorteo", "fecha", "categoria", "pozo_clp"], ["None", "None", "Loto", "1000"]]
 
     class MockSpreadsheet:
         def worksheet(self, name: str) -> MockWorksheet:

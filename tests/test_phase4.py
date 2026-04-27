@@ -39,7 +39,7 @@ def test_publish_dry_run_includes_rows(tmp_path: Path) -> None:
     )
 
     assert "rows" in result
-    assert result["rows"] == [["Loto", 1000]]
+    assert result["rows"] == [[1, "2025-01-01", "Loto", 1000]]
     assert "mismatch_rows" in result
     assert len(result["mismatch_rows"]) == 1
 
