@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import types
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
@@ -13,11 +14,10 @@ from .contracts import API_VERSION
 from .exceptions import ConfigError
 from .notifiers import notify_slack
 
-# Optional at import time to allow dry-run in tests without gspread installed
 try:
-    import gspread
-except ImportError:  # pragma: no cover - import guard for environments without gspread
-    gspread = None
+    import gspread as gspread  # noqa: PLC0414
+except ImportError:  # pragma: no cover
+    gspread = None  # type: ignore[assignment]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ def _get_or_create_worksheet(spreadsheet: Any, name: str) -> Any:
     """Return existing worksheet by name or create it if missing."""
     try:
         return spreadsheet.worksheet(name)
-    except gspread.WorksheetNotFound:
+    except Exception:  # noqa: BLE001 – gspread.WorksheetNotFound when not installed
         return spreadsheet.add_worksheet(title=name, rows="200", cols="10")
 
 
