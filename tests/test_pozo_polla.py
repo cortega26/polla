@@ -6,7 +6,7 @@ from polla_app.exceptions import ParseError
 from polla_app.sources.pozos import get_pozo_polla
 
 
-def test_get_pozo_polla_success(monkeypatch):
+def test_get_pozo_polla_success(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_fetcher_cls = MagicMock()
     mock_fetcher_instance = MagicMock()
     mock_page = MagicMock()
@@ -43,7 +43,7 @@ def test_get_pozo_polla_success(monkeypatch):
     assert result["fecha"] == "2026-04-26"
 
 
-def test_get_pozo_polla_http_error(monkeypatch):
+def test_get_pozo_polla_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_fetcher_cls = MagicMock()
     mock_fetcher_instance = MagicMock()
     mock_page = MagicMock()
