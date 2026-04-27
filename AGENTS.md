@@ -128,5 +128,19 @@ Note: Keep this file named `AGENTS.md`. The automation reads `AGENTS.md` automat
 - Update `docs/API.md`, `docs/SLOs.md`, and `docs/VERSIONING.md` when changing APIs, reliability SLOs, or contracts.
 - Prefer doctest‑style examples for small code snippets.
 
+## Guardrails & Quality Policies (MANDATORY)
+
+To ensure high-velocity delivery without regression, the following automated guardrails are enforced:
+
+### Zero-Conflict Quality Policy
+- **Local Enforcement**: Always run `make ready` before committing. This target runs all linters/formatters and stages fixes, preventing `pre-commit` stash conflicts.
+- **Pipeline Auto-Fix**: The GitHub Actions pipeline (`tests.yml`) automatically fixes and commits minor linting and formatting issues. If you push code that is "almost correct," the pipeline will finish the job for you.
+- **Fail-Fast**: If `mypy` or `pytest` fail in CI, the build is marked as failed and requires manual intervention.
+
+### Development Workflow
+1.  Work on your changes.
+2.  Run `make ready`.
+3.  Commit and push.
+
 ---
 Following this guide ensures consistent, safe updates that respect user trust, testing, and operations. If a change requires bending these rules, document the exception and rationale in the PR description and the code.

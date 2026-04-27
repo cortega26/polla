@@ -1,4 +1,4 @@
-.PHONY: help install install-dev format lint type-check test test-cov clean run
+.PHONY: help install install-dev format lint type-check test test-cov clean run ready
 
 help:
 	@echo "Available commands:"
@@ -45,3 +45,8 @@ run:
 		exit 1; \
 	fi
 	python -m polla_app ingest "$(URL)"
+
+ready:
+	git add .
+	pre-commit run --all-files
+	git add .

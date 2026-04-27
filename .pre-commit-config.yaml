@@ -1,4 +1,15 @@
+fail_fast: true
 repos:
+  - repo: local
+    hooks:
+      - id: check-unstaged
+        name: block-unstaged-changes
+        entry: git diff --exit-code
+        language: system
+        pass_filenames: false
+        always_run: true
+        description: Blocks commit if there are unstaged changes to prevent pre-commit stash conflicts.
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.3.4
     hooks:

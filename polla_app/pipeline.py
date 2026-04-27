@@ -9,9 +9,10 @@ import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from .contracts import API_VERSION
+from .notifiers import notify_quarantine, notify_slack
 from .obs import metric, sanitize, set_correlation_id, span
 from .sources import pozos as pozos_module
 
@@ -22,17 +23,23 @@ LOGGER = logging.getLogger(__name__)
 SOURCE_LOADERS: dict[str, Callable[..., tuple[dict[str, Any], ...]]] = {}
 
 
+class LogStream(Protocol):
+    """Protocol for structured log emission with lifecycle and correlation support."""
+
+    def __call__(self, payload: dict[str, Any]) -> None: ...
+    def close(self) -> None: ...
+    def set_correlation_id(self, value: str) -> None: ...
+
+
 def _normalize_sources(requested: Sequence[str]) -> list[str]:
     lowered = {item.lower() for item in requested}
-    if "all" in lowered:
-        return sorted(SOURCE_LOADERS.keys())
+    if "all" in lowered or "pozos" in lowered:
+        return ["pozos"]
+
     normalised: list[str] = []
     for item in requested:
         key = item.lower()
         if key not in SOURCE_LOADERS:
-            # Also allow direct source names even if they are just subsets
-            if key == "pozos":  # Legacy default
-                return ["pozos"]
             raise ValueError(f"Unsupported source '{item}'. Available: {', '.join(SOURCE_LOADERS)}")
         if key not in normalised:
             normalised.append(key)
@@ -84,6 +91,7 @@ def _collect_pozos(
     *,
     timeout: int = 20,
     retries: int = 3,
+    only: str | None = None,
 ) -> tuple[dict[str, Any], ...]:
     if not include:
         return tuple()
@@ -94,6 +102,9 @@ def _collect_pozos(
     for name, fetcher in POZO_SOURCES:
         target_url = overrides.get(name)
         if target_url == "skip":
+            continue
+
+        if only and name != only:
             continue
 
         try:
@@ -113,8 +124,9 @@ def _collect_pozos(
                     kw["url"] = target_url
             payload = fetcher(**kw)
             if payload.get("montos"):
+                payload["source_name"] = name
                 collected.append(payload)
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:
             LOGGER.warning("Pozo fetcher %s failed: %s", name, exc)
 
     return tuple(collected)
@@ -137,12 +149,12 @@ def _merge_pozos(
     votes: dict[str, dict[int, list[str]]] = {}
 
     for entry in collected:
-        src_name = entry.get("fuente", "unknown")
+        src_id = entry.get("source_name", entry.get("fuente", "unknown"))
         for cat, val in entry.get("montos", {}).items():
             if str(cat).lower().startswith("total"):
                 continue
             v = int(val)
-            votes.setdefault(cat, {}).setdefault(v, []).append(src_name)
+            votes.setdefault(cat, {}).setdefault(v, []).append(src_id)
 
     resolved: dict[str, int] = {}
     mismatches: list[dict[str, Any]] = []
@@ -151,6 +163,14 @@ def _merge_pozos(
         # Sort by number of votes descending
         consensus = sorted(values.items(), key=lambda x: len(x[1]), reverse=True)
         winner_val, winners = consensus[0]
+
+        # Find sources that are missing this category entirely
+        responding_sources = {s for s_list in values.values() for s in s_list}
+        missing_sources = [
+            entry.get("source_name", "unknown")
+            for entry in collected
+            if entry.get("source_name", entry.get("fuente")) not in responding_sources
+        ]
 
         if len(consensus) > 1:
             # Disagreement: calculate max relative deviation against winner
@@ -166,7 +186,17 @@ def _merge_pozos(
                     "consensus": {str(winner_val): winners},
                     "disagreeing": {str(v): s for v, s in consensus[1:]},
                     "max_deviation": round(max_dev, 4),
-                    "missing_sources": [],
+                    "missing_sources": missing_sources,
+                }
+            )
+        elif missing_sources:
+            # Consensus reached but some sources were missing the category
+            mismatches.append(
+                {
+                    "categoria": cat,
+                    "consensus": {str(winner_val): winners},
+                    "disagreeing": {},
+                    "missing_sources": missing_sources,
                 }
             )
         resolved[cat] = winner_val
@@ -195,31 +225,33 @@ def _merge_pozos(
     return resolved, provenance, mismatches
 
 
-def _init_log_stream(log_path: Path) -> Callable[[dict[str, Any]], None]:
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    handle = log_path.open("a", encoding="utf-8")
-    correlation_id: str | None = None
+class _JSONLogStream:
+    """Internal implementation of the LogStream protocol for JSONL files."""
 
-    def _emit(payload: dict[str, Any]) -> None:
+    def __init__(self, log_path: Path) -> None:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        self.handle = log_path.open("a", encoding="utf-8")
+        self.correlation_id: str | None = None
+
+    def __call__(self, payload: dict[str, Any]) -> None:
         payload = dict(payload)
         payload.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
-        if correlation_id and "correlation_id" not in payload:
-            payload["correlation_id"] = correlation_id
+        if self.correlation_id and "correlation_id" not in payload:
+            payload["correlation_id"] = self.correlation_id
         payload = sanitize(payload)
-        handle.write(json.dumps(payload, ensure_ascii=False))
-        handle.write("\n")
-        handle.flush()
+        self.handle.write(json.dumps(payload, ensure_ascii=False))
+        self.handle.write("\n")
+        self.handle.flush()
 
-    def _close() -> None:
-        handle.close()
+    def set_correlation_id(self, value: str) -> None:
+        self.correlation_id = value
 
-    def _set_correlation_id(value: str) -> None:
-        nonlocal correlation_id
-        correlation_id = value
+    def close(self) -> None:
+        self.handle.close()
 
-    _emit.close = _close  # type: ignore[attr-defined]
-    _emit.set_correlation_id = _set_correlation_id  # type: ignore[attr-defined]
-    return _emit
+
+def _init_log_stream(log_path: Path) -> LogStream:
+    return _JSONLogStream(log_path)
 
 
 def _compute_unchanged(
@@ -265,8 +297,10 @@ def _build_report_payload(
     fecha: Any,
     merged_pozos: Mapping[str, Any],
     record_source: Any,
+    confidence: str,
     decision_status: str,
     decision_reason: str,
+    mismatches: list[dict[str, Any]],
 ) -> dict[str, Any]:
     return {
         "run": {
@@ -280,14 +314,12 @@ def _build_report_payload(
         "last_draw": {"sorteo": sorteo, "fecha": fecha},
         "decision": {
             "status": decision_status,
+            "confidence": confidence,
             "total_categories": len(merged_pozos),
-            "mismatched_categories": 0,
+            "mismatched_categories": len([m for m in mismatches if m.get("disagreeing")]),
             "reason": decision_reason,
         },
-        "prizes_changed": decision_status != "skip",
-        "mismatches": [],
-        "sources": {"pozos": {"url": record_source, "premios": 0}},
-        "failures": [],
+        "mismatches": mismatches,
     }
 
 
@@ -348,9 +380,24 @@ def _run_ingestion_for_sources(
         raise RuntimeError(f"No sources returned data for {requested_sources}")
 
     merged_pozos, pozos_prov, mismatches = _merge_pozos(collected)
-    mismatch_ratio = len(mismatches) / len(merged_pozos) if merged_pozos else 0.0
+    mismatch_ratio = (
+        len([m for m in mismatches if m.get("disagreeing")]) / len(merged_pozos)
+        if merged_pozos
+        else 0.0
+    )
     max_deviation = max((m.get("max_deviation", 0.0) for m in mismatches), default=0.0)
     primary = collected[0]
+
+    # Calculate confidence scoring (FEAT-01)
+    if len(requested_sources) == 1:
+        confidence = "single_source"
+    elif len(collected) == len(requested_sources):
+        confidence = "full"
+    elif len(collected) > 1:
+        confidence = "degraded"
+    else:
+        confidence = "single_source"
+
     sorteo = primary.get("sorteo")
     fecha = primary.get("fecha")
 
@@ -358,6 +405,7 @@ def _run_ingestion_for_sources(
         "sorteo": sorteo,
         "fecha": fecha,
         "fuente": pozos_prov.get("primary", {}).get("fuente"),
+        "confidence": confidence,
         "premios": [],
         "pozos_proximo": merged_pozos,
         "provenance": {"pozos": pozos_prov},
@@ -417,12 +465,11 @@ def _run_ingestion_for_sources(
         fecha=fecha,
         merged_pozos=merged_pozos,
         record_source=record["fuente"],
+        confidence=confidence,
         decision_status=decision_status,
         decision_reason=publish_reason,
+        mismatches=mismatches,
     )
-    # Inject actual mismatches into the report
-    report_payload["mismatches"] = mismatches
-    report_payload["decision"]["mismatched_categories"] = len(mismatches)
     report_payload["api_version"] = API_VERSION
     _write_json(comparison_report_path, report_payload)
 
@@ -469,6 +516,10 @@ def _run_ingestion_for_sources(
         tags={"decision": decision_status, "publish": publish_flag},
     )
     _write_json(summary_path, summary_payload)
+    if decision_status == "quarantine":
+        notify_quarantine(summary_payload, mismatches)
+    else:
+        notify_slack(summary_payload)
     return summary_payload
 
 
@@ -493,7 +544,7 @@ def run_pipeline(
 
     log_event = _init_log_stream(log_path)
     run_id = str(uuid.uuid4())
-    log_event.set_correlation_id(run_id)  # type: ignore[attr-defined]
+    log_event.set_correlation_id(run_id)
     set_correlation_id(run_id)
     log_event({"event": "pipeline_start", "run_id": run_id, "sources": sources})
 
@@ -526,8 +577,8 @@ def run_pipeline(
 SOURCE_LOADERS.update(
     {
         "pozos": _collect_pozos,
-        "openloto": _collect_pozos,
-        "polla": _collect_pozos,
+        "openloto": lambda *a, **k: _collect_pozos(*a, **k, only="openloto"),
+        "polla": lambda *a, **k: _collect_pozos(*a, **k, only="polla"),
     }
 )
 

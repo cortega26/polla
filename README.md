@@ -6,12 +6,14 @@ Aggregate próximo pozo estimates from vetted community mirrors, enforce provena
 
 ## Features
 
-- Orchestrates multi-source ingestion with a unified registry (`pozos`, `resultadoslotochile`, `openloto`) and deterministic fallbacks.
+- Orchestrates multi-source ingestion with a unified registry (`pozos`, `resultadoslotochile`, `openloto`, `polla`) and deterministic fallbacks.
 - Ensures data integrity via SHA-256 content-hash verification and magnitude-based consensus quarantine (10% threshold).
+- Features a **Confidence Scoring System** (`full`, `degraded`, `single_source`) to signal data reliability.
+- Sends **Rich Slack Notifications** for successful runs and detailed **Quarantine Alerts** for discrepancies.
 - Publishes structured JSONL outputs and comparison reports with full provenance traceability.
 - Ships a Click-based CLI (`run`, `publish`, `pozos`, `health`) with dry-run diffing and automated guardrails.
 - Handles rate-limiting gracefully with jittered exponential backoff and polite robots.txt enforcement.
-- Locks behaviour with fixture-driven pytest suites and doctests executed in CI for documentation drift.
+- Locks behavior with fixture-driven pytest suites and automated coverage enforcement (80% threshold).
 - Simplifies day-to-day DX with Make targets, Black/Ruff/Mypy automation, and GitHub Actions parity.
 
 ## Tech Stack
@@ -27,16 +29,18 @@ Aggregate próximo pozo estimates from vetted community mirrors, enforce provena
 %%{init: {"themeVariables": {"fontSize":"16px"}, "flowchart": {"htmlLabels": false, "wrap": true}}}%%
 flowchart TB
   A[CLI command] --> B[Pipeline Orchestrator]
-  B --> C{Source loader}
-  C -->|ResultadosLotoChile| D[Primary scrape]
-  C -->|OpenLoto fallback| E[Fallback scrape]
-  D --> F[Normalizer]
-  E --> F[Normalizer]
-  F --> G["Artifacts<br/>(JSONL, reports, state)"]
-  G --> H{Publish?}
-  H -->|Yes| I[Google Sheets via gspread]
-  H -->|No| J[Quarantine + logs]
-  B --> K["Structured logging<br/>(spans + metrics)"]
+  B --> C{Source registry}
+  C -->|Polla.cl| D[Stealth Fetcher]
+  C -->|ResultadosLotoChile| E[Primary mirror]
+  C -->|OpenLoto| F[Fallback mirror]
+  D & E & F --> G[Normalizer]
+  G --> H[Consensus Engine]
+  H --> I["Artifacts<br/>(JSONL, reports, state)"]
+  I --> J{Decision}
+  J -->|Publish| K[Google Sheets via gspread]
+  J -->|Quarantine| L[Detailed Slack Alert]
+  J -->|Skip| M[Silent completion]
+  B --> N["Structured logging<br/>(spans + metrics)"]
 ```
 
 ## Quick Start
@@ -84,6 +88,7 @@ flowchart TB
 | `ALT_SOURCE_URLS` | JSON string | `{}` | No | Override source URLs for mirrors or testing. |
 | `POLLA_USER_AGENT` | string | Library default | No | Custom HTTP user agent for polite scraping. |
 | `POLLA_RATE_LIMIT_RPS` | float | unset | No | Per-host requests-per-second throttle. |
+| `SLACK_WEBHOOK_URL` | string | — | No | Target for run summaries and discrepancy alerts. |
 
 ## Quality & Tests
 
@@ -103,9 +108,8 @@ CI mirrors these commands through `.github/workflows/tests.yml` and `.github/wor
 
 ## Roadmap
 
-- Expand publish command to surface mismatch deltas via Slack/webhooks for quicker operator response.
-- Wire Codecov and fail PRs below agreed coverage thresholds.[^coverage]
 - Add smoke-test fixtures for newly emerging aggregator mirrors.
+- Implement more granular prize-tier parsing for Polla source.
 
 ## Why It Matters
 
@@ -120,5 +124,3 @@ CI mirrors these commands through `.github/workflows/tests.yml` and `.github/wor
 Contributions are welcome—see [CONTRIBUTING.md](CONTRIBUTING.md) for style, testing, and review expectations.
 
 This project is distributed under the [MIT License](license.md).
-
-[^coverage]: TODO: Enable Codecov (or GitHub Actions coverage summary) to visualise and gate coverage in CI.

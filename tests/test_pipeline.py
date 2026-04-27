@@ -34,7 +34,10 @@ def test_pozos_pipeline_produces_artifacts(tmp_path: Path, monkeypatch: pytest.M
     monkeypatch.setattr(
         pipeline_mod,
         "POZO_SOURCES",
-        (("resultadoslotochile", lambda: primary), ("openloto", lambda: fallback)),
+        (
+            ("resultadoslotochile", lambda **_: primary),
+            ("openloto", lambda **_: fallback),
+        ),
     )
 
     log_path = tmp_path / "run.jsonl"
@@ -102,7 +105,10 @@ def test_pozos_pipeline_skip_when_unchanged(
     monkeypatch.setattr(
         pipeline_mod,
         "POZO_SOURCES",
-        (("resultadoslotochile", lambda: primary), ("openloto", lambda: fallback)),
+        (
+            ("resultadoslotochile", lambda **_: primary),
+            ("openloto", lambda **_: fallback),
+        ),
     )
 
     state = tmp_path / "state.jsonl"
@@ -166,7 +172,10 @@ def test_pozos_pipeline_reason_when_unchanged(
     monkeypatch.setattr(
         pipeline_mod,
         "POZO_SOURCES",
-        (("resultadoslotochile", lambda: primary), ("openloto", lambda: fallback)),
+        (
+            ("resultadoslotochile", lambda **_: primary),
+            ("openloto", lambda **_: fallback),
+        ),
     )
 
     state = tmp_path / "state.jsonl"
@@ -220,7 +229,10 @@ def test_pozos_pipeline_force_publish_reason(
     monkeypatch.setattr(
         pipeline_mod,
         "POZO_SOURCES",
-        (("resultadoslotochile", lambda: payload), ("openloto", lambda: payload)),
+        (
+            ("resultadoslotochile", lambda **_: payload),
+            ("openloto", lambda **_: payload),
+        ),
     )
 
     state = tmp_path / "state.jsonl"
@@ -267,7 +279,11 @@ def test_openloto_only_logs_pozos(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         "user_agent": "pytest",
         "estimado": True,
     }
-    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("openloto", lambda: payload),))
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (("openloto", lambda **_: payload),),
+    )
 
     log_path = tmp_path / "run.jsonl"
     run_pipeline(

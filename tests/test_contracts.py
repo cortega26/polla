@@ -40,8 +40,8 @@ def test_normalized_and_report_schema_and_idempotency(
         pipeline_mod,
         "POZO_SOURCES",
         (
-            ("resultadoslotochile", lambda: primary),
-            ("openloto", lambda: fallback),
+            ("resultadoslotochile", lambda **_: primary),
+            ("openloto", lambda **_: fallback),
         ),
     )
 

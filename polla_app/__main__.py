@@ -51,13 +51,15 @@ def _echo_json(payload: dict[str, Any], *, indent: int | None = 2) -> None:
 
 
 @cli.command()
-def pozos() -> None:
+@click.option("--timeout", default=10, show_default=True, help="Fetch timeout in seconds.")
+@click.option("--retries", default=3, show_default=True, help="Max retry attempts.")
+def pozos(timeout: int, retries: int) -> None:
     """Print próximo pozo estimates from known aggregators."""
 
     results: dict[str, Any] = {}
     for name, fn in (("openloto", get_pozo_openloto), ("polla", get_pozo_polla)):
         try:
-            results[name] = fn()
+            results[name] = fn(timeout=timeout, retries=retries)
         except Exception as exc:
             results[name] = {"error": type(exc).__name__, "message": str(exc)}
     _echo_json(results)
@@ -135,7 +137,7 @@ def pozos() -> None:
     "--force-publish/--no-force-publish",
     default=False,
     show_default=True,
-    help="Force the run summary to publish even if sorteo/fecha and amounts are unchanged.",
+    help="Force ingestion and state update even if sorteo/fecha and amounts are unchanged in previous records.",
 )
 def run(
     sources: str,
@@ -161,6 +163,14 @@ def run(
         raise click.BadParameter("--timeout must be >= 1")
     if mismatch_threshold < 0:
         raise click.BadParameter("--mismatch-threshold must be >= 0")
+
+    if not include_pozos:
+        click.secho(
+            "DEPRECATION WARNING: --no-include-pozos is deprecated and will be removed. "
+            "This tool is now pozos-only by design.",
+            fg="yellow",
+            err=True,
+        )
 
     requested_sources = [item.strip() for item in sources.split(",") if item.strip()]
     if not requested_sources:
@@ -236,7 +246,7 @@ def run(
     "--force-publish/--no-force-publish",
     default=False,
     show_default=True,
-    help="Publish even if the run summary requested quarantine.",
+    help="Publish even if the run summary requested quarantine (ignoring discrepancies).",
 )
 @click.option(
     "--allow-quarantine/--no-allow-quarantine",

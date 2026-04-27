@@ -54,7 +54,7 @@ def test_get_pozo_polla_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("scrapling.StealthyFetcher", mock_fetcher_cls)
 
-    with pytest.raises(ParseError, match="Polla.cl returned status 403"):
+    with pytest.raises(ParseError, match="polla.cl fetch failed with status 403"):
         get_pozo_polla()
 
 
@@ -78,3 +78,28 @@ def test_extract_proximo_info_new_formats() -> None:
     sorteo3, fecha3 = _extract_proximo_info(text3)
     assert sorteo3 == 24298
     assert fecha3 == "2026-04-27"
+
+
+def test_get_pozo_polla_timeout_propagation(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_fetcher_cls = MagicMock()
+    mock_fetcher_instance = MagicMock()
+    mock_page = MagicMock()
+
+    mock_page.status = 200
+    mock_page.text = """
+        <li>
+            <span>POZO TOTAL ESTIMADO</span>
+            <span class="prize">$2.300</span>
+        </li>
+    """
+    mock_page.text_content = mock_page.text
+    mock_fetcher_instance.fetch.return_value = mock_page
+    mock_fetcher_cls.return_value = mock_fetcher_instance
+
+    monkeypatch.setattr("scrapling.StealthyFetcher", mock_fetcher_cls)
+
+    # get_pozo_polla(timeout=42) should now succeed
+    get_pozo_polla(timeout=42)
+
+    args, kwargs = mock_fetcher_instance.fetch.call_args
+    assert kwargs["timeout"] == 42

@@ -32,10 +32,13 @@ def _should_redact_key(key: str) -> bool:
     key_l = key.lower()
     if key_l in {"fuente", "source", "url"}:  # URLs are safe in this context
         return False
-    return any(
-        tok in key_l
-        for tok in ("password", "secret", "token", "credential", "apikey", "api_key", "key")
-    )
+
+    sensitive_tokens = ("password", "secret", "token", "credential", "apikey", "api_key")
+    if any(tok in key_l for tok in sensitive_tokens):
+        return True
+
+    # Exact or anchored match for "key" to avoid redacting "monkey", "jockey", etc.
+    return key_l == "key" or key_l.startswith("key_") or key_l.endswith("_key") or "_key_" in key_l
 
 
 def sanitize(obj: Any) -> Any:

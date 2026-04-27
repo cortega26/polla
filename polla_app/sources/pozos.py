@@ -295,12 +295,15 @@ def get_pozo_polla(
     shared_data: dict[str, str] = {}
 
     def click_detalle(page: Any) -> None:
+        ms_timeout = timeout * 1000
         try:
             # Wait for the main Loto logo or some content to be visible first
-            page.wait_for_selector(".jackpot-banner", timeout=5000)
+            page.wait_for_selector(".jackpot-banner", timeout=ms_timeout)
             # Expand details
-            page.locator("text=VER DETALLE POR CATEGORÍA").first.click(timeout=3000)
-            page.wait_for_timeout(2000)  # Wait for animation and bindings
+            page.locator("text=VER DETALLE POR CATEGORÍA").first.click(
+                timeout=min(5000, ms_timeout)
+            )
+            page.wait_for_timeout(min(2000, ms_timeout // 2))  # Wait for animation and bindings
         except Exception:
             pass
         # Scrapling sometimes fails to serialize the DOM text correctly, returning an empty string.
@@ -312,8 +315,37 @@ def get_pozo_polla(
             pass
 
     try:
+        # StealthyFetcher can take some time to initialize; we use the timeout for the fetch itself
         fetcher = StealthyFetcher(headless=True)
-        page = fetcher.fetch(url, page_action=click_detalle)
+
+        last_exc: Exception | None = None
+        max_attempts = retries if retries is not None else 1
+        for attempt in range(1, max_attempts + 1):
+            try:
+                page = fetcher.fetch(url, page_action=click_detalle, timeout=timeout)
+                if page.status == 200:
+                    break
+                LOGGER.warning(
+                    "polla.cl fetch failed (attempt %d/%d): status %d",
+                    attempt,
+                    max_attempts,
+                    page.status,
+                )
+            except Exception as exc:
+                last_exc = exc
+                if attempt == max_attempts:
+                    raise ParseError(
+                        f"polla.cl fetch failed after {max_attempts} attempts"
+                    ) from exc
+                LOGGER.warning(
+                    "polla.cl fetch error (attempt %d/%d): %s", attempt, max_attempts, exc
+                )
+        else:
+            status_code = getattr(page, "status", 0) if "page" in locals() else 0
+            raise ParseError(
+                f"polla.cl fetch failed with status {status_code} after {max_attempts} attempts"
+            )
+
         if page.status != 200:
             raise ParseError(f"Polla.cl returned status {page.status}", context={"url": url})
 
