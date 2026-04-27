@@ -14,10 +14,9 @@ from .exceptions import ConfigError
 from .notifiers import notify_slack
 
 # Optional at import time to allow dry-run in tests without gspread installed
-gspread: Any
 try:
     import gspread
-except Exception:  # pragma: no cover - import guard for environments without gspread
+except ImportError:  # pragma: no cover - import guard for environments without gspread
     gspread = None
 
 LOGGER = logging.getLogger(__name__)

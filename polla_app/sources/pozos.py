@@ -299,8 +299,8 @@ def get_pozo_polla(
         if page.status != 200:
             raise ParseError(f"Polla.cl returned status {page.status}", context={"url": url})
 
-        html_content = shared_data.get("html") or page.text
-        text_content = shared_data.get("text") or getattr(page, "text_content", html_content)
+        html_content = str(shared_data.get("html") or getattr(page, "text", ""))
+        text_content = str(shared_data.get("text") or getattr(page, "text_content", html_content))
     except ParseError:
         raise
     except Exception as exc:
@@ -330,7 +330,7 @@ def get_pozo_polla(
         img = li.select_one("img")
         if not img:
             continue
-        src = img.get("src", "").lower()
+        src = str(img.get("src", "")).lower()
 
         texts = list(li.stripped_strings)
         prize_span = li.find(class_="prize")
