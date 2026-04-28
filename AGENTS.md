@@ -12,7 +12,7 @@ This repository uses AGENTS.md to guide AI/automation and humans on how to make 
 
 ## Project Overview
 
-- Language: Python 3.10+
+- Language: Python 3.11+
 - Package: `polla_app` – alternative‑source ingestion for Chilean Loto (pozos only)
 - CLI entry: `python -m polla_app` with commands: `run`, `publish`, `pozos`, `health`
 - Tests: `pytest -q` (unit, integration, doctests)

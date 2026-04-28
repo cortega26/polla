@@ -763,7 +763,7 @@
 | **Prioridad** | P3 |
 | **Esfuerzo** | S |
 | **Riesgo** | Ninguno |
-| **Estado** | `todo` |
+| **Estado** | `done` |
 | **Dependencias** | Ninguna |
 | **Fase** | 3 |
 | **Archivos** | `README.md` |
@@ -790,7 +790,7 @@
 | **Prioridad** | P4 |
 | **Esfuerzo** | S |
 | **Riesgo** | Bajo |
-| **Estado** | `todo` |
+| **Estado** | `done` |
 | **Dependencias** | Fases 0-3 cerradas |
 | **Fase** | 4 |
 | **Archivos** | `polla_app/notifiers.py`, `polla_app/pipeline.py` |
@@ -877,7 +877,7 @@
 | **Prioridad** | P4 |
 | **Esfuerzo** | M |
 | **Riesgo** | Bajo |
-| **Estado** | `todo` |
+| **Estado** | `done` |
 | **Dependencias** | BUG-03 (registry limpio) |
 | **Fase** | 4 |
 | **Archivos** | `tests/fixtures/`, `tests/test_smoke_sources.py` |

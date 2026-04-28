@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from polla_app.notifiers import notify_slack
+from polla_app.notifiers import notify_quarantine, notify_slack
 from polla_app.publish import publish_to_google_sheets
 
 
@@ -103,3 +103,44 @@ def test_health_online_validation_insane_range(monkeypatch: pytest.MonkeyPatch) 
     data = json.loads(result.output)
     assert data["status"] == "fail"
     assert data["checks"]["sources"]["openloto"]["error"] == "amounts_out_of_range"
+
+
+def test_notify_quarantine_sends_blocks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", "http://mock-slack")
+    import requests
+
+    captured_payload: dict[str, Any] = {}
+
+    def mock_post(url: str, json: dict[str, Any], timeout: int = 10) -> MagicMock:
+        nonlocal captured_payload
+        captured_payload = json
+        mock = MagicMock()
+        mock.status_code = 200
+        mock.raise_for_status = MagicMock()
+        return mock
+
+    monkeypatch.setattr(requests, "post", mock_post)
+
+    summary = {
+        "run_id": "test-run",
+        "publish_reason": "mismatch_detected",
+        "decision": {"status": "quarantine"},
+    }
+    mismatches = [
+        {
+            "categoria": "Loto",
+            "consensus": {"1000": ["source1"]},
+            "missing_sources": ["source2"],
+        }
+    ]
+
+    notify_quarantine(summary, mismatches)
+
+    assert "blocks" in captured_payload
+    blocks = captured_payload["blocks"]
+    assert any("Quarantine Alert" in str(b) for b in blocks)
+    assert any("test-run" in str(b) for b in blocks)
+    assert any("Loto" in str(b) for b in blocks)
+    assert any("Missing: source2" in str(b) for b in blocks)

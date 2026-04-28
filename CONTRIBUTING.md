@@ -25,7 +25,7 @@ black .
 
 ## Project Conventions
 
-- Python 3.10+ only.
+- Python 3.11+ only.
 - Keep functions small and single‑purpose; add docstrings for non‑obvious logic.
 - Prefer `Mapping`/`Iterable` in function signatures for read‑only inputs.
 - Do not log secrets. Prefer structured logs for errors via `ScriptError`.
@@ -59,3 +59,11 @@ python scripts/benchmark_pozos_parsing.py
 - Keep diffs focused. If refactoring, avoid changing functionality.
 - Ensure `ruff`, `mypy`, and `pytest` pass locally before submitting.
 
+## Adding New Sources (Smoke Tests)
+
+To add a new lottery source aggregator:
+1. Implement the fetcher in `polla_app/sources/pozos.py`.
+2. Register it in `SOURCE_LOADERS` within `polla_app/pipeline.py`.
+3. Create a fixture directory: `tests/fixtures/sources/<source_name>/`.
+4. Add a sample `page.html` and the `expected.json` (containing the parsed `montos`, `sorteo`, etc.).
+5. Run `pytest tests/test_smoke_sources.py` to verify the integration.
