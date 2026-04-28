@@ -6,7 +6,7 @@ Agrega estimaciones del próximo pozo integrando la fuente oficial de `polla.cl`
 
 ## Características
 
-- Orquestación de ingesta multi-fuente con un registro unificado (`pozos`, `resultadoslotochile`, `openloto`, `polla`) y mecanismos de respaldo deterministas.
+- Orquestación de ingesta multi-fuente con un registro unificado (`pozos`, `openloto`, `polla`) y mecanismos de respaldo deterministas.
 - Garantía de integridad de datos mediante verificación de hash SHA-256 y cuarentena por consenso basada en magnitud (umbral del 10%).
 - Sistema de **Puntaje de Confianza** (`full`, `degraded`, `single_source`) para señalar la fiabilidad de los datos.
 - Envío de **Notificaciones Enriquecidas en Slack** para ejecuciones exitosas y **Alertas de Cuarentena** detalladas ante discrepancias.
@@ -18,7 +18,7 @@ Agrega estimaciones del próximo pozo integrando la fuente oficial de `polla.cl`
 
 ## Stack Tecnológico
 
-- Python 3.10+, Click CLI, Requests + parsers BeautifulSoup
+- Python 3.11+, Click CLI, Requests + parsers BeautifulSoup
 - Integración con Google Sheets vía `gspread` + `google-auth`
 - Pruebas: Pytest (+ doctests), fixtures de Faker
 - Herramientas: Ruff, Black, Mypy, GitHub Actions (tests, docs, health)
@@ -31,9 +31,8 @@ flowchart TB
   A[Comando CLI] --> B[Orquestador de Pipeline]
   B --> C{Registro de fuentes}
   C -->|Polla.cl| D[Fetcher Sigiloso]
-  C -->|ResultadosLotoChile| E[Fuente Espejo A]
-  C -->|OpenLoto| F[Fuente Espejo B]
-  D & E & F --> G[Normalizador]
+  C -->|OpenLoto| E[Fuente Espejo]
+  D & E --> G[Normalizador]
   G --> H[Motor de Consenso]
   H --> I["Artifacts<br/>(JSONL, reportes, estado)"]
   I --> J{Decisión}
@@ -66,19 +65,19 @@ flowchart TB
 
 ### Configuración
 
-| Nombre | Tipo | Por defecto | Requerido | Descripción |
-| :--- | :--- | :--- | :--- | :--- |
-| `GOOGLE_SPREADSHEET_ID` | string | — | Para `publish` | ID de la hoja de cálculo de Google para la publicación. |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | string JSON | — | Condicional | Credenciales de cuenta de servicio en línea (alternativa a archivo). |
-| `GOOGLE_CREDENTIALS` / `CREDENTIALS` | string JSON | — | Condicional | Variables de entorno legacy para autenticación de cuenta de servicio. |
-| `service_account.json` | archivo | — | Condicional | Credenciales en disco si no se proporcionan variables de entorno. |
-| `ALT_SOURCE_URLS` | string JSON | `{}` | No | Sobrescribe las URLs de las fuentes para espejos o pruebas. |
-| `POLLA_USER_AGENT` | string | Library default | No | User-agent HTTP personalizado para scraping respetuoso. |
-| `POLLA_RATE_LIMIT_RPS` | float | sin definir | No | Límite de peticiones por segundo por host. |
-| `POLLA_MAX_RETRIES` | entero | `3` | No | Máximo de intentos de reintento por petición. |
-| `POLLA_BACKOFF_FACTOR` | float | `0.3` | No | Multiplicador para el retraso del retroceso exponencial. |
-| `POLLA_429_BACKOFF_SECONDS` | entero | — | No | Retraso fijo tras recibir un código de estado 429 (fallback). |
-| `SLACK_WEBHOOK_URL` | string | — | No | Destino para resúmenes de ejecución y alertas de discrepancia. |
+| Nombre                               | Tipo        | Por defecto     | Requerido      | Descripción                                                           |
+| :----------------------------------- | :---------- | :-------------- | :------------- | :-------------------------------------------------------------------- |
+| `GOOGLE_SPREADSHEET_ID`              | string      | —               | Para `publish` | ID de la hoja de cálculo de Google para la publicación.               |
+| `GOOGLE_SERVICE_ACCOUNT_JSON`        | string JSON | —               | Condicional    | Credenciales de cuenta de servicio en línea (alternativa a archivo).  |
+| `GOOGLE_CREDENTIALS` / `CREDENTIALS` | string JSON | —               | Condicional    | Variables de entorno legacy para autenticación de cuenta de servicio. |
+| `service_account.json`               | archivo     | —               | Condicional    | Credenciales en disco si no se proporcionan variables de entorno.     |
+| `ALT_SOURCE_URLS`                    | string JSON | `{}`            | No             | Sobrescribe las URLs de las fuentes para espejos o pruebas.           |
+| `POLLA_USER_AGENT`                   | string      | Library default | No             | User-agent HTTP personalizado para scraping respetuoso.               |
+| `POLLA_RATE_LIMIT_RPS`               | float       | sin definir     | No             | Límite de peticiones por segundo por host.                            |
+| `POLLA_MAX_RETRIES`                  | entero      | `3`             | No             | Máximo de intentos de reintento por petición.                         |
+| `POLLA_BACKOFF_FACTOR`               | float       | `0.3`           | No             | Multiplicador para el retraso del retroceso exponencial.              |
+| `POLLA_429_BACKOFF_SECONDS`          | entero      | —               | No             | Retraso fijo tras recibir un código de estado 429 (fallback).         |
+| `SLACK_WEBHOOK_URL`                  | string      | —               | No             | Destino para resúmenes de ejecución y alertas de discrepancia.        |
 
 ## Calidad y Pruebas
 

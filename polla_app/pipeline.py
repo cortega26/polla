@@ -1,4 +1,4 @@
-"""Orchestration for próximo pozo aggregation (resultadoslotochile + openloto)."""
+"""Orchestration for próximo pozo aggregation (openloto + polla)."""
 
 from __future__ import annotations
 

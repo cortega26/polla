@@ -1,4 +1,4 @@
-"""Pozo aggregators (resultadoslotochile + openloto)."""
+"""Pozo aggregators (openloto + polla)."""
 
 from .pozos import get_pozo_openloto, get_pozo_polla
 
