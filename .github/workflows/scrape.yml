@@ -2,6 +2,7 @@ name: Ingest Alternative Sources
 
 permissions:
   contents: read
+  id-token: write
 
 on:
   schedule:
@@ -58,7 +59,7 @@ jobs:
       - name: Upload coverage
         uses: codecov/codecov-action@v6
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
           files: ./coverage.xml
           fail_ci_if_error: true
 
