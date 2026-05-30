@@ -113,3 +113,7 @@ CI refleja estos comandos a través de `.github/workflows/tests.yml` y `.github/
 Las contribuciones son bienvenidas—consulta [CONTRIBUTING.md](CONTRIBUTING.md) para conocer las expectativas de estilo, pruebas y revisión.
 
 Este proyecto se distribuye bajo la [Licencia MIT](license.md).
+
+---
+
+Built and maintained by **Carlos Ortega** — automation, data systems, and web technical hygiene consulting. Portfolio and services: **[tooltician.com](https://tooltician.com/)**.
