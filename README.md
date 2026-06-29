@@ -2,7 +2,7 @@
 
 *Parte del [ecosistema Tooltician](https://tooltician.com) — datos de pozos confiables y verificados para el Loto de Chile.*
 
-[![Tooltician](https://tooltician.com/badge.svg)](https://tooltician.com)
+[![Parte de Tooltician](https://tooltician.com/badge.es.svg)](https://tooltician.com)
 
 Agrega estimaciones del próximo pozo integrando la fuente oficial de `polla.cl` con espejos comunitarios verificados, garantiza la procedencia mediante consenso y publica actualizaciones en Google Sheets.
 
