@@ -1,5 +1,9 @@
 # Polla App — Ingesta confiable de pozos para el Loto de Chile
 
+*Parte del [ecosistema Tooltician](https://tooltician.com) — datos de pozos confiables y verificados para el Loto de Chile.*
+
+[![Part of Tooltician](https://img.shields.io/badge/Part%20of-Tooltician-6C47FF.svg?style=flat-square&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIgM2g2YTQgNCAwIDAgMSA0IDR2MTRhMiAyIDAgMCAwLTItMkg0YTIgMiAwIDAgMS0yLTJWNVoiLz48cGF0aCBkPSJNMjIgM2gtNmE0IDQgMCAwIDAtNCA0djE0YTIgMiAwIDAgMSAyLTJoNGEyIDIgMCAwIDAgMi0yVjVhMiAyIDAgMCAwLTItMloiLz48L3N2Zz4=)](https://tooltician.com)
+
 Agrega estimaciones del próximo pozo integrando la fuente oficial de `polla.cl` con espejos comunitarios verificados, garantiza la procedencia mediante consenso y publica actualizaciones en Google Sheets.
 
 [![Tests](https://github.com/cortega26/polla/actions/workflows/tests.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/tests.yml) [![Docs](https://github.com/cortega26/polla/actions/workflows/docs.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/docs.yml) [![Health](https://github.com/cortega26/polla/actions/workflows/health.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/health.yml) [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3100/) [![License](https://img.shields.io/github/license/cortega26/polla)](license.md) [![Last commit](https://img.shields.io/github/last-commit/cortega26/polla)](https://github.com/cortega26/polla/commits/main)
@@ -117,3 +121,5 @@ Este proyecto se distribuye bajo la [Licencia MIT](license.md).
 ---
 
 Built and maintained by **Carlos Ortega** — automation, data systems, and web technical hygiene consulting. Portfolio and services: **[tooltician.com](https://tooltician.com/)**.
+
+*Parte del [ecosistema Tooltician](https://tooltician.com) — datos de pozos confiables y verificados para el Loto de Chile.*
