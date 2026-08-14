@@ -43,7 +43,11 @@ class LogStream(Protocol):
 def _normalize_sources(requested: Sequence[str]) -> list[str]:
     lowered = {item.lower() for item in requested}
     if "all" in lowered or ("pozos" in lowered and "kino" in lowered):
-        return ["pozos", "kino"]
+        raise ValueError(
+            "Mixing 'pozos' and 'kino' in one run is not supported: each game "
+            "must run as a separate invocation (--sources pozos, then --sources kino) "
+            "so sorteo/fecha and sheets stay per game"
+        )
     if "pozos" in lowered:
         # "pozos" is the Loto aggregate; it absorbs redundant per-source requests
         return ["pozos"]

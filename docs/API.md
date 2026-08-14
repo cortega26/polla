@@ -14,7 +14,7 @@ Sanity check doctest:
 
 | Parameter                | Type                | Description                                                       |
 | ------------------------ | ------------------- | ----------------------------------------------------------------- |
-| `sources`                | `Sequence[str]`     | List of sources to ingest: `"pozos"`, `"polla"`, `"openloto"`, `"kino"` or `"all"` (Loto + Kino). |
+| `sources`                | `Sequence[str]`     | List of sources to ingest: `"pozos"`, `"polla"`, `"openloto"`, `"kino"` — use one game per invocation. |
 | `source_overrides`       | `Mapping[str, str]` | Case-insensitive mapping of `{ "openloto": url, "polla": url }`.  |
 | `raw_dir`                | `Path`              | Directory where per-source raw outputs will be written.           |
 | `normalized_path`        | `Path`              | Path to the normalized NDJSON output file.                        |

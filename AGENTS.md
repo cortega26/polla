@@ -92,7 +92,7 @@ This repository uses AGENTS.md to guide AI/automation and humans on how to make 
 
 ## CLI
 
-- `run`: pozos‑only ingestion; preserves state; emits artifacts and JSON logs.
+- `run`: ingestion per game — `--sources pozos` (Loto) or `--sources kino`; mixing both in one invocation is rejected (run two separate invocations). Preserves state; emits artifacts and JSON logs.
 - `publish`: dry‑run by default in tests; requires spreadsheet + credentials to write.
 - `pozos`: prints current estimates.
 - `health`: offline/online health checks with structured output.

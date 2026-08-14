@@ -684,6 +684,25 @@ def test_pipeline_unsupported_source_raises_error(tmp_path: Path) -> None:
         )
 
 
+def test_pipeline_mixed_sources_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="separate invocation"):
+        run_pipeline(
+            sources=["pozos", "kino"],
+            source_overrides={},
+            raw_dir=tmp_path / "raw",
+            normalized_path=tmp_path / "normalized.jsonl",
+            comparison_report_path=tmp_path / "comparison.json",
+            summary_path=tmp_path / "summary.json",
+            state_path=tmp_path / "state.jsonl",
+            log_path=tmp_path / "run.jsonl",
+            retries=1,
+            timeout=5,
+            fail_fast=False,
+            mismatch_threshold=0.5,
+            include_pozos=True,
+        )
+
+
 def test_pipeline_handles_mismatched_pozos(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from polla_app import pipeline as pipeline_mod
 

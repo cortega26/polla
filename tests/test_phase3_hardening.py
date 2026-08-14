@@ -73,12 +73,17 @@ def test_redaction_false_positives() -> None:
 def test_normalize_sources_deduplication() -> None:
     from polla_app.pipeline import _normalize_sources
 
-    # "all" expands to both games; "pozos" collapses to the Loto aggregate
-    assert _normalize_sources(["all"]) == ["pozos", "kino"]
+    # "all" / mixed games are rejected: each game must run separately
+    with pytest.raises(ValueError, match="separate invocation"):
+        _normalize_sources(["all"])
+    with pytest.raises(ValueError, match="separate invocation"):
+        _normalize_sources(["pozos", "kino"])
+    with pytest.raises(ValueError, match="separate invocation"):
+        _normalize_sources(["all", "openloto"])
+    # "pozos" collapses to the Loto aggregate
     assert _normalize_sources(["pozos"]) == ["pozos"]
     assert _normalize_sources(["openloto", "pozos"]) == ["pozos"]
     assert _normalize_sources(["openloto", "polla", "pozos"]) == ["pozos"]
-    assert _normalize_sources(["all", "openloto"]) == ["pozos", "kino"]
 
     # Individual sources stay individual
     assert _normalize_sources(["openloto"]) == ["openloto"]
