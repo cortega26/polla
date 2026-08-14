@@ -32,7 +32,7 @@ def _load_ndjson(path: Path) -> list[dict[str, Any]]:
 
 def _format_millones(value: int) -> str:
     """Format CLP as 'X.XXX' (millones) with Chilean grouping."""
-    return f"{value / 1_000_000:,.0f}"
+    return f"{value / 1_000_000:,.0f}".replace(",", ".")
 
 
 def _game_section(record: dict[str, Any] | None) -> dict[str, Any] | None:

@@ -56,10 +56,18 @@ def test_build_site_payload_loto_and_kino(tmp_path: Path) -> None:
     assert payload["loto"]["pozos_millones"]["Loto Clásico"] == "690"
     assert payload["loto"]["total_millones"] == "790"
     assert payload["kino"]["sorteo"] == 3266
-    assert payload["kino"]["pozos_millones"]["Kino"] == "8,370"
+    assert payload["kino"]["pozos_millones"]["Kino"] == "8.370"
     assert payload["last_decision"]["status"] == "publish"
     # History merges both games, newest first
     assert payload["history"][0]["sorteo"] == 3266
+
+
+def test_format_millones_uses_dot_thousands_separator() -> None:
+    from polla_app.site import _format_millones
+
+    assert _format_millones(8_370_000_000) == "8.370"
+    assert _format_millones(14_300_000_000) == "14.300"
+    assert _format_millones(690_000_000) == "690"
 
 
 def test_write_site_data_creates_file(tmp_path: Path) -> None:
