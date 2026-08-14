@@ -28,6 +28,38 @@ LOGGER = logging.getLogger(__name__)
 LOTO_PRICES_URL = "https://www.polla.cl/es/view/juego/loto"
 DEFAULT_UA = "PollaAltSourcesBot/1.0 (+contact@example.com)"
 
+# Kino hub (kino.loteria.cl) requires browser-like framing headers or it
+# redirects to the loteria.cl home. The price structure per draw lives in
+# __NEXT_DATA__.props.pageProps.initialSorteos.data.
+KINO_HUB_URL = (
+    "https://kino.loteria.cl/kino?session=undefined&company=LCC&machine=1000"
+    "&external_id=kino&type=Loterias&demo=true&lang=undefined"
+)
+KINO_BROWSER_UA = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+)
+_KINO_FRAME_HEADERS = {
+    "Sec-Fetch-Dest": "iframe",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "same-site",
+    "Referer": "https://www.loteria.cl/juegos/kino/",
+}
+
+# Kino price fields (per draw) -> canonical category labels.
+_KINO_PRICE_FIELDS: tuple[tuple[str, str], ...] = (
+    ("PrecioKino", "Kino"),
+    ("PrecioReKino", "ReKino"),
+    ("PrecioRequeteKino", "RequeteKino"),
+    ("PrecioChaoJefe2M", "Chao Jefe $2 Millones"),
+    ("PrecioChaoJefe3M", "Chao Jefe $3 Millones"),
+    ("PrecioComboMarraqueta", "Súper Combo Marraqueta"),
+)
+_KINO_NEXT_DATA_RE = re.compile(
+    r'<script\s+id="__NEXT_DATA__"\s+type="application/json">(.*?)</script>',
+    re.DOTALL,
+)
+
 # Category labels as published in the price block (canonical order).
 _CATEGORY_ORDER = (
     "Loto Clásico",
@@ -128,4 +160,75 @@ def get_loto_prices(
     }
 
 
-__all__ = ["get_loto_prices", "LOTO_PRICES_URL"]
+def _extract_kino_prices(next_data: dict[str, Any]) -> dict[str, Any]:
+    """Parse the per-draw Kino price structure from the hub __NEXT_DATA__."""
+    page_props = (next_data.get("props") or {}).get("pageProps") or {}
+    sorteos = (page_props.get("initialSorteos") or {}).get("data") or []
+    if not sorteos:
+        raise ParseError(
+            "Kino hub did not expose initialSorteos (layout changed?)",
+            context={"keys": sorted(page_props.keys())},
+        )
+    # The list is chronological; the upcoming draw is the first entry.
+    draw = sorteos[0]
+    prices: dict[str, dict[str, int]] = {}
+    cumulative = 0
+    for field, label in _KINO_PRICE_FIELDS:
+        value = draw.get(field)
+        if not isinstance(value, int | float) or value <= 0:
+            raise ParseError(
+                f"Kino hub price field {field} missing for sorteo {draw.get('NumeroSorteo')}",
+                context={"draw": draw},
+            )
+        cumulative += int(value)
+        prices[label] = {"delta_clp": int(value), "acumulado_clp": cumulative}
+    return {
+        "precios": prices,
+        "sorteo": draw.get("NumeroSorteo"),
+        "fecha": draw.get("FechaSorteo"),
+        "cumulative": cumulative,
+    }
+
+
+def get_kino_prices(
+    url: str = KINO_HUB_URL,
+    *,
+    timeout: int = 20,
+    retries: int | None = None,
+) -> dict[str, Any]:
+    """Fetch the per-draw Kino price structure from the official hub.
+
+    The hub (kino.loteria.cl) is public but redirects plain requests to the
+    loteria.cl home; browser-like framing headers are required.
+    """
+    metadata = fetch_html(
+        url,
+        ua=KINO_BROWSER_UA,
+        timeout=timeout,
+        retries=retries,
+        extra_headers=_KINO_FRAME_HEADERS,
+    )
+    match = _KINO_NEXT_DATA_RE.search(metadata.html)
+    if not match:
+        raise ParseError(
+            "Kino hub page did not contain __NEXT_DATA__ (blocked or layout changed?)",
+            context={"snippet": metadata.html[:200]},
+        )
+    import json
+
+    try:
+        next_data = json.loads(match.group(1))
+    except json.JSONDecodeError as exc:
+        raise ParseError("Kino hub __NEXT_DATA__ is not valid JSON", original_error=exc) from exc
+
+    payload = _extract_kino_prices(next_data)
+    return {
+        "fuente": url,
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "sha256": hashlib.sha256(metadata.html.encode("utf-8")).hexdigest(),
+        "user_agent": metadata.user_agent,
+        **payload,
+    }
+
+
+__all__ = ["get_kino_prices", "get_loto_prices", "KINO_HUB_URL", "LOTO_PRICES_URL"]

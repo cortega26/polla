@@ -530,14 +530,23 @@ def _run_ingestion_for_sources(
         "provenance": {"pozos": pozos_prov},
     }
 
-    if "pozos" in requested_sources and include_prices:
-        try:
-            prices_payload = prices_module.get_loto_prices(timeout=timeout, retries=retries)
-            record["precios"] = prices_payload["precios"]
-            log_event({"event": "prices_fetched", "categories": list(record["precios"])})
-        except Exception as exc:  # noqa: BLE001 - prices are auxiliary per run
-            LOGGER.warning("Could not fetch live Loto prices: %s", exc)
-            log_event({"event": "prices_failed", "error": type(exc).__name__})
+    if include_prices:
+        if "pozos" in requested_sources:
+            try:
+                prices_payload = prices_module.get_loto_prices(timeout=timeout, retries=retries)
+                record["precios"] = prices_payload["precios"]
+                log_event({"event": "prices_fetched", "game": "loto"})
+            except Exception as exc:  # noqa: BLE001 - prices are auxiliary per run
+                LOGGER.warning("Could not fetch live Loto prices: %s", exc)
+                log_event({"event": "prices_failed", "game": "loto", "error": type(exc).__name__})
+        if "kino" in requested_sources:
+            try:
+                kino_prices = prices_module.get_kino_prices(timeout=timeout, retries=retries)
+                record.setdefault("precios", {}).update(kino_prices["precios"])
+                log_event({"event": "prices_fetched", "game": "kino"})
+            except Exception as exc:  # noqa: BLE001 - prices are auxiliary per run
+                LOGGER.warning("Could not fetch live Kino prices: %s", exc)
+                log_event({"event": "prices_failed", "game": "kino", "error": type(exc).__name__})
 
     # Write raw JSON artifacts (one per source)
     raw_dir.mkdir(parents=True, exist_ok=True)

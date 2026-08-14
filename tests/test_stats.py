@@ -208,3 +208,43 @@ def test_merge_real_prices_marks_unmapped_games_as_static() -> None:
     assert exacta["precio_real_clp"] is None
     # Sheet price columns are kept as reference for static rows
     assert "Precio o apuesta" in exacta
+
+
+def _kino_prices() -> dict[str, dict[str, int]]:
+    return {
+        "Kino": {"delta_clp": 1000, "acumulado_clp": 1000},
+        "ReKino": {"delta_clp": 500, "acumulado_clp": 1500},
+        "RequeteKino": {"delta_clp": 500, "acumulado_clp": 2000},
+        "Chao Jefe $2 Millones": {"delta_clp": 500, "acumulado_clp": 2500},
+        "Chao Jefe $3 Millones": {"delta_clp": 500, "acumulado_clp": 3000},
+        "Súper Combo Marraqueta": {"delta_clp": 500, "acumulado_clp": 3500},
+    }
+
+
+def test_merge_real_prices_maps_kino_sheet_rows_to_hub() -> None:
+    payload = build_stats_payload(FIXTURE.read_text(encoding="utf-8"))
+    payload["games"]["Kino"] = [
+        {"Categoría": "Club Kino", "Precio o apuesta": "600", "Precio o apuesta (num)": 600.0},
+        {"Categoría": "Rekino", "Precio o apuesta": "400", "Precio o apuesta (num)": 400.0},
+        {
+            "Categoría": "Chanchito Regalón",
+            "Precio o apuesta": "200",
+            "Precio o apuesta (num)": 200.0,
+        },
+    ]
+    merge_real_prices(payload, _kino_prices())
+
+    rows = {row["Categoría"]: row for row in payload["games"]["Kino"]}
+    club = rows["Club Kino"]
+    assert club["precio_real_clp"] == 1000  # hub "Kino"
+    assert club["precio_acumulado_clp"] == 1000
+    assert club["precio_estatico"] is False
+
+    rekino = rows["Rekino"]
+    assert rekino["precio_real_clp"] == 500  # hub "ReKino"
+    assert rekino["precio_acumulado_clp"] == 1500
+
+    # No hub equivalent: stays reference
+    chancho = rows["Chanchito Regalón"]
+    assert chancho["precio_estatico"] is True
+    assert chancho["precio_real_clp"] is None

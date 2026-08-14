@@ -125,6 +125,25 @@ def _real_prize_for(category: str, row: dict[str, Any], prizes: dict[str, Any]) 
     return None
 
 
+# Maps stats-sheet categories to the live scraped price categories.
+# Loto matches 1:1; Kino sheet rows are older names of hub variants.
+_PRICE_CATEGORY_MAP: dict[str, str] = {
+    "Loto Clásico": "Loto Clásico",
+    "Recargado": "Recargado",
+    "Revancha": "Revancha",
+    "Desquite": "Desquite",
+    "Jubilazo": "Jubilazo",
+    "Multiplicar": "Multiplicar",
+    "Jubilazo 50 años": "Jubilazo 50 años",
+    # Kino (hub kino.loteria.cl) vs sheet naming
+    "Club Kino": "Kino",
+    "Rekino": "ReKino",
+    "Combo Marraqueta": "Súper Combo Marraqueta",
+    "Chao Jefe 50 años Heredable $1 Millón": "Chao Jefe $2 Millones",
+    "Chao Jefe 50 años Heredable $2 Millones": "Chao Jefe $3 Millones",
+}
+
+
 def merge_real_prices(
     stats: dict[str, Any],
     prices: dict[str, Any],
@@ -133,14 +152,13 @@ def merge_real_prices(
 
     Loto prices change on special draws, so the sheet's manual price columns
     are replaced by the per-draw scrape for Loto rows. Games without a public
-    per-draw price source (e.g. Kino, gated behind the authenticated hub) keep
-    the sheet prices but are flagged ``precio_estatico: True`` so the UI can
-    render them as reference values.
+    per-draw price source keep the sheet prices but are flagged
+    ``precio_estatico: True`` so the UI can render them as reference values.
     """
     for rows in stats.get("games", {}).values():
         for row in rows:
             category = row.get("Categoría", "")
-            scraped = (prices or {}).get(category)
+            scraped = (prices or {}).get(_PRICE_CATEGORY_MAP.get(category, category))
             if scraped:
                 row["precio_real_clp"] = scraped.get("delta_clp")
                 row["precio_acumulado_clp"] = scraped.get("acumulado_clp")

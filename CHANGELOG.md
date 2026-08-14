@@ -47,12 +47,15 @@ All notable changes to this project are documented in this file.
   mismo sorteo (ahora devuelve la decisión correcta).
 - Health `--online`: validación centralizada y fuente Kino incluida.
 - **Precios vivos por sorteo**: la tabla de estadísticas mostraba el precio de la
-  hoja manual; ahora `sources/prices.py` scrapea la estructura oficial
-  (polla.cl/es/view/juego/loto, server-rendered) en cada corrida — Loto $1.000,
+  hoja manual; ahora `sources/prices.py` scrapea la estructura oficial en cada
+  corrida — Loto (polla.cl/es/view/juego/loto, server-rendered): Loto $1.000,
   Recargado +$500, Revancha +$300, Desquite +$200, Jubilazo +$500, Multiplicar
-  +$500, Jubilazo 50 años +$500 — con delta y acumulado por categoría, y el
-  retorno esperado recalculado con premio y precio reales. Kino no expone
-  precios públicos por sorteo (hub autenticado): se marca "(ref)".
+  +$500, Jubilazo 50 años +$500; y Kino (hub kino.loteria.cl, `__NEXT_DATA__` por
+  sorteo): Kino $1.000, ReKino +$500, RequeteKino +$500, Chao Jefe $2M +$500,
+  Chao Jefe $3M +$500, Súper Combo Marraqueta +$500 ($3.500 total) — con delta y
+  acumulado por categoría, y retorno esperado recalculado con premio y precio
+  reales. Sin mapeo o fuente no disponible → "—"/"(ref)".
+- `fetch_html` acepta `extra_headers` (necesarios para el hub de Kino).
 
 ## [3.1.0] - 2026-03-28
 

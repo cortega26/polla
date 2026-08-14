@@ -1,4 +1,4 @@
-"""Tests for the live Loto price structure scraper."""
+"""Tests for the live Loto/Kino price structure scrapers."""
 
 from __future__ import annotations
 
@@ -9,9 +9,15 @@ import pytest
 
 from polla_app.exceptions import ParseError
 from polla_app.net import FetchMetadata
-from polla_app.sources.prices import _extract_prices, get_loto_prices
+from polla_app.sources.prices import (
+    _extract_kino_prices,
+    _extract_prices,
+    get_kino_prices,
+    get_loto_prices,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sources" / "prices" / "page.html"
+KINO_FIXTURE = Path(__file__).parent / "fixtures" / "sources" / "prices" / "kino_hub.html"
 
 
 def _metadata(html: str) -> FetchMetadata:
@@ -74,3 +80,46 @@ def test_get_loto_prices_full_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     assert payload["fuente"].startswith("https://www.polla.cl")
     assert payload["precios"]["Revancha"]["delta_clp"] == 300
     assert len(payload["sha256"]) == 64
+
+
+def test_extract_kino_prices_structure() -> None:
+    import json
+    import re
+
+    html = KINO_FIXTURE.read_text(encoding="utf-8")
+    match = re.search(
+        r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, re.S
+    )
+    assert match is not None
+    payload = _extract_kino_prices(json.loads(match.group(1)))
+
+    assert payload["sorteo"] == 3266
+    assert payload["fecha"] == "2026/08/14"
+    assert payload["cumulative"] == 3500
+    assert payload["precios"]["Kino"] == {"delta_clp": 1000, "acumulado_clp": 1000}
+    assert payload["precios"]["ReKino"] == {"delta_clp": 500, "acumulado_clp": 1500}
+    assert payload["precios"]["RequeteKino"] == {"delta_clp": 500, "acumulado_clp": 2000}
+    assert payload["precios"]["Súper Combo Marraqueta"] == {
+        "delta_clp": 500,
+        "acumulado_clp": 3500,
+    }
+
+
+def test_extract_kino_prices_rejects_missing_sorteos() -> None:
+    with pytest.raises(ParseError, match="initialSorteos"):
+        _extract_kino_prices({"props": {"pageProps": {}}})
+
+
+def test_get_kino_prices_full_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, str] = {}
+
+    def stub_fetch(_url: str, ua: str, **kwargs: object) -> FetchMetadata:
+        captured["ua"] = ua
+        captured["headers"] = str(kwargs.get("extra_headers"))
+        return _metadata(KINO_FIXTURE.read_text(encoding="utf-8"))
+
+    monkeypatch.setattr("polla_app.sources.prices.fetch_html", stub_fetch)
+    payload = get_kino_prices()
+    assert payload["precios"]["Chao Jefe $3 Millones"]["delta_clp"] == 500
+    # The hub requires browser-like framing headers
+    assert "Sec-Fetch-Dest" in captured["headers"]

@@ -8,6 +8,7 @@ import os
 import random
 import time
 import urllib.request
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -89,7 +90,12 @@ _RETRYABLE_EXC = (requests.exceptions.Timeout, requests.exceptions.ConnectionErr
 
 
 def fetch_html(
-    url: str, ua: str, timeout: int = 20, *, retries: int | None = None
+    url: str,
+    ua: str,
+    timeout: int = 20,
+    *,
+    retries: int | None = None,
+    extra_headers: Mapping[str, str] | None = None,
 ) -> FetchMetadata:
     """GET ``url`` with a descriptive UA and return the body plus metadata.
 
@@ -97,7 +103,8 @@ def fetch_html(
     HTTP 429 (rate limit), timeouts and dropped connections.
     Retries and backoff factor are configurable via POLLA_MAX_RETRIES and
     POLLA_BACKOFF_FACTOR. If ``retries`` is provided it takes precedence over the
-    environment variable.
+    environment variable. ``extra_headers`` are merged on top of the defaults
+    (e.g. Sec-Fetch-* for sources that require browser-like framing).
     """
 
     session = requests.Session()
@@ -107,6 +114,8 @@ def fetch_html(
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Cache-Control": "no-cache",
     }
+    if extra_headers:
+        headers.update(extra_headers)
 
     if not _robots_allowed(url, ua):
         raise RobotsDisallowedError(

@@ -83,6 +83,9 @@ def build_site_payload(
             current_prices.update(last_loto["precios"])
     if kino_section:
         current_prizes.update(kino_section.get("pozos_clp") or {})
+        last_kino = kino_records[-1] if kino_records else None
+        if last_kino and last_kino.get("precios"):
+            current_prices.update(last_kino["precios"])
 
     return {
         "api_version": API_VERSION,
