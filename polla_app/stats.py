@@ -235,7 +235,7 @@ def merge_real_prizes(
     between draws, so they are never published as current data. Each row
     receives ``premio_real_clp`` (when a live mapping exists) and
     ``retorno_real_pct`` computed as prize / combinations / effective bet
-    (real scraped price when available, sheet price otherwise). Rows without
+    (live scraped price only; without it the return is ``None``). Rows without
     a live mapping get ``None`` and the UI renders "—" instead of stale values.
     """
     for game, rows in stats.get("games", {}).items():
@@ -244,8 +244,6 @@ def merge_real_prizes(
             row["premio_real_clp"] = real
             combinations = row.get("Combinaciones totales (num)")
             bet = row.get("precio_real_clp")
-            if bet is None:
-                bet = row.get("Precio o apuesta (num)")
             if real is not None and combinations and bet:
                 row["retorno_real_pct"] = round(real / combinations / bet * 100, 2)
             else:

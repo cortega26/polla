@@ -116,11 +116,12 @@ def test_merge_real_prizes_overlays_live_data() -> None:
     loto = {row["Categoría"]: row for row in payload["games"]["Loto"]}
     clasico = loto["Loto Clásico"]
     assert clasico["premio_real_clp"] == 620_000_000
-    assert clasico["retorno_real_pct"] == pytest.approx(13.79, abs=0.01)  # 620M/4.496.388/1000
+    # Sin precio vivo, el retorno NO se calcula con el precio de la hoja
+    assert clasico["retorno_real_pct"] is None
 
     jubilazo = loto["Jubilazo"]
     assert jubilazo["premio_real_clp"] == 1_320_000_000  # 960M + 360M
-    assert jubilazo["retorno_real_pct"] == pytest.approx(58.71, abs=0.01)
+    assert jubilazo["retorno_real_pct"] is None
 
 
 def test_merge_real_prizes_strips_stale_manual_columns() -> None:
@@ -163,7 +164,8 @@ def test_merge_real_prizes_kino_maps_club_kino_only() -> None:
 
     club = payload["games"]["Kino"][0]
     assert club["premio_real_clp"] == 8_370_000_000
-    assert club["retorno_real_pct"] == pytest.approx(312.9, abs=0.1)  # 8370M/4.457.400/600
+    # Sin precio vivo, el retorno NO se calcula con el precio de la hoja
+    assert club["retorno_real_pct"] is None
 
     rekino = payload["games"]["Kino"][1]
     assert rekino["premio_real_clp"] is None
@@ -198,6 +200,19 @@ def test_merge_real_prices_overlays_live_loto_prices() -> None:
     assert revancha["precio_acumulado_clp"] == 1800
     # Retorno recalculado con el precio vivo: 190M / 4.496.388 / 300
     assert revancha["retorno_real_pct"] == pytest.approx(14.09, abs=0.01)
+
+
+def test_retorno_uses_live_price_when_available() -> None:
+    payload = build_stats_payload(FIXTURE.read_text(encoding="utf-8"))
+    merge_real_prices(payload, _loto_prices())
+    merge_real_prizes(payload, _prizes())
+
+    loto = {row["Categoría"]: row for row in payload["games"]["Loto"]}
+    clasico = loto["Loto Clásico"]
+    assert clasico["retorno_real_pct"] == pytest.approx(13.79, abs=0.01)  # 620M/4.496.388/1000
+
+    revancha = loto["Revancha"]
+    assert revancha["retorno_real_pct"] == pytest.approx(14.09, abs=0.01)  # 190M/4.496.388/300
 
 
 def test_merge_real_prices_marks_unmapped_games_as_static() -> None:
