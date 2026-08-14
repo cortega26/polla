@@ -231,10 +231,10 @@ def write_site_stats(
     metadata = fetch_html(csv_url, ua=ua, timeout=20, retries=2)
     payload = build_stats_payload(metadata.html)
     payload["source_url"] = csv_url
-    if prices:
-        payload = merge_real_prices(payload, prices)
-    if prizes:
-        payload = merge_real_prizes(payload, prizes)
+    # Merges always run: empty live data marks rows as reference ("ref") and
+    # strips stale manual prize columns, so the UI never presents them live.
+    payload = merge_real_prices(payload, prices or {})
+    payload = merge_real_prizes(payload, prizes or {})
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return output_path

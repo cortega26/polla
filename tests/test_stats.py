@@ -78,6 +78,12 @@ def test_write_site_stats_uses_net(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["source_url"].startswith("https://docs.google.com")
     assert payload["game_count"] == 2
+    # Empty live data still runs the merges: rows are flagged reference
+    # and stale manual prizes are stripped (never shown as live).
+    row = payload["games"]["Loto"][0]
+    assert row["precio_estatico"] is True
+    assert row["premio_real_clp"] is None
+    assert "Premio Categoría" not in row
 
 
 def test_write_site_stats_propagates_network_failure(
