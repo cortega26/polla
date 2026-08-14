@@ -10,11 +10,25 @@ from polla_app.stats import (
     DEFAULT_STATS_URL,
     _to_number,
     build_stats_payload,
+    merge_real_prices,
+    merge_real_prizes,
     resolve_stats_url,
     write_site_stats,
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "stats_sample.csv"
+
+
+def _prizes() -> dict[str, int]:
+    return {
+        "Loto Clásico": 620_000_000,
+        "Recargado": 810_000_000,
+        "Revancha": 190_000_000,
+        "Desquite": 460_000_000,
+        "Jubilazo $1.000.000": 960_000_000,
+        "Jubilazo $500.000": 360_000_000,
+        "Kino": 8_370_000_000,
+    }
 
 
 def test_to_number_chilean_formats() -> None:
@@ -86,3 +100,105 @@ def test_default_stats_url_points_to_public_sheet() -> None:
 def test_resolve_stats_url_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("POLLA_STATS_URL", "https://example.test/custom.csv")
     assert resolve_stats_url() == "https://example.test/custom.csv"
+
+
+def test_merge_real_prizes_overlays_live_data() -> None:
+    payload = build_stats_payload(FIXTURE.read_text(encoding="utf-8"))
+    merge_real_prizes(payload, _prizes())
+
+    loto = {row["Categoría"]: row for row in payload["games"]["Loto"]}
+    clasico = loto["Loto Clásico"]
+    assert clasico["premio_real_clp"] == 620_000_000
+    assert clasico["retorno_real_pct"] == pytest.approx(13.79, abs=0.01)  # 620M/4.496.388/1000
+
+    jubilazo = loto["Jubilazo"]
+    assert jubilazo["premio_real_clp"] == 1_320_000_000  # 960M + 360M
+    assert jubilazo["retorno_real_pct"] == pytest.approx(58.71, abs=0.01)
+
+
+def test_merge_real_prizes_strips_stale_manual_columns() -> None:
+    payload = build_stats_payload(FIXTURE.read_text(encoding="utf-8"))
+    merge_real_prizes(payload, _prizes())
+
+    clasico = payload["games"]["Loto"][0]
+    assert "Premio Categoría" not in clasico
+    assert "Premio Categoría (num)" not in clasico
+    assert "% Retorno Esperado Individual (num)" not in clasico
+    assert "premio_real_clp" in clasico
+
+
+def test_merge_real_prizes_unmapped_rows_get_none() -> None:
+    payload = build_stats_payload(FIXTURE.read_text(encoding="utf-8"))
+    merge_real_prizes(payload, _prizes())
+
+    exacta = payload["games"]["Loto 3"][0]
+    assert exacta["premio_real_clp"] is None
+    assert exacta["retorno_real_pct"] is None
+
+
+def test_merge_real_prizes_kino_maps_club_kino_only() -> None:
+    payload = build_stats_payload(FIXTURE.read_text(encoding="utf-8"))
+    payload["games"]["Kino"] = [
+        {
+            "Nombre": "Kino",
+            "Categoría": "Club Kino",
+            "Combinaciones totales (num)": 4457400.0,
+            "Precio o apuesta (num)": 600.0,
+        },
+        {
+            "Nombre": "Kino",
+            "Categoría": "Rekino",
+            "Combinaciones totales (num)": 4457400.0,
+            "Precio o apuesta (num)": 400.0,
+        },
+    ]
+    merge_real_prizes(payload, _prizes())
+
+    club = payload["games"]["Kino"][0]
+    assert club["premio_real_clp"] == 8_370_000_000
+    assert club["retorno_real_pct"] == pytest.approx(312.9, abs=0.1)  # 8370M/4.457.400/600
+
+    rekino = payload["games"]["Kino"][1]
+    assert rekino["premio_real_clp"] is None
+    assert rekino["retorno_real_pct"] is None
+
+
+def _loto_prices() -> dict[str, dict[str, int]]:
+    return {
+        "Loto Clásico": {"delta_clp": 1000, "acumulado_clp": 1000},
+        "Recargado": {"delta_clp": 500, "acumulado_clp": 1500},
+        "Revancha": {"delta_clp": 300, "acumulado_clp": 1800},
+        "Desquite": {"delta_clp": 200, "acumulado_clp": 2000},
+        "Jubilazo": {"delta_clp": 500, "acumulado_clp": 2500},
+        "Multiplicar": {"delta_clp": 500, "acumulado_clp": 3000},
+        "Jubilazo 50 años": {"delta_clp": 500, "acumulado_clp": 3500},
+    }
+
+
+def test_merge_real_prices_overlays_live_loto_prices() -> None:
+    payload = build_stats_payload(FIXTURE.read_text(encoding="utf-8"))
+    merge_real_prices(payload, _loto_prices())
+    merge_real_prizes(payload, _prizes())
+
+    loto = {row["Categoría"]: row for row in payload["games"]["Loto"]}
+    clasico = loto["Loto Clásico"]
+    assert clasico["precio_real_clp"] == 1000
+    assert clasico["precio_acumulado_clp"] == 1000
+    assert clasico["precio_estatico"] is False
+
+    revancha = loto["Revancha"]
+    assert revancha["precio_real_clp"] == 300
+    assert revancha["precio_acumulado_clp"] == 1800
+    # Retorno recalculado con el precio vivo: 190M / 4.496.388 / 300
+    assert revancha["retorno_real_pct"] == pytest.approx(14.09, abs=0.01)
+
+
+def test_merge_real_prices_marks_unmapped_games_as_static() -> None:
+    payload = build_stats_payload(FIXTURE.read_text(encoding="utf-8"))
+    merge_real_prices(payload, _loto_prices())
+
+    exacta = payload["games"]["Loto 3"][0]
+    assert exacta["precio_estatico"] is True
+    assert exacta["precio_real_clp"] is None
+    # Sheet price columns are kept as reference for static rows
+    assert "Precio o apuesta" in exacta

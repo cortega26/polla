@@ -85,6 +85,113 @@ def _normalize_stats(header: list[str], rows: list[list[str]]) -> dict[str, Any]
     }
 
 
+# Maps a stats-sheet category to the pipeline's scraped pozo categories.
+# A callable receives the stats row and returns the real CLP prize (or None).
+# Sums handle sheet rows that aggregate several scraped categories
+# (e.g. sheet "Jubilazo" = pipeline "Jubilazo $1.000.000" + "Jubilazo $500.000").
+def _sum_prizes(prizes: dict[str, Any], *categories: str) -> int | None:
+    """Sum the scraped prizes present for the given categories (zeros omitted)."""
+    values = [
+        int(prizes[category])
+        for category in categories
+        if isinstance(prizes.get(category), int | float) and prizes[category] > 0
+    ]
+    if not values:
+        return None
+    return sum(values)
+
+
+def _real_prize_for(category: str, row: dict[str, Any], prizes: dict[str, Any]) -> int | None:
+    """Resolve the live scraped prize for a stats-sheet row, if mappable."""
+    if category == "Loto":
+        lookup = {
+            "Loto Clásico": lambda: prizes.get("Loto Clásico"),
+            "Recargado": lambda: prizes.get("Recargado"),
+            "Revancha": lambda: prizes.get("Revancha"),
+            "Desquite": lambda: prizes.get("Desquite"),
+            "Jubilazo": lambda: _sum_prizes(prizes, "Jubilazo $1.000.000", "Jubilazo $500.000"),
+            "Jubilazo 50 años": lambda: _sum_prizes(
+                prizes, "Jubilazo 50 años $1.000.000", "Jubilazo 50 años $500.000"
+            ),
+            # "Multiplicar" has no pozo of its own
+        }
+        resolver = lookup.get(row.get("Categoría", ""))
+        return resolver() if resolver else None
+    if category == "Kino":
+        # The pendón publishes the total estimated Kino pool, not per-variant
+        # breakdowns (Club Kino / Rekino / ...), so only the main row maps.
+        if row.get("Categoría") == "Club Kino":
+            return prizes.get("Kino")
+    return None
+
+
+def merge_real_prices(
+    stats: dict[str, Any],
+    prices: dict[str, Any],
+) -> dict[str, Any]:
+    """Overlay live scraped prices (delta + cumulative) onto the stats payload.
+
+    Loto prices change on special draws, so the sheet's manual price columns
+    are replaced by the per-draw scrape for Loto rows. Games without a public
+    per-draw price source (e.g. Kino, gated behind the authenticated hub) keep
+    the sheet prices but are flagged ``precio_estatico: True`` so the UI can
+    render them as reference values.
+    """
+    for rows in stats.get("games", {}).values():
+        for row in rows:
+            category = row.get("Categoría", "")
+            scraped = (prices or {}).get(category)
+            if scraped:
+                row["precio_real_clp"] = scraped.get("delta_clp")
+                row["precio_acumulado_clp"] = scraped.get("acumulado_clp")
+                row["precio_estatico"] = False
+            else:
+                row["precio_real_clp"] = None
+                row["precio_acumulado_clp"] = None
+                row["precio_estatico"] = True
+    return stats
+
+
+def merge_real_prizes(
+    stats: dict[str, Any],
+    prizes: dict[str, Any],
+) -> dict[str, Any]:
+    """Overlay live scraped prizes onto the stats payload.
+
+    The sheet's manual "Premio Categoría"/"Premio acumulado" columns go stale
+    between draws, so they are never published as current data. Each row
+    receives ``premio_real_clp`` (when a live mapping exists) and
+    ``retorno_real_pct`` computed as prize / combinations / effective bet
+    (real scraped price when available, sheet price otherwise). Rows without
+    a live mapping get ``None`` and the UI renders "—" instead of stale values.
+    """
+    for game, rows in stats.get("games", {}).items():
+        for row in rows:
+            real = _real_prize_for(game, row, prizes)
+            row["premio_real_clp"] = real
+            combinations = row.get("Combinaciones totales (num)")
+            bet = row.get("precio_real_clp")
+            if bet is None:
+                bet = row.get("Precio o apuesta (num)")
+            if real is not None and combinations and bet:
+                row["retorno_real_pct"] = round(real / combinations / bet * 100, 2)
+            else:
+                row["retorno_real_pct"] = None
+            # Strip stale manual prizes so they can never be shown as current.
+            for stale_col in (
+                "Premio Categoría",
+                "Premio acumulado",
+                "Premio Categoría (num)",
+                "Premio acumulado (num)",
+                "% Retorno Esperado Individual",
+                "% Retorno esperado Acumulado",
+                "% Retorno Esperado Individual (num)",
+                "% Retorno esperado Acumulado (num)",
+            ):
+                row.pop(stale_col, None)
+    return stats
+
+
 def build_stats_payload(csv_text: str) -> dict[str, Any]:
     """Parse the raw CSV text into the dashboard stats payload."""
     header: list[str] = []
@@ -105,12 +212,29 @@ def build_stats_payload(csv_text: str) -> dict[str, Any]:
     }
 
 
-def write_site_stats(csv_url: str, output: Any, *, ua: str = DEFAULT_UA) -> Path:
-    """Download the public stats CSV and write ``output`` (a Path or str)."""
+def write_site_stats(
+    csv_url: str,
+    output: Any,
+    *,
+    ua: str = DEFAULT_UA,
+    prizes: dict[str, Any] | None = None,
+    prices: dict[str, Any] | None = None,
+) -> Path:
+    """Download the public stats CSV and write ``output`` (a Path or str).
+
+    When ``prizes`` (live scraped pozos, category -> CLP) is provided, the
+    payload is overlaid with the current prizes via :func:`merge_real_prizes`.
+    When ``prices`` (live scraped Loto price structure) is provided, sheet
+    prices are replaced by the per-draw values via :func:`merge_real_prices`.
+    """
     output_path = Path(output)
     metadata = fetch_html(csv_url, ua=ua, timeout=20, retries=2)
     payload = build_stats_payload(metadata.html)
     payload["source_url"] = csv_url
+    if prices:
+        payload = merge_real_prices(payload, prices)
+    if prizes:
+        payload = merge_real_prizes(payload, prizes)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return output_path

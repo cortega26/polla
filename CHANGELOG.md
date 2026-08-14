@@ -46,6 +46,13 @@ All notable changes to this project are documented in this file.
 - `_compute_unchanged`: un `break` prematuro impedía comparar records previos del
   mismo sorteo (ahora devuelve la decisión correcta).
 - Health `--online`: validación centralizada y fuente Kino incluida.
+- **Precios vivos por sorteo**: la tabla de estadísticas mostraba el precio de la
+  hoja manual; ahora `sources/prices.py` scrapea la estructura oficial
+  (polla.cl/es/view/juego/loto, server-rendered) en cada corrida — Loto $1.000,
+  Recargado +$500, Revancha +$300, Desquite +$200, Jubilazo +$500, Multiplicar
+  +$500, Jubilazo 50 años +$500 — con delta y acumulado por categoría, y el
+  retorno esperado recalculado con premio y precio reales. Kino no expone
+  precios públicos por sorteo (hub autenticado): se marca "(ref)".
 
 ## [3.1.0] - 2026-03-28
 

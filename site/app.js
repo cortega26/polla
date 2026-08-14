@@ -131,19 +131,24 @@
       for (const row of rows) {
         const tr = document.createElement("tr");
         const odds = row["Probabilidad de ganar"];
-        const retI = row["% Retorno Esperado Individual (num)"];
-        const retA = row["% Retorno esperado Acumulado (num)"];
-        const premio =
-          row["Premio Categoría (num)"] ?? row["Premio acumulado (num)"];
+        const premio = row["premio_real_clp"];
+        const retorno = row["retorno_real_pct"];
+        const staticPrice = row["precio_estatico"];
+        const apuesta = staticPrice
+          ? row["Precio o apuesta (num)"]
+          : row["precio_real_clp"];
+        const acumulado = staticPrice
+          ? row["Precio Acumulado (num)"]
+          : row["precio_acumulado_clp"];
+        const apuestaTxt =
+          apuesta != null
+            ? `${staticPrice ? "≈" : "+"}$${fmtCLP.format(apuesta)}${staticPrice ? " (ref)" : ""}`
+            : "—";
         tr.append(
           cell(game, "game-name"),
           cell(row["Categoría"] || "—"),
-          cell(
-            row["Precio o apuesta (num)"] != null
-              ? `$${fmtCLP.format(row["Precio o apuesta (num)"])}`
-              : "—",
-            "tbl__num"
-          ),
+          cell(apuestaTxt, "tbl__num"),
+          cell(acumulado != null ? `$${fmtCLP.format(acumulado)}` : "—", "tbl__num"),
           cell(
             row["Combinaciones totales (num)"] != null
               ? fmtCLP.format(row["Combinaciones totales (num)"])
@@ -152,8 +157,7 @@
           ),
           cell(odds ? odds : "—", "tbl__num"),
           cell(premio != null ? `$${fmtCLP.format(premio)}` : "—", "tbl__num"),
-          cell(retI != null ? `${fmtPct.format(retI)}%` : "—", "tbl__num"),
-          cell(retA != null ? `${fmtPct.format(retA)}%` : "—", "tbl__num")
+          cell(retorno != null ? `${fmtPct.format(retorno)}%` : "—", "tbl__num")
         );
         body.append(tr);
       }

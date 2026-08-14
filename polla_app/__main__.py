@@ -16,7 +16,7 @@ import click
 from .contracts import API_VERSION
 from .pipeline import run_pipeline
 from .publish import publish_to_google_sheets
-from .site import write_site_data
+from .site import build_site_payload, write_site_data
 from .sources import get_pozo_kino, get_pozo_openloto, get_pozo_polla
 from .stats import resolve_stats_url, write_site_stats
 from .validation import validate_pozo_payload
@@ -230,6 +230,7 @@ def run(
         mismatch_threshold=mismatch_threshold,
         include_pozos=include_pozos,
         force_publish=force_publish,
+        include_prices=True,
     )
 
     _echo_json(summary_payload)
@@ -347,19 +348,30 @@ def site(
 ) -> None:
     """Generate the static dashboard data payload (site/data.json)."""
 
+    payload = build_site_payload(
+        loto_path=Path(normalized),
+        kino_path=Path(normalized_kino) if normalized_kino else None,
+        summary_path=Path(summary) if summary else None,
+    )
+
     stats_path = Path(output).parent / "stats.json"
     try:
-        write_site_stats(stats_url or resolve_stats_url(), stats_path)
+        write_site_stats(
+            stats_url or resolve_stats_url(),
+            stats_path,
+            prizes=payload.get("current_prizes_clp") or {},
+            prices=payload.get("current_prices") or {},
+        )
     except Exception as exc:  # noqa: BLE001 - stats are auxiliary; dashboard still works
         LOGGER.warning("Could not sync game statistics: %s", exc)
 
-    path = write_site_data(
+    write_site_data(
         loto_path=Path(normalized),
         output=Path(output),
         kino_path=Path(normalized_kino) if normalized_kino else None,
         summary_path=Path(summary) if summary else None,
     )
-    _echo_json({"generated": str(path), "api_version": API_VERSION})
+    _echo_json({"generated": str(output), "api_version": API_VERSION})
 
 
 @cli.command()

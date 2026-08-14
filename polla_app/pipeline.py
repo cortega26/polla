@@ -17,6 +17,7 @@ from .notifiers import notify_quarantine, notify_slack
 from .obs import metric, sanitize, set_correlation_id, span
 from .sources import kino as kino_module
 from .sources import pozos as pozos_module
+from .sources import prices as prices_module
 from .validation import validate_pozo_payload
 
 LOGGER = logging.getLogger(__name__)
@@ -467,6 +468,7 @@ def _run_ingestion_for_sources(
     mismatch_threshold: float,
     force_publish: bool,
     log_event: Callable[[dict[str, Any]], None],
+    include_prices: bool = False,
 ) -> dict[str, Any]:
     with span("ingestion_orchestration", log_event, attrs={"sources": requested_sources}):
         collected: list[dict[str, Any]] = []
@@ -527,6 +529,15 @@ def _run_ingestion_for_sources(
         "pozos_proximo": merged_pozos,
         "provenance": {"pozos": pozos_prov},
     }
+
+    if "pozos" in requested_sources and include_prices:
+        try:
+            prices_payload = prices_module.get_loto_prices(timeout=timeout, retries=retries)
+            record["precios"] = prices_payload["precios"]
+            log_event({"event": "prices_fetched", "categories": list(record["precios"])})
+        except Exception as exc:  # noqa: BLE001 - prices are auxiliary per run
+            LOGGER.warning("Could not fetch live Loto prices: %s", exc)
+            log_event({"event": "prices_failed", "error": type(exc).__name__})
 
     # Write raw JSON artifacts (one per source)
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -656,8 +667,13 @@ def run_pipeline(
     mismatch_threshold: float,
     include_pozos: bool,
     force_publish: bool = False,
+    include_prices: bool = False,
 ) -> dict[str, Any]:
-    """Run the ingestion + validation pipeline and emit artefacts."""
+    """Run the ingestion + validation pipeline and emit artefacts.
+
+    ``include_prices`` fetches the live Loto price structure from the
+    official game page and attaches it to the normalized record.
+    """
 
     log_event = _init_log_stream(log_path)
     run_id = str(uuid.uuid4())
@@ -683,6 +699,7 @@ def run_pipeline(
             mismatch_threshold=mismatch_threshold,
             force_publish=force_publish,
             log_event=log_event,
+            include_prices=include_prices,
         )
     finally:
         closer = getattr(log_event, "close", None)

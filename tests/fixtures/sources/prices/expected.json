@@ -1,0 +1,11 @@
+{
+  "precios": {
+    "Loto Clásico": {"delta_clp": 1000, "acumulado_clp": 1000},
+    "Recargado": {"delta_clp": 500, "acumulado_clp": 1500},
+    "Revancha": {"delta_clp": 300, "acumulado_clp": 1800},
+    "Desquite": {"delta_clp": 200, "acumulado_clp": 2000},
+    "Jubilazo": {"delta_clp": 500, "acumulado_clp": 2500},
+    "Multiplicar": {"delta_clp": 500, "acumulado_clp": 3000},
+    "Jubilazo 50 años": {"delta_clp": 500, "acumulado_clp": 3500}
+  }
+}

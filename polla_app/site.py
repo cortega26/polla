@@ -71,6 +71,19 @@ def build_site_payload(
     if summary_path and summary_path.exists():
         decision = json.loads(summary_path.read_text(encoding="utf-8"))
 
+    loto_section = _game_section(loto_records[-1] if loto_records else None)
+    kino_section = _game_section(kino_records[-1] if kino_records else None)
+
+    current_prizes: dict[str, int] = {}
+    current_prices: dict[str, dict[str, int]] = {}
+    if loto_section:
+        current_prizes.update(loto_section.get("pozos_clp") or {})
+        last_loto = loto_records[-1] if loto_records else None
+        if last_loto and last_loto.get("precios"):
+            current_prices.update(last_loto["precios"])
+    if kino_section:
+        current_prizes.update(kino_section.get("pozos_clp") or {})
+
     return {
         "api_version": API_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -78,8 +91,10 @@ def build_site_payload(
             "status": (decision.get("decision") or {}).get("status", "unknown"),
             "reason": decision.get("publish_reason", ""),
         },
-        "loto": _game_section(loto_records[-1] if loto_records else None),
-        "kino": _game_section(kino_records[-1] if kino_records else None),
+        "loto": loto_section,
+        "kino": kino_section,
+        "current_prizes_clp": current_prizes,
+        "current_prices": current_prices,
         "history": [
             {
                 "sorteo": r.get("sorteo"),
