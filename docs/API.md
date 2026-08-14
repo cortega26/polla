@@ -14,7 +14,7 @@ Sanity check doctest:
 
 | Parameter                | Type                | Description                                                       |
 | ------------------------ | ------------------- | ----------------------------------------------------------------- |
-| `sources`                | `Sequence[str]`     | List of sources to ingest: `"pozos"`, `"polla"`, or `"openloto"`. |
+| `sources`                | `Sequence[str]`     | List of sources to ingest: `"pozos"`, `"polla"`, `"openloto"`, `"kino"` or `"all"` (Loto + Kino). |
 | `source_overrides`       | `Mapping[str, str]` | Case-insensitive mapping of `{ "openloto": url, "polla": url }`.  |
 | `raw_dir`                | `Path`              | Directory where per-source raw outputs will be written.           |
 | `normalized_path`        | `Path`              | Path to the normalized NDJSON output file.                        |
@@ -101,3 +101,29 @@ print(summary["publish_reason"])  # e.g. "updated_or_new_amounts"
 | `ScriptError`           | Base class with `error_code`, `context` and structured `log_error()`. |
 | `ConfigError`           | Raised for missing Google credentials or spreadsheet ID.              |
 | `RobotsDisallowedError` | Raised when robots policy forbids a fetch.                            |
+
+---
+
+## Kino (Lotería de Concepción)
+
+`polla_app.sources.kino.get_pozo_kino(url=PENDON_URL, *, ua, timeout, retries)`
+
+Fetches próximo pozo estimates from the official pendón (`pendon-kino.loteria.cl/pendonkino`).
+Returns the same payload shape as the Loto fetchers (`fuente`, `fetched_at`, `sha256`,
+`estimado`, `montos`, `sorteo`, `fecha`). Category labels are prefixed with `Kino `
+so they never collide with Loto categories in the consensus engine.
+
+## Dashboard data
+
+`polla_app.site.write_site_data(loto_path, output, kino_path=None, summary_path=None)`
+
+Aggregates the latest Loto/Kino records (deduplicated by `(sorteo, fecha)`) into the
+static dashboard payload consumed by `site/index.html` (see `docs/DATA-STORE.md`).
+
+## Validation
+
+`polla_app.validation.validate_pozo_payload(payload)` returns a list of issue codes
+(`amount_too_small`, `amount_too_large`, `invalid_sorteo`, `invalid_fecha`, ...).
+`validate_kino_numbers(numbers)` checks 14 unique numbers in 1..25. Validation runs
+inside the pipeline before a payload is accepted; invalid payloads are rejected
+(quarantined / logged), never published silently.

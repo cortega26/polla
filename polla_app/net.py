@@ -83,12 +83,18 @@ def _calculate_backoff(attempt: int, factor: float, max_seconds: float) -> float
     return float(min(delay + jitter, max_seconds))
 
 
+# Exceptions worth retrying: rate limiting, transient timeouts and dropped
+# connections. Everything else (4xx, TLS, malformed responses) fails fast.
+_RETRYABLE_EXC = (requests.exceptions.Timeout, requests.exceptions.ConnectionError)
+
+
 def fetch_html(
     url: str, ua: str, timeout: int = 20, *, retries: int | None = None
 ) -> FetchMetadata:
     """GET ``url`` with a descriptive UA and return the body plus metadata.
 
-    Supports exponential backoff with jitter if the remote responds with HTTP 429.
+    Supports exponential backoff with jitter for retryable failures:
+    HTTP 429 (rate limit), timeouts and dropped connections.
     Retries and backoff factor are configurable via POLLA_MAX_RETRIES and
     POLLA_BACKOFF_FACTOR. If ``retries`` is provided it takes precedence over the
     environment variable.
@@ -148,11 +154,13 @@ def fetch_html(
 
     attempts = 0
     response: requests.Response | None = None
+    last_error: Exception | None = None
     while attempts < max_retries:
         try:
             response = _request()
             break
         except requests.HTTPError as err:
+            # Only HTTP 429 is retryable; other status codes fail fast.
             attempts += 1
             status = getattr(err.response, "status_code", None)
             if attempts >= max_retries or status != 429:
@@ -167,9 +175,25 @@ def fetch_html(
                 sleep_time,
             )
             time.sleep(sleep_time)
+        except _RETRYABLE_EXC as err:
+            attempts += 1
+            last_error = err
+            if attempts >= max_retries:
+                raise
+
+            sleep_time = _calculate_backoff(attempts, backoff_factor, 300.0)
+            LOGGER.info(
+                "Transient failure fetching %s (%s; attempt %d/%d); retrying in %.1fs",
+                url,
+                type(err).__name__,
+                attempts,
+                max_retries,
+                sleep_time,
+            )
+            time.sleep(sleep_time)
 
     if response is None:  # pragma: no cover - safety guard
-        raise RuntimeError(f"Failed to fetch {url}")
+        raise RuntimeError(f"Failed to fetch {url}") from last_error
 
     fetched_at = datetime.now(timezone.utc)
     html = response.text

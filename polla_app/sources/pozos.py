@@ -153,8 +153,6 @@ def _extract_amounts(text: str, *, allow_total: bool = True) -> dict[str, int]:
         match = regex.search(text)
         if match:
             amounts[label] = _parse_millones_to_clp(match.group(1))
-        elif label != "Total estimado":
-            amounts[label] = 0
     return amounts
 
 

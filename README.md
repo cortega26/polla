@@ -10,22 +10,25 @@ Agrega estimaciones del próximo pozo integrando la fuente oficial de `polla.cl`
 
 ## Características
 
-- Orquestación de ingesta multi-fuente con un registro unificado (`pozos`, `openloto`, `polla`) y mecanismos de respaldo deterministas.
+- Orquestación de ingesta multi-fuente con un registro unificado (`pozos`, `openloto`, `polla`, `kino`) y mecanismos de respaldo deterministas.
+- **Kino (Lotería de Concepción)**: parser sobre el pendón oficial (`pendon-kino.loteria.cl`), sin navegador, con validación y dedupe propias.
 - Garantía de integridad de datos mediante verificación de hash SHA-256 y cuarentena por consenso basada en magnitud (umbral del 10%).
 - Sistema de **Puntaje de Confianza** (`full`, `degraded`, `single_source`) para señalar la fiabilidad de los datos.
+- **Dashboard público estático** (`site/`, sin dependencias): `polla site` genera `site/data.json` y GitHub Pages lo publica.
 - Envío de **Notificaciones Enriquecidas en Slack** para ejecuciones exitosas y **Alertas de Cuarentena** detalladas ante discrepancias.
 - Generación de salidas estructuradas en JSONL y reportes de comparación con trazabilidad completa de procedencia.
-- CLI basado en Click (`run`, `publish`, `pozos`, `health`) con previsualización de cambios (dry-run) y salvaguardas automatizadas.
-- Manejo elegante de límites de tasa (rate-limiting) con retroceso exponencial (jittered backoff) y respeto a robots.txt.
+- CLI basado en Click (`run`, `publish`, `pozos`, `kino`, `site`, `health`) con previsualización de cambios (dry-run) y salvaguardas automatizadas.
+- Manejo elegante de límites de tasa (rate-limiting) con retroceso exponencial (jittered backoff), reintentos ante timeouts/caídas de conexión y respeto a robots.txt.
+- Validación de datos por juego (`validation.py`): montos, sorteo y fecha antes de publicar nada sospechoso.
 - Comportamiento asegurado con suites de pytest basadas en fixtures y cumplimiento automático de cobertura (umbral del 80%).
-- Experiencia de desarrollo (DX) simplificada con objetivos Make, automatización con Black/Ruff/Mypy y paridad con GitHub Actions.
 
 ## Stack Tecnológico
 
 - Python 3.11+, Click CLI, Requests + parsers BeautifulSoup
-- Integración con Google Sheets vía `gspread` + `google-auth`
+- Integración con Google Sheets vía `gspread` + `google-auth` (con lock anti-concurrencia)
+- Dashboard estático vanilla (HTML/CSS/JS) publicado con GitHub Pages
 - Pruebas: Pytest (+ doctests), fixtures de Faker
-- Herramientas: Ruff, Black, Mypy, GitHub Actions (tests, docs, health)
+- Herramientas: Ruff, Black, Mypy, GitHub Actions (tests, docs, health, scrape, pages)
 
 ## Arquitectura de un Vistazo
 
@@ -36,14 +39,18 @@ flowchart TB
   B --> C{Registro de fuentes}
   C -->|Polla.cl| D[Fetcher Sigiloso]
   C -->|OpenLoto| E[Fuente Espejo]
-  D & E --> G[Normalizador]
-  G --> H[Motor de Consenso]
-  H --> I["Artifacts<br/>(JSONL, reportes, estado)"]
-  I --> J{Decisión}
-  J -->|Publicar| K[Google Sheets vía gspread]
-  J -->|Cuarentena| L[Alerta Detallada en Slack]
-  J -->|Omitir| M[Finalización silenciosa]
-  B --> N["Logging estructurado<br/>(spans + métricas)"]
+  C -->|Pendón Kino| F[Fetcher Kino Lotería]
+  D & E & F --> G[Validación por juego]
+  G --> H[Normalizador]
+  H --> I[Motor de Consenso]
+  I --> J["Artifacts<br/>(JSONL, reportes, estado)"]
+  J --> K{Decisión}
+  K -->|Publicar| L[Google Sheets vía gspread]
+  K -->|Cuarentena| M[Alerta Detallada en Slack]
+  K -->|Omitir| N[Finalización silenciosa]
+  J --> O[polla site]
+  O --> P[Dashboard estático → GitHub Pages]
+  B --> Q["Logging estructurado<br/>(spans + métricas)"]
 
 ```
 
@@ -61,7 +68,22 @@ flowchart TB
    python -m polla_app run --sources pozos
    ```
 
-3. **Simulacro de publicación** (requiere credenciales):
+3. **Ejecuta el pipeline de Kino (Lotería de Concepción)**:
+
+   ```bash
+   python -m polla_app run --sources kino
+   ```
+
+4. **Genera el dashboard estático**:
+
+   ```bash
+   python -m polla_app site \
+     --normalized artifacts/normalized.jsonl \
+     --normalized-kino artifacts_kino/normalized.jsonl \
+     --output site/data.json
+   ```
+
+5. **Simulacro de publicación** (requiere credenciales):
 
    ```bash
    python -m polla_app publish --dry-run
@@ -82,6 +104,12 @@ flowchart TB
 | `POLLA_BACKOFF_FACTOR`               | float       | `0.3`           | No             | Multiplicador para el retraso del retroceso exponencial.              |
 | `POLLA_429_BACKOFF_SECONDS`          | entero      | —               | No             | Retraso fijo tras recibir un código de estado 429 (fallback).         |
 | `SLACK_WEBHOOK_URL`                  | string      | —               | No             | Destino para resúmenes de ejecución y alertas de discrepancia.        |
+| `POLLA_PUBLISH_LOCK_PATH`            | string      | `pipeline_state/publish.lock` | No  | Ubicación del lock anti-concurrencia para `publish`.                  |
+| `POLLA_PUBLISH_LOCK_TIMEOUT`         | float       | `300`           | No             | Segundos máximos de espera por el lock de publicación.                |
+| `POLLA_STATS_URL`                    | string      | hoja pública de referencia | No   | CSV público con estadísticas de juegos (probabilidades/retornos) que `polla site` sincroniza a `site/stats.json`. |
+
+> **Nota sobre almacenamiento**: la decisión de arquitectura (Google Sheets vs.
+> base de datos) está documentada en [docs/DATA-STORE.md](docs/DATA-STORE.md).
 
 ## Calidad y Pruebas
 

@@ -1,16 +1,19 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from polla_app.net import FetchMetadata
+from polla_app.sources.kino import get_pozo_kino
 from polla_app.sources.pozos import get_pozo_openloto, get_pozo_polla
 
 # Mapping of source directory names to their fetcher functions
 SOURCE_MAP = {
     "polla": get_pozo_polla,
     "openloto": get_pozo_openloto,
+    "kino": get_pozo_kino,
 }
 
 FIXTURE_BASE = Path(__file__).parent / "fixtures" / "sources"
@@ -50,10 +53,17 @@ def test_source_smoke_fixture(source_name: str, monkeypatch: pytest.MonkeyPatch)
         mock_fetcher_instance.fetch.return_value = mock_page
         mock_fetcher_cls.return_value = mock_fetcher_instance
         monkeypatch.setattr("scrapling.StealthyFetcher", mock_fetcher_cls)
+    elif source_name == "kino":
+        # Kino uses fetch_html too (plain HTTP)
+        metadata = FetchMetadata(
+            url="http://mock-source.test",
+            user_agent="smoke-test",
+            fetched_at=datetime.now(timezone.utc),
+            html=html_content,
+        )
+        monkeypatch.setattr("polla_app.sources.kino.fetch_html", lambda *_, **__: metadata)
     else:
         # Others use fetch_html
-        from datetime import datetime, timezone
-
         metadata = FetchMetadata(
             url="http://mock-source.test",
             user_agent="smoke-test",

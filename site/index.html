@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pozos Chile · Loto y Kino</title>
+  <meta name="description" content="Pozos estimados del próximo sorteo de Loto (Polla Chilena) y Kino (Lotería de Concepción), con procedencia verificada y consenso multi-fuente.">
+  <meta property="og:title" content="Pozos Chile · Loto y Kino">
+  <meta property="og:description" content="Estimaciones verificadas del próximo pozo del Loto y del Kino en Chile.">
+  <meta property="og:type" content="website">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2317130e'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%23f5f1e8'/%3E%3C/svg%3E">
+</head>
+<body>
+  <a class="skip-link" href="#content">Saltar al contenido</a>
+
+  <header class="masthead">
+    <div class="masthead__inner">
+      <p class="eyebrow">Tooltician · datos verificados</p>
+      <h1 class="masthead__title">Pozos <span class="masthead__amp">&amp;</span> Chile</h1>
+      <p class="masthead__sub">Estimaciones del próximo sorteo, cotejadas entre fuentes oficiales y espejos verificados.</p>
+      <p class="masthead__meta">
+        Actualizado <time id="last-updated" datetime="">…</time>
+        <span class="dot" aria-hidden="true">·</span>
+        <span id="last-decision" class="stamp stamp--muted">cargando</span>
+      </p>
+    </div>
+  </header>
+
+  <main id="content" class="wrap">
+    <section class="tickets" aria-label="Pozos actuales">
+      <article class="ticket" id="ticket-loto" aria-labelledby="loto-title">
+        <header class="ticket__head">
+          <div>
+            <p class="ticket__game" id="loto-title">Loto</p>
+            <p class="ticket__draw">Sorteo <span class="mono" id="loto-sorteo">—</span></p>
+          </div>
+          <p class="ticket__date mono" id="loto-fecha">—</p>
+        </header>
+        <p class="ticket__label">Pozo total estimado</p>
+        <p class="ticket__total mono"><span class="ticket__currency">$</span><span id="loto-total">—</span><span class="ticket__unit">MM</span></p>
+        <ul class="ticket__cats" id="loto-cats"></ul>
+        <footer class="ticket__foot">
+          <span class="stamp" id="loto-confidence">—</span>
+          <span class="ticket__src mono" id="loto-src">—</span>
+        </footer>
+      </article>
+
+      <article class="ticket ticket--kino" id="ticket-kino" aria-labelledby="kino-title">
+        <header class="ticket__head">
+          <div>
+            <p class="ticket__game" id="kino-title">Kino</p>
+            <p class="ticket__draw">Sorteo <span class="mono" id="kino-sorteo">—</span></p>
+          </div>
+          <p class="ticket__date mono" id="kino-fecha">—</p>
+        </header>
+        <p class="ticket__label">Pozo total estimado</p>
+        <p class="ticket__total mono"><span class="ticket__currency">$</span><span id="kino-total">—</span><span class="ticket__unit">MM</span></p>
+        <ul class="ticket__cats" id="kino-cats"></ul>
+        <footer class="ticket__foot">
+          <span class="stamp stamp--kino" id="kino-confidence">—</span>
+          <span class="ticket__src mono" id="kino-src">—</span>
+        </footer>
+      </article>
+    </section>
+
+    <section class="history" aria-labelledby="history-title">
+      <h2 id="history-title" class="section-title">Sorteos recientes</h2>
+      <div class="table-scroll" tabindex="0" aria-label="Historial de pozos por sorteo">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th scope="col">Fecha</th>
+              <th scope="col">Sorteo</th>
+              <th scope="col">Categoría</th>
+              <th scope="col" class="tbl__num">Pozo estimado</th>
+            </tr>
+          </thead>
+          <tbody id="history-body"></tbody>
+        </table>
+      </div>
+      <p class="history__empty" id="history-empty" hidden>Sin historial todavía.</p>
+    </section>
+
+    <section class="history" aria-labelledby="stats-title" id="stats-section">
+      <h2 id="stats-title" class="section-title">Estadísticas de juego <span class="section-note">probabilidades y retornos</span></h2>
+      <div class="pills" id="stats-pills" role="group" aria-label="Filtrar por juego"></div>
+      <div class="table-scroll" tabindex="0" aria-label="Estadísticas por categoría">
+        <table class="tbl tbl--stats">
+          <thead>
+            <tr>
+              <th scope="col">Juego</th>
+              <th scope="col">Categoría</th>
+              <th scope="col" class="tbl__num">Apuesta</th>
+              <th scope="col" class="tbl__num">Combinaciones</th>
+              <th scope="col" class="tbl__num">Probabilidad</th>
+              <th scope="col" class="tbl__num">Premio</th>
+              <th scope="col" class="tbl__num">Retorno indiv.</th>
+              <th scope="col" class="tbl__num">Retorno acum.</th>
+            </tr>
+          </thead>
+          <tbody id="stats-body"></tbody>
+        </table>
+      </div>
+      <p class="history__empty" id="stats-empty" hidden>Estadísticas no disponibles todavía.</p>
+      <p class="stats-note">Fuente: hoja pública de referencia (puede actualizarse con menor frecuencia que los pozos).</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Fuentes: <span id="footer-sources">—</span></p>
+    <p>Los montos son estimaciones públicas y pueden variar hasta el cierre del sorteo. <a href="https://www.polla.cl">polla.cl</a> · <a href="https://www.loteria.cl">loteria.cl</a></p>
+    <p class="footer__api mono" id="footer-api">api v—</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

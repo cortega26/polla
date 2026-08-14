@@ -172,12 +172,12 @@ def test_publish_pozos_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     assert rows[1] == [5417, "2026-04-26", "Revancha", 50000000]
 
 
-def test_publish_multiple_records_warning(
+def test_publish_multiple_records_deduplicated(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     import polla_app.publish as pub
 
-    # Two records
+    # Two distinct records
     r1 = {"sorteo": 1, "fecha": "2025-01-01", "pozos_proximo": {"Loto": 100}}
     r2 = {"sorteo": 2, "fecha": "2025-01-02", "pozos_proximo": {"Loto": 200}}
 
@@ -191,7 +191,7 @@ def test_publish_multiple_records_warning(
 
     monkeypatch.setenv("GOOGLE_SPREADSHEET_ID", "dummy")
 
-    with caplog.at_level("WARNING"):
+    with caplog.at_level("INFO"):
         result = pub.publish_to_google_sheets(
             normalized_path=path,
             comparison_report_path=comparison_path,
@@ -203,9 +203,43 @@ def test_publish_multiple_records_warning(
             allow_quarantine=True,
         )
 
-    assert "Multiple records found in normalized file (2)" in caplog.text
-    # Ensure only r1 was processed
+    assert "Publishing 2 distinct records" in caplog.text
+    # The canonical worksheet shows the first record's rows
     assert result["rows"][0][0] == 1
+
+
+def test_publish_normalized_dedupes_by_sorteo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import polla_app.publish as pub
+
+    # Same draw published twice: later record replaces the earlier one
+    r1 = {"sorteo": 7, "fecha": "2025-01-07", "pozos_proximo": {"Loto": 100}}
+    r2 = {"sorteo": 7, "fecha": "2025-01-07", "pozos_proximo": {"Loto": 250}}
+
+    path = tmp_path / "dup.jsonl"
+    path.write_text(json.dumps(r1) + "\n" + json.dumps(r2), encoding="utf-8")
+
+    comparison_path = tmp_path / "comp.json"
+    comparison_path.write_text(
+        json.dumps({"decision": {"status": "publish"}, "mismatches": []}), encoding="utf-8"
+    )
+
+    monkeypatch.setenv("GOOGLE_SPREADSHEET_ID", "dummy")
+    result = pub.publish_to_google_sheets(
+        normalized_path=path,
+        comparison_report_path=comparison_path,
+        summary=None,
+        worksheet_name="Pozos",
+        discrepancy_tab="Discrepancies",
+        dry_run=True,
+        force_publish=False,
+        allow_quarantine=True,
+    )
+
+    # Only the latest record survives dedup
+    assert len(result["rows"]) == 1
+    assert result["rows"][0] == [7, "2025-01-07", "Loto", 250]
 
 
 def test_publish_with_empty_pozos(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

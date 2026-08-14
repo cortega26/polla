@@ -1,4 +1,4 @@
-.PHONY: help install install-dev format lint type-check test test-cov clean run ready
+.PHONY: help install install-dev format lint type-check test test-cov clean run run-kino ready
 
 help:
 	@echo "Available commands:"
@@ -40,11 +40,12 @@ clean:
 	rm -rf debug logs storage_state.json
 
 run:
-	@if [ -z "$(URL)" ]; then \
-		echo "Usage: make run URL=https://example"; \
-		exit 1; \
-	fi
-	python -m polla_app ingest "$(URL)"
+	@echo "Ejecutando el pipeline de pozos (Loto)..."
+	python -m polla_app run --sources pozos
+
+run-kino:
+	@echo "Ejecutando el pipeline de Kino (Lotería de Concepción)..."
+	python -m polla_app run --sources kino
 
 ready:
 	git add .

@@ -1,0 +1,13 @@
+{
+  "sorteo": 3266,
+  "fecha": "2026-08-14",
+  "montos": {
+    "Kino": 8370000000,
+    "Kino Revancha": 1610000000,
+    "Kino Revancha 2": 1040000000,
+    "Kino Sueldo 50": 1200000000,
+    "Kino Sueldo 30": 1080000000,
+    "Kino Casa": 1000000000
+  },
+  "estimado": true
+}

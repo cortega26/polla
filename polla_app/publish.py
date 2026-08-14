@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
 from .contracts import API_VERSION
-from .exceptions import ConfigError
+from .exceptions import ConfigError, PublishError
 from .notifiers import notify_slack
 
 try:
@@ -18,7 +19,15 @@ try:
 except ImportError:  # pragma: no cover
     gspread = None  # type: ignore[assignment]
 
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - non-POSIX platforms
+    fcntl = None  # type: ignore[assignment]
+
 LOGGER = logging.getLogger(__name__)
+
+DEFAULT_LOCK_PATH = Path("pipeline_state/publish.lock")
+DEFAULT_LOCK_TIMEOUT_SECONDS = 300.0
 
 
 def _load_credentials() -> Any:
@@ -59,11 +68,66 @@ def _load_json(path: Path) -> Any:
 
 
 def _load_normalized_ndjson(path: Path) -> list[dict[str, Any]]:
-    """Load NDJSON file into a list of dicts.
+    """Load NDJSON file into a list of dicts, de-duplicating records.
 
-    Each line must be a valid JSON object.
+    Each line must be a valid JSON object. Records are keyed by
+    (sorteo, fecha): later records for the same draw replace earlier ones,
+    so repeated pipeline runs never publish duplicates.
     """
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+    records: dict[tuple[Any, Any], dict[str, Any]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line:
+            continue
+        record = json.loads(line)
+        records[(record.get("sorteo"), record.get("fecha"))] = record
+    return list(records.values())
+
+
+class _PublishLock:
+    """Advisory cross-process lock so concurrent publishes cannot clobber each other.
+
+    Uses ``flock`` on POSIX; degrades gracefully (no locking) elsewhere.
+    ``POLLA_PUBLISH_LOCK_PATH`` overrides the lock file location and
+    ``POLLA_PUBLISH_LOCK_TIMEOUT`` the wait in seconds.
+    """
+
+    def __init__(self) -> None:
+        path = os.getenv("POLLA_PUBLISH_LOCK_PATH") or str(DEFAULT_LOCK_PATH)
+        timeout = float(os.getenv("POLLA_PUBLISH_LOCK_TIMEOUT", str(DEFAULT_LOCK_TIMEOUT_SECONDS)))
+        self.path = Path(path)
+        self.timeout = timeout
+        self._handle: Any = None
+
+    def __enter__(self) -> _PublishLock:
+        if fcntl is None:  # pragma: no cover - non-POSIX fallback
+            return self
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        handle = self.path.open("a", encoding="utf-8")
+        deadline = time.monotonic() + self.timeout
+        while True:
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    handle.close()
+                    raise PublishError(
+                        f"Timed out waiting for publish lock {self.path} after {self.timeout:.0f}s; "
+                        "another publish may be running"
+                    ) from None
+                time.sleep(1.0)
+        self._handle = handle
+        return self
+
+    def __exit__(self, *exc_info: Any) -> None:
+        if self._handle is not None:
+            handle = self._handle
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            except OSError:  # pragma: no cover - already released
+                pass
+            handle.close()
+            self._handle = None
 
 
 def _record_to_rows(record: Mapping[str, Any]) -> list[list[Any]]:
@@ -211,8 +275,8 @@ def publish_to_google_sheets(
         raise RuntimeError("Normalized dataset is empty; nothing to publish")
 
     if len(normalized) > 1:
-        LOGGER.warning(
-            "Multiple records found in normalized file (%d); only the first one will be published",
+        LOGGER.info(
+            "Publishing %d distinct records from normalized file (one row per category)",
             len(normalized),
         )
 
@@ -283,15 +347,20 @@ def publish_to_google_sheets(
     if not spreadsheet_id:
         raise ConfigError("GOOGLE_SPREADSHEET_ID environment variable is required")
 
-    client = _load_credentials()
-    spreadsheet = client.open_by_key(spreadsheet_id)
+    with _PublishLock():
+        client = _load_credentials()
+        spreadsheet = client.open_by_key(spreadsheet_id)
 
-    if publish_allowed or force_publish:
-        result["updated_rows"] = _update_canonical_worksheet(spreadsheet, worksheet_name, rows)
+        if publish_allowed or force_publish:
+            result["updated_rows"] = _update_canonical_worksheet(spreadsheet, worksheet_name, rows)
 
-    _update_discrepancy_sheet(
-        spreadsheet, discrepancy_tab, report, mismatch_rows, allow_quarantine=allow_quarantine
-    )
+        _update_discrepancy_sheet(
+            spreadsheet,
+            discrepancy_tab,
+            report,
+            mismatch_rows,
+            allow_quarantine=allow_quarantine,
+        )
 
     # Optional notifications
     notify_slack(result)

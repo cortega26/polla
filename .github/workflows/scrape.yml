@@ -93,7 +93,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run alternative-source pipeline (All sources)
+      - name: Run alternative-source pipeline (Loto pozos)
         id: pipeline
         env:
           ALT_SOURCE_URLS: ${{ vars.ALT_SOURCE_URLS }}
@@ -117,6 +117,26 @@ jobs:
             --log-file logs/run.jsonl \
             --mismatch-threshold 0.2 \
             ${FORCE_FLAG}
+
+      - name: Run Kino pipeline (Lotería de Concepción)
+        id: pipeline-kino
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+        run: |
+          mkdir -p artifacts_kino raw pipeline_state logs
+          python -m polla_app run \
+            --sources kino \
+            --retries 3 \
+            --timeout 30 \
+            --no-fail-fast \
+            --raw-dir artifacts_kino/raw \
+            --normalized artifacts_kino/normalized.jsonl \
+            --comparison-report artifacts_kino/comparison_report.json \
+            --summary artifacts_kino/run_summary.json \
+            --state-file pipeline_state/last_run.jsonl \
+            --log-file logs/run_kino.jsonl \
+            --mismatch-threshold 0.2
 
       - name: Parse publish decision
         id: decision
@@ -172,6 +192,7 @@ jobs:
           name: alt-sources-artifacts
           path: |
             artifacts/
+            artifacts_kino/
             logs/
           retention-days: 30
 
@@ -260,5 +281,26 @@ jobs:
             --summary artifacts/run_summary.json \
             --worksheet "Proximo Pozo" \
             --discrepancy-tab "Discrepancies" \
+            ${DRY_FLAG}
+
+      - name: Publish Kino to Google Sheets
+        if: ${{ needs.ingest.outputs.publish == 'true' }}
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+        run: |
+          DRY_RUN="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}"
+          if [ -z "${GOOGLE_SPREADSHEET_ID}" ] || [ -z "${GOOGLE_SERVICE_ACCOUNT_JSON}" ]; then
+            echo "Missing Google secrets; skipping Kino publish.";
+            exit 0;
+          fi
+          if [ "${DRY_RUN}" = "true" ]; then DRY_FLAG="--dry-run"; else DRY_FLAG="--no-dry-run"; fi
+          python -m polla_app publish \
+            --normalized artifacts_kino/normalized.jsonl \
+            --comparison-report artifacts_kino/comparison_report.json \
+            --summary artifacts_kino/run_summary.json \
+            --worksheet "Kino" \
+            --discrepancy-tab "Discrepancias Kino" \
             ${DRY_FLAG}
 

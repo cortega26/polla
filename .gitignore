@@ -22,3 +22,10 @@ node_modules/
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
+
+# Generated dashboard data (built at deploy time by pages.yml)
+site/data.json
+site/stats.json
+
+# Generated pipeline artifacts (Kino)
+artifacts_kino/

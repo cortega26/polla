@@ -12,15 +12,23 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from .contracts import API_VERSION
+from .exceptions import ParseError
 from .notifiers import notify_quarantine, notify_slack
 from .obs import metric, sanitize, set_correlation_id, span
+from .sources import kino as kino_module
 from .sources import pozos as pozos_module
+from .validation import validate_pozo_payload
 
 LOGGER = logging.getLogger(__name__)
 
 
 # Source registry for dynamic orchestration
 SOURCE_LOADERS: dict[str, Callable[..., tuple[dict[str, Any], ...]]] = {}
+
+# Maximum number of historical records kept in the state file. Once the
+# cap is reached the oldest draws are pruned, bounding memory and disk
+# growth across runs (previously the state file grew unboundedly).
+MAX_STATE_RECORDS = 1000
 
 
 class LogStream(Protocol):
@@ -33,7 +41,10 @@ class LogStream(Protocol):
 
 def _normalize_sources(requested: Sequence[str]) -> list[str]:
     lowered = {item.lower() for item in requested}
-    if "all" in lowered or "pozos" in lowered:
+    if "all" in lowered or ("pozos" in lowered and "kino" in lowered):
+        return ["pozos", "kino"]
+    if "pozos" in lowered:
+        # "pozos" is the Loto aggregate; it absorbs redundant per-source requests
         return ["pozos"]
 
     normalised: list[str] = []
@@ -84,6 +95,8 @@ POZO_SOURCES = (
     ("polla", pozos_module.get_pozo_polla),
 )
 
+KINO_SOURCES = (("kino", kino_module.get_pozo_kino),)
+
 
 def _collect_pozos(
     include: bool,
@@ -92,6 +105,7 @@ def _collect_pozos(
     timeout: int = 20,
     retries: int = 3,
     only: str | None = None,
+    fail_fast: bool = False,
 ) -> tuple[dict[str, Any], ...]:
     if not include:
         return tuple()
@@ -123,11 +137,76 @@ def _collect_pozos(
                 if target_url:
                     kw["url"] = target_url
             payload = fetcher(**kw)
+            issues = validate_pozo_payload(payload)
+            if issues:
+                LOGGER.warning("Source %s failed validation: %s", name, ", ".join(issues))
+                raise ParseError(
+                    "Source payload failed validation",
+                    context={"source": name, "issues": issues},
+                )
             if payload.get("montos"):
                 payload["source_name"] = name
                 collected.append(payload)
         except Exception as exc:
+            if fail_fast:
+                raise
             LOGGER.warning("Pozo fetcher %s failed: %s", name, exc)
+
+    return tuple(collected)
+
+
+def _collect_kino(
+    include: bool,
+    source_overrides: Mapping[str, str] | None = None,
+    *,
+    timeout: int = 20,
+    retries: int = 3,
+    only: str | None = None,
+    fail_fast: bool = False,
+) -> tuple[dict[str, Any], ...]:
+    if not include:
+        return tuple()
+
+    collected: list[dict[str, Any]] = []
+    overrides = {k.lower(): v for k, v in (source_overrides or {}).items()}
+
+    for name, fetcher in KINO_SOURCES:
+        target_url = overrides.get(name)
+        if target_url == "skip":
+            continue
+        if only and name != only:
+            continue
+
+        try:
+            kw: dict[str, Any] = {}
+            try:
+                sig = inspect.signature(fetcher)
+                params = sig.parameters
+                has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+                if "timeout" in params or has_var_kw:
+                    kw["timeout"] = timeout
+                if "retries" in params or has_var_kw:
+                    kw["retries"] = retries
+                if target_url and ("url" in params or has_var_kw):
+                    kw["url"] = target_url
+            except (ValueError, TypeError):
+                if target_url:
+                    kw["url"] = target_url
+            payload = fetcher(**kw)
+            issues = validate_pozo_payload(payload)
+            if issues:
+                LOGGER.warning("Source %s failed validation: %s", name, ", ".join(issues))
+                raise ParseError(
+                    "Source payload failed validation",
+                    context={"source": name, "issues": issues},
+                )
+            if payload.get("montos"):
+                payload["source_name"] = name
+                collected.append(payload)
+        except Exception as exc:
+            if fail_fast:
+                raise
+            LOGGER.warning("Kino fetcher %s failed: %s", name, exc)
 
     return tuple(collected)
 
@@ -254,6 +333,30 @@ def _init_log_stream(log_path: Path) -> LogStream:
     return _JSONLogStream(log_path)
 
 
+def _persist_state(
+    state_path: Path, previous_records: list[dict[str, Any]], new_record: Mapping[str, Any]
+) -> None:
+    """Persist the state file with deduplication and a bounded history.
+
+    Records are keyed by (sorteo, fecha); a newer record for the same draw
+    replaces the previous one. The file never exceeds MAX_STATE_RECORDS
+    entries (oldest draws are pruned first).
+    """
+    key = (new_record.get("sorteo"), new_record.get("fecha"))
+    updated = [
+        record for record in previous_records if (record.get("sorteo"), record.get("fecha")) != key
+    ]
+    updated.append(dict(new_record))
+    # Prune oldest entries (insertion order is chronological).
+    if len(updated) > MAX_STATE_RECORDS:
+        updated = updated[-MAX_STATE_RECORDS:]
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    with state_path.open("w", encoding="utf-8") as handle:
+        for record in updated:
+            handle.write(json.dumps(record, ensure_ascii=False))
+            handle.write("\n")
+
+
 def _compute_unchanged(
     previous_records: list[dict[str, Any]],
     *,
@@ -281,7 +384,6 @@ def _compute_unchanged(
             }
             if prev_pozos == curr_pozos:
                 return True
-            break
     return False
 
 
@@ -374,7 +476,15 @@ def _run_ingestion_for_sources(
                 # This should be caught by _normalize_sources but safety guard
                 LOGGER.error("Source %s requested but not in registry", name)
                 continue
-            collected.extend(loader(True, source_overrides or {}, timeout=timeout, retries=retries))
+            collected.extend(
+                loader(
+                    True,
+                    source_overrides or {},
+                    timeout=timeout,
+                    retries=retries,
+                    fail_fast=fail_fast,
+                )
+            )
 
     if not collected:
         raise RuntimeError(f"No sources returned data for {requested_sources}")
@@ -393,6 +503,8 @@ def _run_ingestion_for_sources(
     for name in requested_sources:
         if name == "pozos":
             expected_sources_count += len(POZO_SOURCES)
+        elif name == "kino":
+            expected_sources_count += len(KINO_SOURCES)
         else:
             expected_sources_count += 1
 
@@ -434,7 +546,7 @@ def _run_ingestion_for_sources(
     )
 
     _write_jsonl(normalized_path, [record])
-    _write_jsonl(state_path, [record])
+    _persist_state(state_path, previous_records, record)
 
     if unchanged:
         decision_status = "skip"
@@ -584,6 +696,7 @@ SOURCE_LOADERS.update(
         "pozos": _collect_pozos,
         "openloto": lambda *a, **k: _collect_pozos(*a, **k, only="openloto"),
         "polla": lambda *a, **k: _collect_pozos(*a, **k, only="polla"),
+        "kino": _collect_kino,
     }
 )
 

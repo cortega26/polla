@@ -73,15 +73,16 @@ def test_redaction_false_positives() -> None:
 def test_normalize_sources_deduplication() -> None:
     from polla_app.pipeline import _normalize_sources
 
-    # "all" or "pozos" should collapse to just "pozos"
-    assert _normalize_sources(["all"]) == ["pozos"]
+    # "all" expands to both games; "pozos" collapses to the Loto aggregate
+    assert _normalize_sources(["all"]) == ["pozos", "kino"]
     assert _normalize_sources(["pozos"]) == ["pozos"]
     assert _normalize_sources(["openloto", "pozos"]) == ["pozos"]
     assert _normalize_sources(["openloto", "polla", "pozos"]) == ["pozos"]
-    assert _normalize_sources(["all", "openloto"]) == ["pozos"]
+    assert _normalize_sources(["all", "openloto"]) == ["pozos", "kino"]
 
     # Individual sources stay individual
     assert _normalize_sources(["openloto"]) == ["openloto"]
+    assert _normalize_sources(["kino"]) == ["kino"]
     assert sorted(_normalize_sources(["openloto", "polla"])) == [
         "openloto",
         "polla",

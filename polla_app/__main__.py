@@ -13,12 +13,18 @@ from typing import Any
 
 import click
 
+from .contracts import API_VERSION
 from .pipeline import run_pipeline
 from .publish import publish_to_google_sheets
-from .sources import get_pozo_openloto, get_pozo_polla
+from .site import write_site_data
+from .sources import get_pozo_kino, get_pozo_openloto, get_pozo_polla
+from .stats import resolve_stats_url, write_site_stats
+from .validation import validate_pozo_payload
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - [%(name)s] - %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _configure_logging(level: str) -> None:
@@ -62,6 +68,19 @@ def pozos(timeout: int, retries: int) -> None:
             results[name] = fn(timeout=timeout, retries=retries)
         except Exception as exc:
             results[name] = {"error": type(exc).__name__, "message": str(exc)}
+    _echo_json(results)
+
+
+@cli.command()
+@click.option("--timeout", default=10, show_default=True, help="Fetch timeout in seconds.")
+@click.option("--retries", default=3, show_default=True, help="Max retry attempts.")
+def kino(timeout: int, retries: int) -> None:
+    """Print próximo pozo estimates for Kino (Lotería de Concepción)."""
+
+    try:
+        results: dict[str, Any] = get_pozo_kino(timeout=timeout, retries=retries)
+    except Exception as exc:
+        results = {"error": type(exc).__name__, "message": str(exc)}
     _echo_json(results)
 
 
@@ -293,6 +312,58 @@ def publish(
 
 @cli.command()
 @click.option(
+    "--normalized",
+    default="artifacts/normalized.jsonl",
+    show_default=True,
+    help="Loto normalized NDJSON file.",
+)
+@click.option(
+    "--normalized-kino",
+    default=None,
+    help="Kino normalized NDJSON file (optional).",
+)
+@click.option(
+    "--summary",
+    default=None,
+    help="Latest run summary JSON (optional, for the last decision).",
+)
+@click.option(
+    "--stats-url",
+    default=None,
+    help="Public CSV URL with game statistics (defaults to POLLA_STATS_URL or the bundled sheet).",
+)
+@click.option(
+    "--output",
+    default="site/data.json",
+    show_default=True,
+    help="Destination path for the dashboard data payload.",
+)
+def site(
+    normalized: str,
+    normalized_kino: str | None,
+    summary: str | None,
+    stats_url: str | None,
+    output: str,
+) -> None:
+    """Generate the static dashboard data payload (site/data.json)."""
+
+    stats_path = Path(output).parent / "stats.json"
+    try:
+        write_site_stats(stats_url or resolve_stats_url(), stats_path)
+    except Exception as exc:  # noqa: BLE001 - stats are auxiliary; dashboard still works
+        LOGGER.warning("Could not sync game statistics: %s", exc)
+
+    path = write_site_data(
+        loto_path=Path(normalized),
+        output=Path(output),
+        kino_path=Path(normalized_kino) if normalized_kino else None,
+        summary_path=Path(summary) if summary else None,
+    )
+    _echo_json({"generated": str(path), "api_version": API_VERSION})
+
+
+@cli.command()
+@click.option(
     "--online/--offline", default=False, show_default=True, help="Perform live source checks."
 )
 @click.option(
@@ -305,12 +376,9 @@ def health(online: bool, timeout: int) -> None:
     """Run health checks (offline by default). Prints JSON with status."""
 
     def _validate_pozos(payload: dict[str, Any]) -> tuple[bool, str | None]:
-        montos = payload.get("montos", {}) or {}
-        if not montos:
-            return False, "no_amounts"
-        # Sanity check: at least one jackpot must be > 0 and < 50,000 MM
-        if not any(0 < int(m) < 50_000_000_000 for m in montos.values()):
-            return False, "amounts_out_of_range"
+        issues = validate_pozo_payload(payload)
+        if issues:
+            return False, issues[0]
         return True, None
 
     def _pkg_ver(name: str) -> str | None:
@@ -334,7 +402,11 @@ def health(online: bool, timeout: int) -> None:
     if online:
         successes = 0
         failures = 0
-        for name, fn in (("openloto", get_pozo_openloto), ("polla", get_pozo_polla)):
+        for name, fn in (
+            ("openloto", get_pozo_openloto),
+            ("polla", get_pozo_polla),
+            ("kino", get_pozo_kino),
+        ):
             start = time.monotonic()
             try:
                 payload = fn(timeout=timeout)

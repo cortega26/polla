@@ -379,6 +379,7 @@ def test_timeout_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     from datetime import datetime, timezone
 
     import polla_app.sources.pozos as pozos_mod
+    from polla_app import pipeline as pipeline_mod
     from polla_app.net import FetchMetadata
 
     received_timeouts: list[int] = []
@@ -397,9 +398,10 @@ def test_timeout_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         )
 
     monkeypatch.setattr(pozos_mod, "fetch_html", stub_fetch)
+    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("openloto", pozos_mod.get_pozo_openloto),))
 
     run_pipeline(
-        sources=["pozos"],
+        sources=["openloto"],
         source_overrides={},
         raw_dir=tmp_path / "raw",
         normalized_path=tmp_path / "normalized.jsonl",
@@ -422,6 +424,7 @@ def test_retries_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     from datetime import datetime, timezone
 
     import polla_app.sources.pozos as pozos_mod
+    from polla_app import pipeline as pipeline_mod
     from polla_app.net import FetchMetadata
 
     received_retries: list[int | None] = []
@@ -440,9 +443,10 @@ def test_retries_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         )
 
     monkeypatch.setattr(pozos_mod, "fetch_html", stub_fetch)
+    monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("openloto", pozos_mod.get_pozo_openloto),))
 
     run_pipeline(
-        sources=["pozos"],
+        sources=["openloto"],
         source_overrides={},
         raw_dir=tmp_path / "raw",
         normalized_path=tmp_path / "normalized.jsonl",
@@ -536,7 +540,7 @@ def test_pipeline_continues_when_one_source_fails(
         log_path=tmp_path / "run.jsonl",
         retries=1,
         timeout=5,
-        fail_fast=True,
+        fail_fast=False,
         mismatch_threshold=0.5,
         include_pozos=True,
     )
@@ -565,6 +569,47 @@ def test_pipeline_raises_when_all_sources_fail(
     )
 
     with pytest.raises(RuntimeError, match="No sources returned data"):
+        run_pipeline(
+            sources=["pozos"],
+            source_overrides={},
+            raw_dir=tmp_path / "raw",
+            normalized_path=tmp_path / "normalized.jsonl",
+            comparison_report_path=tmp_path / "comparison.json",
+            summary_path=tmp_path / "summary.json",
+            state_path=tmp_path / "state.jsonl",
+            log_path=tmp_path / "run.jsonl",
+            retries=1,
+            timeout=5,
+            fail_fast=False,
+            mismatch_threshold=0.5,
+            include_pozos=True,
+        )
+
+
+def test_pipeline_fail_fast_raises_on_first_source_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    def raises(**_: object) -> None:
+        raise RuntimeError("source down")
+
+    valid = {
+        "fuente": "https://www.openloto.cl/pozo-del-loto.html",
+        "montos": {"Recargado": 333_000_000},
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+    }
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (
+            ("polla", raises),
+            ("openloto", lambda **_: valid),
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="source down"):
         run_pipeline(
             sources=["pozos"],
             source_overrides={},
@@ -707,13 +752,13 @@ def test_pipeline_consensus_tie_breaking(tmp_path: Path, monkeypatch: pytest.Mon
     # Two sources with different values -> First one in POZO_SOURCES should win a 1v1 tie
     s1 = {
         "fuente": "s1",
-        "montos": {"Loto Clásico": 100},
+        "montos": {"Loto Clásico": 100_000_000},
         "sorteo": 1,
         "fecha": "2025-01-01",
     }
     s2 = {
         "fuente": "s2",
-        "montos": {"Loto Clásico": 200},
+        "montos": {"Loto Clásico": 200_000_000},
         "sorteo": 1,
         "fecha": "2025-01-01",
     }
@@ -745,4 +790,4 @@ def test_pipeline_consensus_tie_breaking(tmp_path: Path, monkeypatch: pytest.Mon
 
     record = json.loads((tmp_path / "normalized.jsonl").read_text().splitlines()[0])
     # s1 should win because it was registered first
-    assert record["pozos_proximo"]["Loto Clásico"] == 100
+    assert record["pozos_proximo"]["Loto Clásico"] == 100_000_000

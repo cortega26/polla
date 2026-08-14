@@ -14,7 +14,7 @@ This repository uses AGENTS.md to guide AI/automation and humans on how to make 
 
 - Language: Python 3.11+
 - Package: `polla_app` – alternative‑source ingestion for Chilean Loto (pozos only)
-- CLI entry: `python -m polla_app` with commands: `run`, `publish`, `pozos`, `health`
+- CLI entry: `python -m polla_app` with commands: `run`, `publish`, `pozos`, `kino`, `site`, `health`
 - Tests: `pytest -q` (unit, integration, doctests)
 - Style: Black, Ruff (including pep8‑naming), Mypy (strict-ish)
 - Observability: structured JSON logs with correlation IDs, spans, and metrics
@@ -84,6 +84,11 @@ This repository uses AGENTS.md to guide AI/automation and humans on how to make 
 - DRY: prefer shared helpers (e.g., `_fetch_pozos`) and precompiled regexes.
 - Respect robots.txt and env UA override.
 - Never add network calls to tests; stub or provide fixtures.
+- `sources/kino.py`: Kino is operated by Lotería de Concepción (NOT polla.cl).
+  Its official data endpoint is `pendon-kino.loteria.cl/pendonkino` (`__NEXT_DATA__`,
+  no browser needed). Fixture: `tests/fixtures/sources/kino/page.html`.
+- Kino category labels must keep the `Kino ` prefix so they never collide with
+  Loto categories in the consensus engine (e.g. `Kino Revancha` vs `Revancha`).
 
 ## CLI
 

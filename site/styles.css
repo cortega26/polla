@@ -1,0 +1,333 @@
+/* Pozos Chile — "boleto" theme. Dependency-free, accessible, print-friendly. */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-deep: #ece5d6;
+  --ink: #17130e;
+  --ink-soft: #4a4338;
+  --line: #c9bfa9;
+  --loto: #c7302b;
+  --loto-dark: #8f1f1b;
+  --kino: #c25e00;
+  --kino-dark: #8a4300;
+  --ok: #1f6b3c;
+  --serif: Georgia, "Times New Roman", serif;
+  --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Liberation Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.6rem 1rem;
+  z-index: 50;
+}
+.skip-link:focus { left: 0; }
+
+/* ---------- Masthead ---------- */
+
+.masthead {
+  border-bottom: 3px double var(--line);
+  padding: clamp(2.5rem, 7vw, 5rem) 1.25rem 2rem;
+}
+.masthead__inner { max-width: 62rem; margin: 0 auto; }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 0.5rem;
+}
+
+.masthead__title {
+  font-size: clamp(2.6rem, 8vw, 4.8rem);
+  font-weight: 700;
+  line-height: 0.95;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.masthead__amp { color: var(--loto); font-style: italic; }
+
+.masthead__sub {
+  max-width: 34rem;
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+  margin: 1rem 0 1.25rem;
+}
+
+.masthead__meta {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.dot { color: var(--loto); font-weight: 700; }
+
+/* ---------- Layout ---------- */
+
+.wrap { max-width: 62rem; margin: 0 auto; padding: clamp(1.5rem, 4vw, 3rem) 1.25rem 4rem; }
+
+/* ---------- Tickets ---------- */
+
+.tickets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: clamp(1.25rem, 3vw, 2rem);
+}
+
+.ticket {
+  position: relative;
+  background: var(--paper-deep);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  padding: 1.4rem 1.4rem 1.1rem;
+  box-shadow: 6px 6px 0 rgba(23, 19, 14, 0.14);
+  opacity: 0;
+  transform: translateY(14px);
+  animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+.ticket--kino { animation-delay: 0.12s; }
+
+.ticket::before,
+.ticket::after {
+  /* perforation line like a real boleto */
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background:
+    radial-gradient(circle at 10px 5px, var(--paper) 0 4px, transparent 5px) repeat-x;
+  background-size: 21px 10px;
+}
+.ticket::before { top: -7px; }
+.ticket::after { bottom: -7px; }
+
+.ticket__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 0.6rem;
+}
+.ticket__game {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ticket__draw { margin: 0.1rem 0 0; font-size: 0.95rem; color: var(--ink-soft); }
+.ticket__date { font-size: 0.8rem; white-space: nowrap; }
+
+.ticket__label {
+  margin: 1.1rem 0 0.15rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.ticket__total {
+  font-size: clamp(2.2rem, 6vw, 3.1rem);
+  font-weight: 700;
+  margin: 0 0 1rem;
+  letter-spacing: -0.02em;
+  color: var(--loto-dark);
+}
+.ticket--kino .ticket__total { color: var(--kino-dark); }
+.ticket__currency { font-size: 0.6em; vertical-align: 0.35em; }
+.ticket__unit {
+  font-size: 0.4em;
+  color: var(--ink-soft);
+  vertical-align: 0.6em;
+  margin-left: 0.2em;
+  letter-spacing: 0.08em;
+}
+
+.ticket__cats {
+  list-style: none;
+  margin: 0 0 1.1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.ticket__cats li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px dotted var(--line);
+  padding-bottom: 0.3rem;
+  font-size: 0.95rem;
+}
+.ticket__cats .mono { font-size: 0.88rem; }
+
+.ticket__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.ticket__src { font-size: 0.72rem; color: var(--ink-soft); }
+
+/* ---------- Stamps ---------- */
+
+.stamp {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.55rem;
+  border: 2px solid var(--ok);
+  border-radius: 4px;
+  color: var(--ok);
+  background: transparent;
+}
+.stamp--kino { border-color: var(--kino-dark); color: var(--kino-dark); }
+.stamp--warn { border-color: var(--kino-dark); color: var(--kino-dark); }
+.stamp--bad { border-color: var(--loto); color: var(--loto-dark); }
+.stamp--muted { border-color: var(--line); color: var(--ink-soft); }
+
+/* ---------- History ---------- */
+
+.section-title {
+  font-size: 1.35rem;
+  margin: 2.6rem 0 0.9rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+.section-title::after {
+  content: "";
+  flex: 1;
+  border-bottom: 2px solid var(--line);
+}
+
+.table-scroll { overflow-x: auto; border: 2px solid var(--ink); border-radius: 8px; background: var(--paper-deep); }
+
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.tbl th, .tbl td {
+  text-align: left;
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.tbl th {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+  background: rgba(23, 19, 14, 0.05);
+}
+.tbl tr:last-child td { border-bottom: none; }
+.tbl__num { text-align: right; }
+.tbl td.tbl__num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.tbl tbody tr:nth-child(even) { background: rgba(23, 19, 14, 0.03); }
+
+.history__empty { font-style: italic; color: var(--ink-soft); }
+
+/* ---------- Stats ---------- */
+
+.section-note {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+.pill {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  padding: 0.3rem 0.75rem;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.pill:hover { border-color: var(--ink); color: var(--ink); }
+.pill[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.pill--kino[aria-pressed="true"] { background: var(--kino-dark); border-color: var(--kino-dark); }
+
+.tbl--stats td, .tbl--stats th { white-space: nowrap; }
+.tbl--stats .tbl__num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.tbl--stats .game-name { font-weight: 700; }
+.stats-note { font-size: 0.78rem; color: var(--ink-soft); font-style: italic; }
+
+/* ---------- Footer ---------- */
+
+.footer {
+  border-top: 3px double var(--line);
+  padding: 1.75rem 1.25rem 2.5rem;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+.footer > p { max-width: 62rem; margin: 0 auto 0.4rem; }
+.footer a { color: var(--ink); text-underline-offset: 3px; }
+.footer__api { font-size: 0.72rem; margin-top: 0.8rem !important; }
+
+/* ---------- Motion ---------- */
+
+@keyframes rise {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .ticket { animation: none; opacity: 1; transform: none; }
+}
+
+/* ---------- Focus & selection ---------- */
+
+:focus-visible {
+  outline: 3px solid var(--loto);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+::selection { background: var(--ink); color: var(--paper); }
+
+/* ---------- Print ---------- */
+
+@media print {
+  body { background: #fff; }
+  .ticket { box-shadow: none; break-inside: avoid; }
+}

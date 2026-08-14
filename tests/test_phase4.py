@@ -74,10 +74,11 @@ def test_health_online_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     from polla_app.__main__ import cli
 
     def stub_fetcher(**_: Any) -> dict[str, Any]:
-        return {"montos": {"Loto": 1000}}  # Within sane range
+        return {"montos": {"Loto": 1_000_000_000}}  # Within sane range
 
     monkeypatch.setattr("polla_app.__main__.get_pozo_openloto", stub_fetcher)
     monkeypatch.setattr("polla_app.__main__.get_pozo_polla", stub_fetcher)
+    monkeypatch.setattr("polla_app.__main__.get_pozo_kino", stub_fetcher)
 
     runner = CliRunner()
     result = runner.invoke(cli, ["health", "--online"])
@@ -92,17 +93,18 @@ def test_health_online_validation_insane_range(monkeypatch: pytest.MonkeyPatch) 
     from polla_app.__main__ import cli
 
     def stub_fetcher(**_: Any) -> dict[str, Any]:
-        return {"montos": {"Loto": 60_000_000_000}}  # Insane range (> 50,000 MM)
+        return {"montos": {"Loto": 120_000_000_000}}  # Insane range (> 100,000 MM)
 
     monkeypatch.setattr("polla_app.__main__.get_pozo_openloto", stub_fetcher)
     monkeypatch.setattr("polla_app.__main__.get_pozo_polla", stub_fetcher)
+    monkeypatch.setattr("polla_app.__main__.get_pozo_kino", stub_fetcher)
 
     runner = CliRunner()
     result = runner.invoke(cli, ["health", "--online"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data["status"] == "fail"
-    assert data["checks"]["sources"]["openloto"]["error"] == "amounts_out_of_range"
+    assert data["checks"]["sources"]["openloto"]["error"] == "amount_too_large:Loto=120000000000"
 
 
 def test_notify_quarantine_sends_blocks(
