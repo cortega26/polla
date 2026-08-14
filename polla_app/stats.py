@@ -135,13 +135,68 @@ _PRICE_CATEGORY_MAP: dict[str, str] = {
     "Jubilazo": "Jubilazo",
     "Multiplicar": "Multiplicar",
     "Jubilazo 50 años": "Jubilazo 50 años",
-    # Kino (hub kino.loteria.cl) vs sheet naming
-    "Club Kino": "Kino",
-    "Rekino": "ReKino",
-    "Combo Marraqueta": "Súper Combo Marraqueta",
-    "Chao Jefe 50 años Heredable $1 Millón": "Chao Jefe $2 Millones",
-    "Chao Jefe 50 años Heredable $2 Millones": "Chao Jefe $3 Millones",
 }
+
+# Kino odds are the same for every variant (14 numbers drawn from 25).
+_KINO_COMBINATIONS = 4_457_400.0
+_KINO_ODDS_TEXT = "1 en 4.457.400"
+
+# Kino additional games, in official hub order.
+_KINO_CATEGORIES: tuple[str, ...] = (
+    "Kino",
+    "ReKino",
+    "RequeteKino",
+    "Chao Jefe $2 Millones",
+    "Chao Jefe $3 Millones",
+    "Súper Combo Marraqueta",
+)
+
+
+def merge_live_kino(
+    stats: dict[str, Any],
+    prizes: dict[str, Any],
+    prices: dict[str, Any],
+) -> dict[str, Any]:
+    """Replace the sheet's Kino section with live hub + pendón data.
+
+    The reference sheet's Kino rows are outdated (obsolete variants such as
+    "Chanchito Regalón" and old "Chao Jefe 50 años" names). When live data is
+    available, the section is rebuilt from the official hub price structure
+    and the pendón prize estimates, so every row is concrete and exact.
+    """
+    live = {cat: prizes.get(cat) for cat in _KINO_CATEGORIES}
+    if not any(live.values()):
+        return stats
+
+    rows: list[dict[str, Any]] = []
+    for category in _KINO_CATEGORIES:
+        premio = prizes.get(category)
+        price = (prices or {}).get(category, {})
+        delta = price.get("delta_clp")
+        acumulado = price.get("acumulado_clp")
+        retorno = None
+        if premio and delta:
+            retorno = round(premio / _KINO_COMBINATIONS / delta * 100, 2)
+        rows.append(
+            {
+                "Nombre": "Kino",
+                "Categoría": category,
+                "Combinaciones totales": _KINO_ODDS_TEXT,
+                "Combinaciones totales (num)": _KINO_COMBINATIONS,
+                "Probabilidad de ganar": _KINO_ODDS_TEXT,
+                "Precio o apuesta": str(delta) if delta else "",
+                "Precio o apuesta (num)": float(delta) if delta else None,
+                "Precio Acumulado": str(acumulado) if acumulado else "",
+                "Precio Acumulado (num)": float(acumulado) if acumulado else None,
+                "precio_real_clp": delta,
+                "precio_acumulado_clp": acumulado,
+                "premio_real_clp": premio,
+                "retorno_real_pct": retorno,
+            }
+        )
+    stats["games"]["Kino"] = rows
+    stats["kino_live"] = True
+    return stats
 
 
 def merge_real_prices(
@@ -253,6 +308,7 @@ def write_site_stats(
     # strips stale manual prize columns, so the UI never presents them live.
     payload = merge_real_prices(payload, prices or {})
     payload = merge_real_prizes(payload, prizes or {})
+    payload = merge_live_kino(payload, prizes or {}, prices or {})
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return output_path

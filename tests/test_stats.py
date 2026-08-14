@@ -10,6 +10,7 @@ from polla_app.stats import (
     DEFAULT_STATS_URL,
     _to_number,
     build_stats_payload,
+    merge_live_kino,
     merge_real_prices,
     merge_real_prizes,
     resolve_stats_url,
@@ -221,30 +222,58 @@ def _kino_prices() -> dict[str, dict[str, int]]:
     }
 
 
-def test_merge_real_prices_maps_kino_sheet_rows_to_hub() -> None:
+def test_merge_live_kino_rebuilds_section_with_all_additional_games() -> None:
     payload = build_stats_payload(FIXTURE.read_text(encoding="utf-8"))
     payload["games"]["Kino"] = [
-        {"Categoría": "Club Kino", "Precio o apuesta": "600", "Precio o apuesta (num)": 600.0},
-        {"Categoría": "Rekino", "Precio o apuesta": "400", "Precio o apuesta (num)": 400.0},
-        {
-            "Categoría": "Chanchito Regalón",
-            "Precio o apuesta": "200",
-            "Precio o apuesta (num)": 200.0,
-        },
+        {"Categoría": "Club Kino", "Precio o apuesta": "600"},
+        {"Categoría": "Chanchito Regalón", "Precio o apuesta": "200"},
     ]
-    merge_real_prices(payload, _kino_prices())
+    merge_live_kino(
+        payload,
+        prizes={
+            "Kino": 8_370_000_000,
+            "ReKino": 1_610_000_000,
+            "RequeteKino": 1_040_000_000,
+            "Chao Jefe $2 Millones": 1_200_000_000,
+            "Chao Jefe $3 Millones": 1_080_000_000,
+            "Súper Combo Marraqueta": 1_000_000_000,
+        },
+        prices=_kino_prices(),
+    )
 
     rows = {row["Categoría"]: row for row in payload["games"]["Kino"]}
-    club = rows["Club Kino"]
-    assert club["precio_real_clp"] == 1000  # hub "Kino"
+    assert list(rows.keys()) == [
+        "Kino",
+        "ReKino",
+        "RequeteKino",
+        "Chao Jefe $2 Millones",
+        "Chao Jefe $3 Millones",
+        "Súper Combo Marraqueta",
+    ]
+    # Obsolete sheet rows are gone
+    assert "Chanchito Regalón" not in rows
+
+    club = rows["Kino"]
+    assert club["precio_real_clp"] == 1000
     assert club["precio_acumulado_clp"] == 1000
-    assert club["precio_estatico"] is False
+    assert club["premio_real_clp"] == 8_370_000_000
+    assert club["retorno_real_pct"] == pytest.approx(187.78, abs=0.01)
 
-    rekino = rows["Rekino"]
-    assert rekino["precio_real_clp"] == 500  # hub "ReKino"
+    rekino = rows["ReKino"]
+    assert rekino["precio_real_clp"] == 500
     assert rekino["precio_acumulado_clp"] == 1500
+    assert rekino["premio_real_clp"] == 1_610_000_000
+    assert rekino["retorno_real_pct"] == pytest.approx(72.24, abs=0.01)
 
-    # No hub equivalent: stays reference
-    chancho = rows["Chanchito Regalón"]
-    assert chancho["precio_estatico"] is True
-    assert chancho["precio_real_clp"] is None
+    combo = rows["Súper Combo Marraqueta"]
+    assert combo["precio_acumulado_clp"] == 3500
+    assert combo["premio_real_clp"] == 1_000_000_000
+
+
+def test_merge_live_kino_keeps_sheet_rows_when_no_live_prizes() -> None:
+    payload = build_stats_payload(FIXTURE.read_text(encoding="utf-8"))
+    payload["games"]["Kino"] = [{"Categoría": "Club Kino", "Precio o apuesta": "600"}]
+    merge_live_kino(payload, prizes={}, prices=_kino_prices())
+    # No live prizes -> section untouched (UI renders "—" without ref marks)
+    assert payload["games"]["Kino"][0]["Categoría"] == "Club Kino"
+    assert "kino_live" not in payload

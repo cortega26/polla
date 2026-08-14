@@ -16,13 +16,14 @@
 
   <header class="masthead">
     <div class="masthead__inner">
-      <p class="eyebrow">Tooltician · datos verificados</p>
-      <h1 class="masthead__title">Pozos <span class="masthead__amp">&amp;</span> Chile</h1>
-      <p class="masthead__sub">Estimaciones del próximo sorteo, cotejadas entre fuentes oficiales y espejos verificados.</p>
+      <div class="masthead__brand">
+        <p class="eyebrow">Tooltician · datos verificados</p>
+        <h1 class="masthead__title">Pozos <span class="amp">&amp;</span> Chile</h1>
+        <p class="masthead__sub">Estimaciones del próximo sorteo del Loto y del Kino, cotejadas entre fuentes oficiales y espejos verificados.</p>
+      </div>
       <p class="masthead__meta">
-        Actualizado <time id="last-updated" datetime="">…</time>
-        <span class="dot" aria-hidden="true">·</span>
-        <span id="last-decision" class="stamp stamp--muted">cargando</span>
+        <time id="last-updated" datetime="">…</time>
+        <span id="last-decision" class="stamp">cargando</span>
       </p>
     </div>
   </header>
@@ -86,24 +87,24 @@
       <h2 id="stats-title" class="section-title">Estadísticas de juego <span class="section-note">probabilidades y retornos</span></h2>
       <div class="pills" id="stats-pills" role="group" aria-label="Filtrar por juego"></div>
       <div class="table-scroll" tabindex="0" aria-label="Estadísticas por categoría">
-        <table class="tbl tbl--stats">
+        <table class="tbl tbl--stats tbl--sortable" id="stats-table">
           <thead>
             <tr>
               <th scope="col">Juego</th>
               <th scope="col">Categoría</th>
-              <th scope="col" class="tbl__num">Apuesta</th>
-              <th scope="col" class="tbl__num">Acumulado</th>
-              <th scope="col" class="tbl__num">Combinaciones</th>
+              <th scope="col" class="tbl__num" data-sort="apuesta">Apuesta</th>
+              <th scope="col" class="tbl__num" data-sort="acumulado">Acumulado</th>
+              <th scope="col" class="tbl__num" data-sort="combinaciones">Combinaciones</th>
               <th scope="col" class="tbl__num">Probabilidad</th>
-              <th scope="col" class="tbl__num">Premio actual</th>
-              <th scope="col" class="tbl__num">Retorno esperado</th>
+              <th scope="col" class="tbl__num" data-sort="premio">Premio actual</th>
+              <th scope="col" class="tbl__num" data-sort="retorno">Retorno esperado</th>
             </tr>
           </thead>
           <tbody id="stats-body"></tbody>
         </table>
       </div>
       <p class="history__empty" id="stats-empty" hidden>Estadísticas no disponibles todavía.</p>
-      <p class="stats-note">Premios, apuestas y acumulado provienen del scrape en vivo del sitio oficial (Loto: polla.cl; Kino: hub kino.loteria.cl) en cada sorteo; el retorno esperado se calcula con esos datos (premio ÷ combinaciones ÷ apuesta). Sin mapeo o fuente no disponible → "—" o "(ref)".</p>
+      <p class="stats-note">Datos scrapeados del sitio oficial en cada sorteo: premios del pendón Kino (Lotería de Concepción) y pozos Loto (polla.cl/openloto); apuestas y acumulado del hub oficial; retorno esperado = premio ÷ combinaciones ÷ apuesta. Sin dato publicado → "—".</p>
     </section>
   </main>
 

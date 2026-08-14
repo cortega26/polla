@@ -3,11 +3,11 @@
   "fecha": "2026-08-14",
   "montos": {
     "Kino": 8370000000,
-    "Kino Revancha": 1610000000,
-    "Kino Revancha 2": 1040000000,
-    "Kino Sueldo 50": 1200000000,
-    "Kino Sueldo 30": 1080000000,
-    "Kino Casa": 1000000000
+    "ReKino": 1610000000,
+    "RequeteKino": 1040000000,
+    "Chao Jefe $2 Millones": 1200000000,
+    "Chao Jefe $3 Millones": 1080000000,
+    "Súper Combo Marraqueta": 1000000000
   },
   "estimado": true
 }

@@ -92,6 +92,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          python -m playwright install chromium --with-deps || python -m playwright install chromium
 
       - name: Run alternative-source pipeline (Loto pozos)
         id: pipeline

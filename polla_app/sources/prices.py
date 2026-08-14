@@ -133,6 +133,42 @@ def _extract_prices(text: str) -> dict[str, Any]:
     return {"precios": prices, "cumulative": cumulative}
 
 
+def _fetch_game_page(url: str, *, ua: str, timeout: int, retries: int | None) -> str:
+    """Fetch the Loto game page, falling back to a browser client.
+
+    polla.cl blocks plain HTTP clients from some networks (e.g. GitHub
+    Actions runners return 403). The fallback renders the page with
+    Scrapling's StealthyFetcher (same mechanism as the polla pozos source).
+    """
+    try:
+        metadata = fetch_html(url, ua=ua, timeout=timeout, retries=retries)
+        return metadata.html
+    except Exception as exc:
+        try:
+            from scrapling import StealthyFetcher
+        except ImportError as import_error:  # pragma: no cover - optional dep
+            raise ParseError(
+                "scrapling must be installed to fetch Loto prices from polla.cl"
+            ) from import_error
+
+        LOGGER.info("Plain fetch of %s failed (%s); retrying with browser", url, type(exc).__name__)
+        try:
+            fetcher = StealthyFetcher(headless=True)
+            page = fetcher.fetch(url, timeout=timeout)
+            if getattr(page, "status", None) != 200:
+                raise ParseError(
+                    f"polla.cl prices fetch failed with status {getattr(page, 'status', None)}"
+                )
+            return str(getattr(page, "html", "") or getattr(page, "text", ""))
+        except ParseError:
+            raise
+        except Exception as browser_exc:
+            raise ParseError(
+                f"polla.cl prices fetch failed (browser): {type(browser_exc).__name__}",
+                original_error=browser_exc,
+            ) from browser_exc
+
+
 def get_loto_prices(
     url: str = LOTO_PRICES_URL,
     *,
@@ -145,17 +181,18 @@ def get_loto_prices(
     The price block is server-rendered but embedded JSON-escaped inside a
     script (HTML entities + escaped newlines), so the parser runs over the
     raw page after HTML-unescaping; BeautifulSoup's ``get_text`` would skip
-    it. The regexes tolerate surrounding tags.
+    it. The regexes tolerate surrounding tags. Falls back to a headless
+    browser when the plain HTTP client is blocked.
     """
     import html
 
-    metadata = fetch_html(url, ua=ua, timeout=timeout, retries=retries)
-    payload = _extract_prices(html.unescape(metadata.html))
+    raw_html = _fetch_game_page(url, ua=ua, timeout=timeout, retries=retries)
+    payload = _extract_prices(html.unescape(raw_html))
     return {
         "fuente": url,
         "fetched_at": datetime.now(timezone.utc).isoformat(),
-        "sha256": hashlib.sha256(metadata.html.encode("utf-8")).hexdigest(),
-        "user_agent": metadata.user_agent,
+        "sha256": hashlib.sha256(raw_html.encode("utf-8")).hexdigest(),
+        "user_agent": ua,
         **payload,
     }
 

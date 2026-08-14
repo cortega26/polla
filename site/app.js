@@ -26,9 +26,21 @@
   };
 
   function stampState(value) {
-    if (value === "full") return "";
+    if (value === "full") return "ok";
     if (value === "single_source") return "warn";
     return "bad";
+  }
+
+  function relativeTime(iso) {
+    const then = new Date(iso);
+    const diff = Math.max(0, Date.now() - then.getTime());
+    const min = Math.floor(diff / 60000);
+    if (min < 1) return "recién actualizado";
+    if (min < 60) return `actualizado hace ${min} min`;
+    const hours = Math.floor(min / 60);
+    if (hours < 24) return `actualizado hace ${hours} h`;
+    const days = Math.floor(hours / 24);
+    return `actualizado hace ${days} d`;
   }
 
   function countUp(el, target, duration = 900) {
@@ -57,7 +69,7 @@
     $(`${prefix}-confidence`).textContent =
       CONFIDENCE_LABELS[section.confidence] || section.confidence || "—";
     $(`${prefix}-confidence`).className =
-      `stamp${accent ? " stamp--kino" : ""} stamp--${stampState(section.confidence)}`;
+      `stamp stamp--${stampState(section.confidence)}`;
 
     const cats = $(`${prefix}-cats`);
     cats.textContent = "";
@@ -108,12 +120,33 @@
 
   let statsData = null;
   let statsFilter = "Todos";
+  let statsSort = { key: null, dir: 1 };
 
   function cell(value, cls = "") {
     const td = document.createElement("td");
     if (cls) td.className = cls;
     td.textContent = value ?? "—";
     return td;
+  }
+
+  const KINO_TAG = /^kino/i;
+
+  function gameTag(game) {
+    const span = document.createElement("span");
+    span.className = `game-tag${KINO_TAG.test(game) ? " game-tag--kino" : ""}`;
+    span.textContent = game;
+    return span;
+  }
+
+  function statRows() {
+    const rows = [];
+    for (const [game, gameRows] of Object.entries(statsData.games)) {
+      if (statsFilter !== "Todos" && game !== statsFilter) continue;
+      for (const row of gameRows) {
+        rows.push({ game, row });
+      }
+    }
+    return rows;
   }
 
   function renderStats() {
@@ -126,41 +159,48 @@
     }
     empty.hidden = true;
 
-    for (const [game, rows] of Object.entries(statsData.games)) {
-      if (statsFilter !== "Todos" && game !== statsFilter) continue;
-      for (const row of rows) {
-        const tr = document.createElement("tr");
-        const odds = row["Probabilidad de ganar"];
-        const premio = row["premio_real_clp"];
-        const retorno = row["retorno_real_pct"];
-        const staticPrice = row["precio_estatico"];
-        const apuesta = staticPrice
-          ? row["Precio o apuesta (num)"]
-          : row["precio_real_clp"];
-        const acumulado = staticPrice
-          ? row["Precio Acumulado (num)"]
-          : row["precio_acumulado_clp"];
-        const apuestaTxt =
-          apuesta != null
-            ? `${staticPrice ? "≈" : "+"}$${fmtCLP.format(apuesta)}${staticPrice ? " (ref)" : ""}`
-            : "—";
-        tr.append(
-          cell(game, "game-name"),
-          cell(row["Categoría"] || "—"),
-          cell(apuestaTxt, "tbl__num"),
-          cell(acumulado != null ? `$${fmtCLP.format(acumulado)}` : "—", "tbl__num"),
-          cell(
-            row["Combinaciones totales (num)"] != null
-              ? fmtCLP.format(row["Combinaciones totales (num)"])
-              : "—",
-            "tbl__num"
-          ),
-          cell(odds ? odds : "—", "tbl__num"),
-          cell(premio != null ? `$${fmtCLP.format(premio)}` : "—", "tbl__num"),
-          cell(retorno != null ? `${fmtPct.format(retorno)}%` : "—", "tbl__num")
-        );
-        body.append(tr);
-      }
+    let rows = statRows();
+    if (statsSort.key) {
+      const { key, dir } = statsSort;
+      rows.sort((a, b) => {
+        const av = a.row[key];
+        const bv = b.row[key];
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        return (av < bv ? -1 : av > bv ? 1 : 0) * dir;
+      });
+    }
+
+    for (const { game, row } of rows) {
+      const tr = document.createElement("tr");
+      const odds = row["Probabilidad de ganar"];
+      const premio = row["premio_real_clp"];
+      const retorno = row["retorno_real_pct"];
+      const apuesta = row["precio_real_clp"];
+      const acumulado = row["precio_acumulado_clp"];
+      const esBase = apuesta != null && apuesta === acumulado;
+      const apuestaTxt =
+        apuesta != null ? `${esBase ? "" : "+"}$${fmtCLP.format(apuesta)}` : "—";
+
+      const gameTd = document.createElement("td");
+      gameTd.append(gameTag(game));
+      tr.append(
+        gameTd,
+        cell(row["Categoría"] || "—"),
+        cell(apuestaTxt, "tbl__num"),
+        cell(acumulado != null ? `$${fmtCLP.format(acumulado)}` : "—", "tbl__num"),
+        cell(
+          row["Combinaciones totales (num)"] != null
+            ? fmtCLP.format(row["Combinaciones totales (num)"])
+            : "—",
+          "tbl__num"
+        ),
+        cell(odds ? odds : "—", "tbl__num"),
+        cell(premio != null ? `$${fmtCLP.format(premio)}` : "—", "tbl__num"),
+        cell(retorno != null ? `${fmtPct.format(retorno)}%` : "—", "tbl__num")
+      );
+      body.append(tr);
     }
   }
 
@@ -175,7 +215,7 @@
       btn.className = "pill";
       btn.textContent = game;
       btn.setAttribute("aria-pressed", String(game === statsFilter));
-      if (/kino/i.test(game)) btn.classList.add("pill--kino");
+      if (KINO_TAG.test(game)) btn.classList.add("pill--kino");
       btn.addEventListener("click", () => {
         statsFilter = game;
         renderStatsPills();
@@ -183,6 +223,33 @@
       });
       pillsEl.append(btn);
     }
+  }
+
+  const SORTABLE_KEYS = {
+    apuesta: "precio_real_clp",
+    acumulado: "precio_acumulado_clp",
+    combinaciones: "Combinaciones totales (num)",
+    premio: "premio_real_clp",
+    retorno: "retorno_real_pct",
+  };
+
+  function wireStatsSorting() {
+    document.querySelectorAll("#stats-section th[data-sort]").forEach((th) => {
+      th.addEventListener("click", () => {
+        const key = SORTABLE_KEYS[th.dataset.sort];
+        if (!key) return;
+        if (statsSort.key === key) {
+          statsSort.dir *= -1;
+        } else {
+          statsSort = { key, dir: 1 };
+        }
+        document.querySelectorAll("#stats-section th").forEach((h) =>
+          h.removeAttribute("aria-sort")
+        );
+        th.setAttribute("aria-sort", statsSort.dir === 1 ? "ascending" : "descending");
+        renderStats();
+      });
+    });
   }
 
   async function main() {
@@ -201,8 +268,11 @@
     const updated = $("last-updated");
     updated.dateTime = data.generated_at || "";
     updated.textContent = data.generated_at
-      ? fmtDateTime.format(new Date(data.generated_at))
+      ? relativeTime(data.generated_at)
       : "desconocido";
+    if (data.generated_at) {
+      updated.title = fmtDateTime.format(new Date(data.generated_at));
+    }
 
     const decision = data.last_decision || {};
     const status = decision.status || "unknown";
@@ -216,7 +286,7 @@
             ? "sin cambios"
             : "desconocido";
     decisionEl.className = `stamp stamp--${
-      status === "publish" ? "" : status === "quarantine" ? "bad" : "muted"
+      status === "publish" ? "ok" : status === "quarantine" ? "bad" : "warn"
     }`;
 
     if (data.loto) renderTicket(data.loto, "loto", false);
@@ -239,6 +309,7 @@
     }
     renderStatsPills();
     renderStats();
+    wireStatsSorting();
   }
 
   main();

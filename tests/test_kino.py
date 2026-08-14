@@ -52,11 +52,11 @@ def test_extract_montos_skips_zeros_and_maps_categories() -> None:
     montos = _extract_montos(SAMPLE_OUTPUTS)
     assert montos == {
         "Kino": 8_370_000_000,
-        "Kino Revancha": 1_610_000_000,
-        "Kino Revancha 2": 1_040_000_000,
-        "Kino Sueldo 50": 1_200_000_000,
-        "Kino Sueldo 30": 1_080_000_000,
-        "Kino Casa": 1_000_000_000,
+        "ReKino": 1_610_000_000,
+        "RequeteKino": 1_040_000_000,
+        "Chao Jefe $2 Millones": 1_200_000_000,
+        "Chao Jefe $3 Millones": 1_080_000_000,
+        "Súper Combo Marraqueta": 1_000_000_000,
     }
     # Gran Sueldo is 0 in the source -> omitted (no phantom zeros)
     assert "Kino Gran Sueldo" not in montos
@@ -153,5 +153,6 @@ def test_kino_pipeline_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     record = json.loads((tmp_path / "normalized.jsonl").read_text(encoding="utf-8").splitlines()[0])
     assert record["sorteo"] == 3266
     assert record["pozos_proximo"]["Kino"] == 8_370_000_000
-    # Kino categories never collide with Loto's "Revancha"
+    # Kino categories use hub names and never collide with Loto's "Revancha"
     assert "Revancha" not in record["pozos_proximo"]
+    assert record["pozos_proximo"]["ReKino"] == 1_610_000_000
