@@ -28,8 +28,9 @@
     </div>
   </header>
 
-  <main id="content" class="wrap">
-    <section class="tickets" aria-label="Pozos actuales">
+  <main id="content">
+    <div class="wrap">
+      <section class="tickets" aria-label="Pozos actuales">
       <article class="ticket" id="ticket-loto" aria-labelledby="loto-title">
         <header class="ticket__head">
           <div>
@@ -64,7 +65,9 @@
         </footer>
       </article>
     </section>
+    </div>
 
+    <div class="wrap wrap--wide">
     <section class="history" aria-labelledby="history-title">
       <h2 id="history-title" class="section-title">Sorteos recientes</h2>
       <div class="table-scroll" tabindex="0" aria-label="Historial de pozos por sorteo">
@@ -106,6 +109,7 @@
       <p class="history__empty" id="stats-empty" hidden>Estadísticas no disponibles todavía.</p>
       <p class="stats-note">Datos scrapeados del sitio oficial en cada sorteo: premios del pendón Kino (Lotería de Concepción) y pozos Loto (polla.cl/openloto); apuestas y acumulado del hub oficial; retorno esperado = premio ÷ combinaciones ÷ apuesta. Sin dato publicado → "—".</p>
     </section>
+    </div>
   </main>
 
   <footer class="footer">

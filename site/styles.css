@@ -125,6 +125,13 @@ body {
 
 .wrap { max-width: 68rem; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 
+/* Tables (history + stats) break out of the narrow column on wide screens
+   so the full prize list fits without horizontal scroll. */
+.wrap--wide {
+  max-width: 120rem;
+  padding-top: 0.5rem;
+}
+
 /* ---------- Tickets (pozos) ---------- */
 
 .tickets {
