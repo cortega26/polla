@@ -41,6 +41,49 @@ def _should_redact_key(key: str) -> bool:
     return key_l == "key" or key_l.startswith("key_") or key_l.endswith("_key") or "_key_" in key_l
 
 
+_SENSITIVE_QUERY_PARAMS = (
+    "token",
+    "key",
+    "apikey",
+    "api_key",
+    "sig",
+    "signature",
+    "credential",
+    "password",
+    "secret",
+    "auth",
+    "session",
+    "access_token",
+)
+
+
+def _redact_url_query(value: str) -> str:
+    """Redact sensitive query/fragment params from a URL (host/path kept)."""
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+    try:
+        parts = urlsplit(value)
+        if not parts.scheme or not parts.netloc:
+            return value
+        query = parse_qsl(parts.query, keep_blank_values=True)
+        redacted = [
+            (k, "<redacted>" if k.lower() in _SENSITIVE_QUERY_PARAMS else v) for k, v in query
+        ]
+        fragment = parts.fragment
+        if fragment:
+            frag_parts = parse_qsl(fragment, keep_blank_values=True)
+            frag_redacted = [
+                (k, "<redacted>" if k.lower() in _SENSITIVE_QUERY_PARAMS else v)
+                for k, v in frag_parts
+            ]
+            fragment = urlencode(frag_redacted, safe="<>")
+        return urlunsplit(
+            (parts.scheme, parts.netloc, parts.path, urlencode(redacted, safe="<>"), fragment)
+        )
+    except Exception:
+        return value
+
+
 def sanitize(obj: Any) -> Any:
     """Recursively sanitize payloads by redacting sensitive tokens.
 
@@ -57,7 +100,10 @@ def sanitize(obj: Any) -> Any:
                 else:
                     result[k] = "<redacted>"
             else:
-                result[k] = sanitize(v)
+                if isinstance(v, str) and v.startswith(("http://", "https://")):
+                    result[k] = _redact_url_query(v)
+                else:
+                    result[k] = sanitize(v)
         return result
     if isinstance(obj, list):
         return [sanitize(x) for x in obj]

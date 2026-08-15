@@ -22,6 +22,24 @@ def test_contextual_redaction_logic() -> None:
     assert "…" in sanitized_sensitive["api_key"]
 
 
+def test_sanitize_redacts_sensitive_url_query_params() -> None:
+    payload = {
+        "fuente": "https://api.example.test/feed?token=abc123&game=loto",
+        "url": "https://www.openloto.cl/pozo-del-loto.html",
+    }
+    cleaned = sanitize(payload)
+    assert cleaned["fuente"] == "https://api.example.test/feed?token=<redacted>&game=loto"
+    assert cleaned["url"] == "https://www.openloto.cl/pozo-del-loto.html"
+
+
+def test_sanitize_keeps_plain_urls_and_non_urls() -> None:
+    cleaned = sanitize(
+        {"url": "https://www.openloto.cl/pozo-del-loto.html", "nombre": "Loto Clásico"}
+    )
+    assert cleaned["url"].startswith("https://www.openloto.cl")
+    assert cleaned["nombre"] == "Loto Clásico"
+
+
 def test_script_error_logs_are_sanitized(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.ERROR)
     logger = logging.getLogger("test_logger")
