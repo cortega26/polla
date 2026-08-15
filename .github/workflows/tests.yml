@@ -33,7 +33,7 @@ jobs:
       - name: Mypy
         run: mypy polla_app tests
       - name: Pytest
-        run: pytest tests -v --cov=polla_app --cov-report=xml
+        run: pytest tests -v --cov=polla_app --cov-report=xml --cov-fail-under=80
       - name: Upload coverage
         uses: codecov/codecov-action@v6
         with:
