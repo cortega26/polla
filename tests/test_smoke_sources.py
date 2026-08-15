@@ -53,6 +53,7 @@ def test_source_smoke_fixture(source_name: str, monkeypatch: pytest.MonkeyPatch)
         mock_fetcher_instance.fetch.return_value = mock_page
         mock_fetcher_cls.return_value = mock_fetcher_instance
         monkeypatch.setattr("scrapling.StealthyFetcher", mock_fetcher_cls)
+        monkeypatch.setattr("polla_app.sources.browser._fetcher", None)
     elif source_name == "kino":
         # Kino uses fetch_html too (plain HTTP)
         metadata = FetchMetadata(

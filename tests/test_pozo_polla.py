@@ -31,6 +31,7 @@ def test_get_pozo_polla_success(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_fetcher_cls.return_value = mock_fetcher_instance
 
     monkeypatch.setattr("scrapling.StealthyFetcher", mock_fetcher_cls)
+    monkeypatch.setattr("polla_app.sources.browser._fetcher", None)
 
     result = get_pozo_polla()
 
@@ -53,6 +54,7 @@ def test_get_pozo_polla_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_fetcher_cls.return_value = mock_fetcher_instance
 
     monkeypatch.setattr("scrapling.StealthyFetcher", mock_fetcher_cls)
+    monkeypatch.setattr("polla_app.sources.browser._fetcher", None)
 
     with pytest.raises(ParseError, match="polla.cl fetch failed with status 403"):
         get_pozo_polla()
@@ -97,6 +99,7 @@ def test_get_pozo_polla_timeout_propagation(monkeypatch: pytest.MonkeyPatch) -> 
     mock_fetcher_cls.return_value = mock_fetcher_instance
 
     monkeypatch.setattr("scrapling.StealthyFetcher", mock_fetcher_cls)
+    monkeypatch.setattr("polla_app.sources.browser._fetcher", None)
 
     # get_pozo_polla(timeout=42) should now succeed
     get_pozo_polla(timeout=42)

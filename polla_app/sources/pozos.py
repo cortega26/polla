@@ -281,7 +281,7 @@ def get_pozo_polla(
     and then parses the structured HTML.
     """
     try:
-        from scrapling import StealthyFetcher
+        from scrapling import StealthyFetcher  # noqa: F401 - availability check
     except ImportError as e:
         raise ParseError("scrapling must be installed to fetch from polla.cl") from e
 
@@ -314,7 +314,9 @@ def get_pozo_polla(
 
     try:
         # StealthyFetcher can take some time to initialize; we use the timeout for the fetch itself
-        fetcher = StealthyFetcher(headless=True)
+        from .browser import get_stealthy_fetcher
+
+        fetcher = get_stealthy_fetcher()
 
         last_exc: Exception | None = None
         max_attempts = retries if retries is not None else 1

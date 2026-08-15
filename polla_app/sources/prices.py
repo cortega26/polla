@@ -145,7 +145,7 @@ def _fetch_game_page(url: str, *, ua: str, timeout: int, retries: int | None) ->
         return metadata.html
     except Exception as exc:
         try:
-            from scrapling import StealthyFetcher
+            from scrapling import StealthyFetcher  # noqa: F401 - availability check
         except ImportError as import_error:  # pragma: no cover - optional dep
             raise ParseError(
                 "scrapling must be installed to fetch Loto prices from polla.cl"
@@ -153,7 +153,9 @@ def _fetch_game_page(url: str, *, ua: str, timeout: int, retries: int | None) ->
 
         LOGGER.info("Plain fetch of %s failed (%s); retrying with browser", url, type(exc).__name__)
         try:
-            fetcher = StealthyFetcher(headless=True)
+            from .browser import get_stealthy_fetcher
+
+            fetcher = get_stealthy_fetcher()
             page = fetcher.fetch(url, timeout=timeout)
             if getattr(page, "status", None) != 200:
                 raise ParseError(
