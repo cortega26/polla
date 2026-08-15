@@ -36,6 +36,17 @@ jobs:
           pip install -r requirements.txt
           python -m playwright install chromium --with-deps || python -m playwright install chromium
 
+      - name: Restore last dashboard data
+        id: restore-site-data
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            site/data.json
+            site/stats.json
+          key: site-data-${{ github.ref_name }}-${{ github.run_number }}
+          restore-keys: |
+            site-data-${{ github.ref_name }}-
+
       - name: Ingest Loto pozos (dry data for the dashboard)
         id: ingest-loto
         continue-on-error: true
@@ -76,11 +87,24 @@ jobs:
 
       - name: Generate dashboard data
         run: |
-          python -m polla_app site \
-            --normalized artifacts/normalized.jsonl \
-            --normalized-kino artifacts_kino/normalized.jsonl \
-            --summary artifacts/run_summary.json \
-            --output site/data.json
+          if [ -s artifacts/normalized.jsonl ] || [ -s artifacts_kino/normalized.jsonl ]; then
+            python -m polla_app site \
+              --normalized artifacts/normalized.jsonl \
+              --normalized-kino artifacts_kino/normalized.jsonl \
+              --summary artifacts/run_summary.json \
+              --output site/data.json
+          else
+            echo "::warning::Ingestas fallidas; se conserva la última data del dashboard"
+          fi
+
+      - name: Save dashboard data
+        uses: actions/cache/save@v5
+        if: always()
+        with:
+          path: |
+            site/data.json
+            site/stats.json
+          key: site-data-${{ github.ref_name }}-${{ github.run_number }}
 
       - name: Configure Pages
         uses: actions/configure-pages@v6
