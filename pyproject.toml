@@ -35,40 +35,6 @@ addopts = "-q"
 line-length = 100
 target-version = ["py313"]
 
-[tool.mypy]
-python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-warn_unused_ignores = false
-disallow_untyped_defs = true
-
-[[tool.mypy.overrides]]
-module = "gspread"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "requests"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "bs4"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "bs4.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "scrapling.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "scrapling"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "playwright.*"
-ignore_missing_imports = true
 [tool.coverage.run]
 source = ["polla_app"]
 omit = ["tests/*"]
