@@ -1,7 +1,5 @@
 """Próximo pozo parsers for community aggregators."""
 
-from __future__ import annotations
-
 import logging
 import os
 import re

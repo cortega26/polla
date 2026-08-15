@@ -7,8 +7,6 @@ It provides:
 - A sanitizer that redacts sensitive fields
 """
 
-from __future__ import annotations
-
 import time
 from collections.abc import Callable, Mapping
 from contextlib import contextmanager

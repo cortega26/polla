@@ -1,7 +1,5 @@
 """Orchestration for próximo pozo aggregation (openloto + polla)."""
 
-from __future__ import annotations
-
 import inspect
 import json
 import logging

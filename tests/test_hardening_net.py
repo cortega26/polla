@@ -1,7 +1,5 @@
 """Tests for retry behaviour, state rotation and the publish lock."""
 
-from __future__ import annotations
-
 import json
 from collections.abc import Callable
 from pathlib import Path

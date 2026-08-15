@@ -12,8 +12,6 @@ parser raises ParseError and the pipeline continues without prices
 (the dashboard renders "—" instead of stale values).
 """
 
-from __future__ import annotations
-
 import hashlib
 import logging
 import re

@@ -1,7 +1,5 @@
 """Error taxonomy and utilities for the Polla scraper."""
 
-from __future__ import annotations
-
 import logging
 import traceback
 from collections.abc import Mapping

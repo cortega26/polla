@@ -1,7 +1,5 @@
 """Tests for the shared StealthyFetcher singleton."""
 
-from __future__ import annotations
-
 import pytest
 
 

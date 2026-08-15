@@ -1,7 +1,5 @@
 """Utilities to publish validated data to Google Sheets."""
 
-from __future__ import annotations
-
 import json
 import logging
 import os
@@ -98,7 +96,7 @@ class _PublishLock:
         self.timeout = timeout
         self._handle: Any = None
 
-    def __enter__(self) -> _PublishLock:
+    def __enter__(self) -> "_PublishLock":
         if fcntl is None:  # pragma: no cover - non-POSIX fallback
             return self
         self.path.parent.mkdir(parents=True, exist_ok=True)

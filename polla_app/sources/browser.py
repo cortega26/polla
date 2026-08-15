@@ -5,8 +5,6 @@ back to Scrapling's StealthyFetcher. A single instance is reused per process
 to avoid launching Chromium more than once per run.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 

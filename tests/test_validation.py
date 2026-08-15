@@ -1,7 +1,5 @@
 """Tests for the game-aware validation module."""
 
-from __future__ import annotations
-
 from polla_app.validation import (
     validate_amounts,
     validate_kino_numbers,

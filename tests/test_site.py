@@ -1,7 +1,5 @@
 """Tests for the static dashboard data generator."""
 
-from __future__ import annotations
-
 import json
 from pathlib import Path
 from typing import Any

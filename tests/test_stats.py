@@ -1,7 +1,5 @@
 """Tests for the game-stats sync (public Google Sheets CSV → stats.json)."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest

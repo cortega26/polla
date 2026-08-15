@@ -1,7 +1,5 @@
 """CLI entry point for the alternative-source ingestion workflow."""
 
-from __future__ import annotations
-
 import json
 import logging
 import os

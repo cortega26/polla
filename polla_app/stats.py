@@ -9,8 +9,6 @@ The CSV URL is configurable via ``POLLA_STATS_URL``; fetching respects
 robots.txt and the shared rate limiter (``net.fetch_html``).
 """
 
-from __future__ import annotations
-
 import csv
 import io
 import json

@@ -6,8 +6,6 @@ records plus deduplicated history into that file, so the presentation
 layer never touches the network or the pipeline internals.
 """
 
-from __future__ import annotations
-
 import json
 from datetime import datetime, timezone
 from pathlib import Path

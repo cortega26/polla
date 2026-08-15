@@ -7,8 +7,6 @@ Run:
   python scripts/benchmark_pozos_parsing.py
 """
 
-from __future__ import annotations
-
 import json
 import sys
 import timeit

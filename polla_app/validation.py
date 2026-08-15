@@ -4,8 +4,6 @@ A suspicious result must never be published silently: every validation
 issue is reported with the offending value so operators can act.
 """
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
