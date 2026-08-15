@@ -88,6 +88,9 @@ def _calculate_backoff(attempt: int, factor: float, max_seconds: float) -> float
 # connections. Everything else (4xx, TLS, malformed responses) fails fast.
 _RETRYABLE_EXC = (requests.exceptions.Timeout, requests.exceptions.ConnectionError)
 
+# HTTP status codes worth retrying with backoff (transient server errors).
+_RETRYABLE_STATUS = (429, 502, 503, 504)
+
 
 def fetch_html(
     url: str,
@@ -169,15 +172,16 @@ def fetch_html(
             response = _request()
             break
         except requests.HTTPError as err:
-            # Only HTTP 429 is retryable; other status codes fail fast.
+            # Only transient status codes are retryable; the rest fail fast.
             attempts += 1
             status = getattr(err.response, "status_code", None)
-            if attempts >= max_retries or status != 429:
+            if attempts >= max_retries or status not in _RETRYABLE_STATUS:
                 raise
 
             sleep_time = _calculate_backoff(attempts, backoff_factor, 300.0)
             LOGGER.info(
-                "429 received from %s (attempt %d/%d); backing off %.1fs",
+                "%s received from %s (attempt %d/%d); backing off %.1fs",
+                status,
                 url,
                 attempts,
                 max_retries,

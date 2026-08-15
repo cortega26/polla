@@ -77,6 +77,48 @@ def test_fetch_html_exhausts_retries_on_persistent_timeout(
         fetch_html("https://example.test", "ua", timeout=5, retries=2)
 
 
+def test_fetch_html_retries_on_503(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
+    error = requests.HTTPError("Service Unavailable")
+    error.response = requests.Response()
+    error.response.status_code = 503
+    state: list[Any] = [error]
+
+    def fail_once(*args: Any, **kwargs: Any) -> requests.Response:
+        if state:
+            state.pop(0)
+            raise error
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b"<html>ok</html>"
+        return response
+
+    monkeypatch.setattr(
+        "polla_app.net.requests.Session",
+        lambda: type("S", (), {"get": fail_once})(),
+    )
+    monkeypatch.setenv("POLLA_BACKOFF_FACTOR", "0.001")
+    metadata = fetch_html("https://example.test", "ua", timeout=5, retries=2)
+    assert metadata.html == "<html>ok</html>"
+
+
+def test_fetch_html_fails_fast_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
+    error = requests.HTTPError("Not Found")
+    error.response = requests.Response()
+    error.response.status_code = 404
+
+    def always_404(*args: Any, **kwargs: Any) -> requests.Response:
+        raise error
+
+    monkeypatch.setattr(
+        "polla_app.net.requests.Session",
+        lambda: type("S", (), {"get": always_404})(),
+    )
+    with pytest.raises(requests.HTTPError):
+        fetch_html("https://example.test", "ua", timeout=5, retries=3)
+
+
 def test_persist_state_dedupes_by_sorteo_and_caps(tmp_path: Path) -> None:
     state_path = tmp_path / "state.jsonl"
     previous: list[dict[str, Any]] = []
