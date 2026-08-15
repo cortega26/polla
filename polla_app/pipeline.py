@@ -546,8 +546,30 @@ def _run_ingestion_for_sources(
         if "kino" in requested_sources:
             try:
                 kino_prices = prices_module.get_kino_prices(timeout=timeout, retries=retries)
-                record.setdefault("precios", {}).update(kino_prices["precios"])
-                log_event({"event": "prices_fetched", "game": "kino"})
+                kino_payload = next(
+                    (entry for entry in collected if entry.get("source_name") == "kino"),
+                    None,
+                )
+                pendon_sorteo = kino_payload.get("sorteo") if kino_payload else None
+                if pendon_sorteo and kino_prices.get("sorteo") != pendon_sorteo:
+                    LOGGER.warning(
+                        "Kino price hub sorteo %s does not match pendón sorteo %s; "
+                        "prices skipped for this run",
+                        kino_prices.get("sorteo"),
+                        pendon_sorteo,
+                    )
+                    log_event(
+                        {
+                            "event": "prices_failed",
+                            "game": "kino",
+                            "error": "sorteo_mismatch",
+                            "hub_sorteo": kino_prices.get("sorteo"),
+                            "pendon_sorteo": pendon_sorteo,
+                        }
+                    )
+                else:
+                    record.setdefault("precios", {}).update(kino_prices["precios"])
+                    log_event({"event": "prices_fetched", "game": "kino"})
             except Exception as exc:  # noqa: BLE001 - prices are auxiliary per run
                 LOGGER.warning("Could not fetch live Kino prices: %s", exc)
                 log_event({"event": "prices_failed", "game": "kino", "error": type(exc).__name__})

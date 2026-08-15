@@ -810,3 +810,87 @@ def test_pipeline_consensus_tie_breaking(tmp_path: Path, monkeypatch: pytest.Mon
     record = json.loads((tmp_path / "normalized.jsonl").read_text().splitlines()[0])
     # s1 should win because it was registered first
     assert record["pozos_proximo"]["Loto Clásico"] == 100_000_000
+
+
+def test_kino_prices_skipped_on_sorteo_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    def stub_kino(**_: object) -> dict[str, object]:
+        return {"precios": {"Kino": {"delta_clp": 1000, "acumulado_clp": 1000}}, "sorteo": 9999}
+
+    kino_payload = {
+        "fuente": "https://pendon-kino.loteria.cl/pendonkino",
+        "montos": {"Kino": 8_370_000_000},
+        "sorteo": 3266,
+        "fecha": "2026-08-14",
+    }
+    monkeypatch.setattr(pipeline_mod, "KINO_SOURCES", (("kino", lambda **_: kino_payload),))
+    monkeypatch.setattr(pipeline_mod.prices_module, "get_kino_prices", stub_kino)
+
+    run_pipeline(
+        sources=["kino"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=False,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+        include_prices=True,
+    )
+
+    record = json.loads((tmp_path / "normalized.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert "precios" not in record
+    log_lines = [
+        json.loads(line)
+        for line in (tmp_path / "run.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert any(
+        line.get("event") == "prices_failed" and line.get("error") == "sorteo_mismatch"
+        for line in log_lines
+    )
+
+
+def test_kino_prices_attached_when_sorteo_matches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    def stub_kino(**_: object) -> dict[str, object]:
+        return {"precios": {"Kino": {"delta_clp": 1000, "acumulado_clp": 1000}}, "sorteo": 3266}
+
+    kino_payload = {
+        "fuente": "https://pendon-kino.loteria.cl/pendonkino",
+        "montos": {"Kino": 8_370_000_000},
+        "sorteo": 3266,
+        "fecha": "2026-08-14",
+    }
+    monkeypatch.setattr(pipeline_mod, "KINO_SOURCES", (("kino", lambda **_: kino_payload),))
+    monkeypatch.setattr(pipeline_mod.prices_module, "get_kino_prices", stub_kino)
+
+    run_pipeline(
+        sources=["kino"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=False,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+        include_prices=True,
+    )
+
+    record = json.loads((tmp_path / "normalized.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert record["precios"]["Kino"]["delta_clp"] == 1000
