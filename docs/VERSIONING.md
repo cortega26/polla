@@ -8,7 +8,14 @@ This project follows Semantic Versioning (SemVer) for the Python package version
 
 ## API Version
 
-Artifacts and results include an `api_version` field (currently `v1`). Changes within `v1` are additive and backward‑compatible. Removals or breaking changes require a new API version (e.g., `v2`).
+Artifacts and results include an `api_version` field (currently `v1.2`, defined
+in `polla_app/contracts.py`). Changes within `v1.x` are additive and backward‑
+compatible: new fields may be added (e.g. `precios` in normalized records,
+`current_prizes_clp` / `current_prices` in the dashboard payload). Removals or
+breaking changes require a new API version (e.g., `v2`).
+
+When adding fields to artifacts, update `tests/test_contracts.py` to lock the
+new schema (see AGENTS.md, "Contracts").
 
 ## Deprecation
 
