@@ -113,3 +113,40 @@ def test_build_site_payload_dedupes_and_caps_history(tmp_path: Path) -> None:
     assert len(payload["history"]) == 100
     sorteos = [h["sorteo"] for h in payload["history"]]
     assert len(sorteos) == len(set(sorteos))
+
+
+def test_build_site_payload_reuses_previous_section_when_game_missing(
+    tmp_path: Path,
+) -> None:
+    loto = _write_ndjson(
+        tmp_path / "loto.jsonl",
+        [{"sorteo": 5465, "fecha": "2026-08-16", "pozos_proximo": {"Loto Clásico": 620_000_000}}],
+    )
+    previous = {
+        "loto": {"sorteo": 5465, "pozos_clp": {"Loto Clásico": 620_000_000}},
+        "kino": {"sorteo": 3266, "pozos_clp": {"Kino": 8_370_000_000}},
+    }
+
+    payload = build_site_payload(
+        loto_path=loto,
+        kino_path=tmp_path / "missing_kino.jsonl",
+        summary_path=None,
+        previous_payload=previous,
+    )
+
+    # Kino sin records -> se conserva la sección del payload anterior
+    assert payload["kino"]["sorteo"] == 3266
+    assert payload["loto"]["sorteo"] == 5465
+
+
+def test_build_site_payload_without_previous_keeps_none(tmp_path: Path) -> None:
+    loto = _write_ndjson(
+        tmp_path / "loto.jsonl",
+        [{"sorteo": 5465, "fecha": "2026-08-16", "pozos_proximo": {"Loto": 1}}],
+    )
+    payload = build_site_payload(
+        loto_path=loto,
+        kino_path=tmp_path / "missing_kino.jsonl",
+        summary_path=None,
+    )
+    assert payload["kino"] is None

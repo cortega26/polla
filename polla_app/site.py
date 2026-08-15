@@ -7,6 +7,7 @@ layer never touches the network or the pipeline internals.
 """
 
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -53,8 +54,14 @@ def build_site_payload(
     loto_path: Path,
     kino_path: Path | None,
     summary_path: Path | None,
+    previous_payload: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Aggregate Loto/Kino records into the dashboard payload."""
+    """Aggregate Loto/Kino records into the dashboard payload.
+
+    When a game produced no records this run (ingest failure), its section is
+    reused from ``previous_payload`` (e.g. the last successfully deployed
+    ``data.json``), so a single-game outage never blanks the dashboard.
+    """
     loto_records = _load_ndjson(loto_path)
     kino_records = _load_ndjson(kino_path) if kino_path else []
 
@@ -71,6 +78,11 @@ def build_site_payload(
 
     loto_section = _game_section(loto_records[-1] if loto_records else None)
     kino_section = _game_section(kino_records[-1] if kino_records else None)
+    if previous_payload:
+        if loto_section is None and previous_payload.get("loto"):
+            loto_section = previous_payload["loto"]
+        if kino_section is None and previous_payload.get("kino"):
+            kino_section = previous_payload["kino"]
 
     current_prizes: dict[str, int] = {}
     current_prices: dict[str, dict[str, int]] = {}
@@ -117,12 +129,14 @@ def write_site_data(
     output: Path,
     kino_path: Path | None = None,
     summary_path: Path | None = None,
+    previous_payload: Mapping[str, Any] | None = None,
 ) -> Path:
     """Write the dashboard data payload to ``output``."""
     payload = build_site_payload(
         loto_path=loto_path,
         kino_path=kino_path,
         summary_path=summary_path,
+        previous_payload=previous_payload,
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(

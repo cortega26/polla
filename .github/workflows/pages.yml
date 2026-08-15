@@ -92,6 +92,7 @@ jobs:
               --normalized artifacts/normalized.jsonl \
               --normalized-kino artifacts_kino/normalized.jsonl \
               --summary artifacts/run_summary.json \
+              --previous-data site/data.json \
               --output site/data.json
           else
             echo "::warning::Ingestas fallidas; se conserva la última data del dashboard"

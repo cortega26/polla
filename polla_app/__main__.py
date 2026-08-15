@@ -337,19 +337,32 @@ def publish(
     show_default=True,
     help="Destination path for the dashboard data payload.",
 )
+@click.option(
+    "--previous-data",
+    default=None,
+    help="Previous data.json to reuse sections for games that produced no records.",
+)
 def site(
     normalized: str,
     normalized_kino: str | None,
     summary: str | None,
     stats_url: str | None,
     output: str,
+    previous_data: str | None,
 ) -> None:
     """Generate the static dashboard data payload (site/data.json)."""
 
+    previous_payload: dict[str, Any] | None = None
+    if previous_data:
+        try:
+            previous_payload = json.loads(Path(previous_data).read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            previous_payload = None
     payload = build_site_payload(
         loto_path=Path(normalized),
         kino_path=Path(normalized_kino) if normalized_kino else None,
         summary_path=Path(summary) if summary else None,
+        previous_payload=previous_payload,
     )
 
     stats_path = Path(output).parent / "stats.json"
