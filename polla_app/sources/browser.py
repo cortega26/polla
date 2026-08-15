@@ -23,7 +23,7 @@ def get_stealthy_fetcher() -> Any:
     if _fetcher is None:
         from scrapling import StealthyFetcher
 
-        _fetcher = StealthyFetcher(headless=True)
+        _fetcher = StealthyFetcher()
         LOGGER.info("Launched shared StealthyFetcher instance")
     return _fetcher
 
