@@ -29,3 +29,6 @@ site/stats.json
 
 # Generated pipeline artifacts (Kino)
 artifacts_kino/
+
+# Build artifacts
+polla_scraper.egg-info/

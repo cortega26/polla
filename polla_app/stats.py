@@ -14,7 +14,7 @@ import io
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -272,7 +272,7 @@ def build_stats_payload(csv_text: str) -> dict[str, Any]:
     stats = _normalize_stats(header, rows)
     return {
         "api_version": API_VERSION,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "columns": header,
         **stats,
     }

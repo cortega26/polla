@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -59,19 +59,19 @@ def test_source_smoke_fixture(source_name: str, monkeypatch: pytest.MonkeyPatch)
         metadata = FetchMetadata(
             url="http://mock-source.test",
             user_agent="smoke-test",
-            fetched_at=datetime.now(timezone.utc),
+            fetched_at=datetime.now(UTC),
             html=html_content,
         )
-        monkeypatch.setattr("polla_app.sources.kino.fetch_html", lambda *_, **__: metadata)
+        monkeypatch.setattr("polla_app.sources.browser.fetch_html", lambda *_, **__: metadata)
     else:
         # Others use fetch_html
         metadata = FetchMetadata(
             url="http://mock-source.test",
             user_agent="smoke-test",
-            fetched_at=datetime.now(timezone.utc),
+            fetched_at=datetime.now(UTC),
             html=html_content,
         )
-        monkeypatch.setattr("polla_app.sources.pozos.fetch_html", lambda *_, **__: metadata)
+        monkeypatch.setattr("polla_app.sources.browser.fetch_html", lambda *_, **__: metadata)
 
     # Execute
     result = fetcher()

@@ -1,4 +1,6 @@
 import json
+from collections.abc import Mapping
+from datetime import UTC
 from pathlib import Path
 
 import pytest
@@ -374,7 +376,7 @@ def test_pozos_pipeline_applies_source_overrides(
 
 
 def test_timeout_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     import polla_app.sources.pozos as pozos_mod
     from polla_app import pipeline as pipeline_mod
@@ -385,17 +387,22 @@ def test_timeout_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     html_with_amounts = "<html><body>Loto Clásico $690 Recargado $4.300</body></html>"
 
     def stub_fetch(
-        url: str, ua: str, timeout: int = 20, *, retries: int | None = None
+        url: str,
+        ua: str,
+        timeout: int = 20,
+        *,
+        retries: int | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> FetchMetadata:
         received_timeouts.append(timeout)
         return FetchMetadata(
             url=url,
             user_agent=ua,
-            fetched_at=datetime.now(timezone.utc),
+            fetched_at=datetime.now(UTC),
             html=html_with_amounts,
         )
 
-    monkeypatch.setattr(pozos_mod, "fetch_html", stub_fetch)
+    monkeypatch.setattr("polla_app.sources.browser.fetch_html", stub_fetch)
     monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("openloto", pozos_mod.get_pozo_openloto),))
 
     run_pipeline(
@@ -419,7 +426,7 @@ def test_timeout_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
 
 def test_retries_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     import polla_app.sources.pozos as pozos_mod
     from polla_app import pipeline as pipeline_mod
@@ -430,17 +437,22 @@ def test_retries_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     html_with_amounts = "<html><body>Loto Clásico $690 Recargado $4.300</body></html>"
 
     def stub_fetch(
-        url: str, ua: str, timeout: int = 20, *, retries: int | None = None
+        url: str,
+        ua: str,
+        timeout: int = 20,
+        *,
+        retries: int | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> FetchMetadata:
         received_retries.append(retries)
         return FetchMetadata(
             url=url,
             user_agent=ua,
-            fetched_at=datetime.now(timezone.utc),
+            fetched_at=datetime.now(UTC),
             html=html_with_amounts,
         )
 
-    monkeypatch.setattr(pozos_mod, "fetch_html", stub_fetch)
+    monkeypatch.setattr("polla_app.sources.browser.fetch_html", stub_fetch)
     monkeypatch.setattr(pipeline_mod, "POZO_SOURCES", (("openloto", pozos_mod.get_pozo_openloto),))
 
     run_pipeline(

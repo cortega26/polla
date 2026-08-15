@@ -1,5 +1,6 @@
 """Tests for the game-stats sync (public Google Sheets CSV → stats.json)."""
 
+from datetime import UTC
 from pathlib import Path
 
 import pytest
@@ -57,7 +58,7 @@ def test_build_stats_payload_groups_by_game() -> None:
 
 
 def test_write_site_stats_uses_net(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from polla_app.net import FetchMetadata
 
@@ -65,7 +66,7 @@ def test_write_site_stats_uses_net(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     metadata = FetchMetadata(
         url="https://docs.google.com/spreadsheets/d/x/gviz/tq?tqx=out:csv",
         user_agent="pytest",
-        fetched_at=datetime.now(timezone.utc),
+        fetched_at=datetime.now(UTC),
         html=csv_text,
     )
     monkeypatch.setattr("polla_app.stats.fetch_html", lambda *_, **__: metadata)

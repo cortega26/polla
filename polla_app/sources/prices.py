@@ -15,11 +15,11 @@ parser raises ParseError and the pipeline continues without prices
 import hashlib
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..exceptions import ParseError
-from ..net import fetch_html
+from .browser import fetch_with_browser_fallback
 
 LOGGER = logging.getLogger(__name__)
 
@@ -135,38 +135,13 @@ def _fetch_game_page(url: str, *, ua: str, timeout: int, retries: int | None) ->
     """Fetch the Loto game page, falling back to a browser client.
 
     polla.cl blocks plain HTTP clients from some networks (e.g. GitHub
-    Actions runners return 403). The fallback renders the page with
-    Scrapling's StealthyFetcher (same mechanism as the polla pozos source).
+    Actions runners return 403); the shared helper retries with
+    Scrapling's StealthyFetcher on any plain-fetch failure.
     """
-    try:
-        metadata = fetch_html(url, ua=ua, timeout=timeout, retries=retries)
-        return metadata.html
-    except Exception as exc:
-        try:
-            from scrapling import StealthyFetcher  # noqa: F401 - availability check
-        except ImportError as import_error:  # pragma: no cover - optional dep
-            raise ParseError(
-                "scrapling must be installed to fetch Loto prices from polla.cl"
-            ) from import_error
-
-        LOGGER.info("Plain fetch of %s failed (%s); retrying with browser", url, type(exc).__name__)
-        try:
-            from .browser import get_stealthy_fetcher
-
-            fetcher = get_stealthy_fetcher()
-            page = fetcher.fetch(url, timeout=timeout)
-            if getattr(page, "status", None) != 200:
-                raise ParseError(
-                    f"polla.cl prices fetch failed with status {getattr(page, 'status', None)}"
-                )
-            return str(getattr(page, "html", "") or getattr(page, "text", ""))
-        except ParseError:
-            raise
-        except Exception as browser_exc:
-            raise ParseError(
-                f"polla.cl prices fetch failed (browser): {type(browser_exc).__name__}",
-                original_error=browser_exc,
-            ) from browser_exc
+    metadata = fetch_with_browser_fallback(
+        url, ua=ua, timeout=timeout, retries=retries, fallback_on_any=True
+    )
+    return metadata.html
 
 
 def get_loto_prices(
@@ -190,7 +165,7 @@ def get_loto_prices(
     payload = _extract_prices(html.unescape(raw_html))
     return {
         "fuente": url,
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "fetched_at": datetime.now(UTC).isoformat(),
         "sha256": hashlib.sha256(raw_html.encode("utf-8")).hexdigest(),
         "user_agent": ua,
         **payload,
@@ -238,7 +213,7 @@ def get_kino_prices(
     The hub (kino.loteria.cl) is public but redirects plain requests to the
     loteria.cl home; browser-like framing headers are required.
     """
-    metadata = fetch_html(
+    metadata = fetch_with_browser_fallback(
         url,
         ua=KINO_BROWSER_UA,
         timeout=timeout,
@@ -261,7 +236,7 @@ def get_kino_prices(
     payload = _extract_kino_prices(next_data)
     return {
         "fuente": url,
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "fetched_at": datetime.now(UTC).isoformat(),
         "sha256": hashlib.sha256(metadata.html.encode("utf-8")).hexdigest(),
         "user_agent": metadata.user_agent,
         **payload,

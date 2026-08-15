@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +16,7 @@ def _metadata(name: str, *, url: str = "https://example.test") -> FetchMetadata:
     return FetchMetadata(
         url=url,
         user_agent="pytest-agent",
-        fetched_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        fetched_at=datetime(2024, 1, 1, tzinfo=UTC),
         html=html,
     )
 
@@ -26,7 +26,7 @@ def _metadata(name: str, *, url: str = "https://example.test") -> FetchMetadata:
 
 def test_openloto_pozo(monkeypatch: pytest.MonkeyPatch) -> None:
     metadata = _metadata("openloto_pozo.html")
-    monkeypatch.setattr("polla_app.sources.pozos.fetch_html", lambda *_, **__: metadata)
+    monkeypatch.setattr("polla_app.sources.browser.fetch_html", lambda *_, **__: metadata)
 
     pozos = get_pozo_openloto()
 
@@ -47,18 +47,18 @@ def test_env_user_agent_override_applied_openloto(monkeypatch: pytest.MonkeyPatc
         return FetchMetadata(
             url=url,
             user_agent=ua,
-            fetched_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            fetched_at=datetime(2024, 1, 1, tzinfo=UTC),
             html=html,
         )
 
-    monkeypatch.setattr("polla_app.sources.pozos.fetch_html", stub_fetch_html)
+    monkeypatch.setattr("polla_app.sources.browser.fetch_html", stub_fetch_html)
     payload = get_pozo_openloto()
     assert payload["user_agent"] == ua_env
 
 
 def test_pozo_parsing_malformed_amounts(monkeypatch: pytest.MonkeyPatch) -> None:
     metadata = _metadata("malformed_pozo.html")
-    monkeypatch.setattr("polla_app.sources.pozos.fetch_html", lambda *_, **__: metadata)
+    monkeypatch.setattr("polla_app.sources.browser.fetch_html", lambda *_, **__: metadata)
 
     with pytest.raises(
         ParseError,
@@ -69,7 +69,7 @@ def test_pozo_parsing_malformed_amounts(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_pozo_parsing_invalid_date(monkeypatch: pytest.MonkeyPatch) -> None:
     metadata = _metadata("invalid_date_pozo.html")
-    monkeypatch.setattr("polla_app.sources.pozos.fetch_html", lambda *_, **__: metadata)
+    monkeypatch.setattr("polla_app.sources.browser.fetch_html", lambda *_, **__: metadata)
 
     pozos = get_pozo_openloto()
     # Date should be None if unparseable, but it shouldn't crash the whole fetch

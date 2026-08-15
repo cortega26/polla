@@ -5,7 +5,7 @@ import json
 import logging
 import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -101,7 +101,8 @@ POZO_SOURCES = (
 KINO_SOURCES = (("kino", kino_module.get_pozo_kino),)
 
 
-def _collect_pozos(
+def _collect_from_sources(
+    sources: Sequence[tuple[str, Callable[..., Any]]],
     include: bool,
     source_overrides: Mapping[str, str] | None = None,
     *,
@@ -109,18 +110,23 @@ def _collect_pozos(
     retries: int = 3,
     only: str | None = None,
     fail_fast: bool = False,
+    log_label: str = "fetcher",
 ) -> tuple[dict[str, Any], ...]:
+    """Run the given source fetchers, validating and tagging each payload.
+
+    Shared by the Loto and Kino collectors; a failing source is logged and
+    skipped unless ``fail_fast`` is set.
+    """
     if not include:
         return tuple()
 
     collected: list[dict[str, Any]] = []
     overrides = {k.lower(): v for k, v in (source_overrides or {}).items()}
 
-    for name, fetcher in POZO_SOURCES:
+    for name, fetcher in sources:
         target_url = overrides.get(name)
         if target_url == "skip":
             continue
-
         if only and name != only:
             continue
 
@@ -153,9 +159,31 @@ def _collect_pozos(
         except Exception as exc:
             if fail_fast:
                 raise
-            LOGGER.warning("Pozo fetcher %s failed: %s", name, exc)
+            LOGGER.warning("%s %s failed: %s", log_label, name, exc)
 
     return tuple(collected)
+
+
+def _collect_pozos(
+    include: bool,
+    source_overrides: Mapping[str, str] | None = None,
+    *,
+    timeout: int = 20,
+    retries: int = 3,
+    only: str | None = None,
+    fail_fast: bool = False,
+) -> tuple[dict[str, Any], ...]:
+    """Collect Loto pozo payloads (openloto + polla)."""
+    return _collect_from_sources(
+        POZO_SOURCES,
+        include,
+        source_overrides,
+        timeout=timeout,
+        retries=retries,
+        only=only,
+        fail_fast=fail_fast,
+        log_label="Pozo",
+    )
 
 
 def _collect_kino(
@@ -167,51 +195,73 @@ def _collect_kino(
     only: str | None = None,
     fail_fast: bool = False,
 ) -> tuple[dict[str, Any], ...]:
-    if not include:
-        return tuple()
+    """Collect Kino pozo payloads (official pendón)."""
+    return _collect_from_sources(
+        KINO_SOURCES,
+        include,
+        source_overrides,
+        timeout=timeout,
+        retries=retries,
+        only=only,
+        fail_fast=fail_fast,
+        log_label="Kino",
+    )
 
-    collected: list[dict[str, Any]] = []
-    overrides = {k.lower(): v for k, v in (source_overrides or {}).items()}
 
-    for name, fetcher in KINO_SOURCES:
-        target_url = overrides.get(name)
-        if target_url == "skip":
-            continue
-        if only and name != only:
-            continue
+def _attach_prices(
+    record: dict[str, Any],
+    requested_sources: Sequence[str],
+    collected: Sequence[dict[str, Any]],
+    *,
+    include_prices: bool,
+    timeout: int,
+    retries: int,
+    log_event: Callable[[dict[str, Any]], None],
+) -> None:
+    """Attach live price structures (Loto/Kino) to the record, if requested.
 
+    Prices are auxiliary: failures are logged and skipped, never fatal.
+    """
+    if not include_prices:
+        return
+    if "pozos" in requested_sources:
         try:
-            kw: dict[str, Any] = {}
-            try:
-                sig = inspect.signature(fetcher)
-                params = sig.parameters
-                has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
-                if "timeout" in params or has_var_kw:
-                    kw["timeout"] = timeout
-                if "retries" in params or has_var_kw:
-                    kw["retries"] = retries
-                if target_url and ("url" in params or has_var_kw):
-                    kw["url"] = target_url
-            except (ValueError, TypeError):
-                if target_url:
-                    kw["url"] = target_url
-            payload = fetcher(**kw)
-            issues = validate_pozo_payload(payload)
-            if issues:
-                LOGGER.warning("Source %s failed validation: %s", name, ", ".join(issues))
-                raise ParseError(
-                    "Source payload failed validation",
-                    context={"source": name, "issues": issues},
+            prices_payload = prices_module.get_loto_prices(timeout=timeout, retries=retries)
+            record["precios"] = prices_payload["precios"]
+            log_event({"event": "prices_fetched", "game": "loto"})
+        except Exception as exc:  # noqa: BLE001 - prices are auxiliary per run
+            LOGGER.warning("Could not fetch live Loto prices: %s", exc)
+            log_event({"event": "prices_failed", "game": "loto", "error": type(exc).__name__})
+    if "kino" in requested_sources:
+        try:
+            kino_prices = prices_module.get_kino_prices(timeout=timeout, retries=retries)
+            kino_payload = next(
+                (entry for entry in collected if entry.get("source_name") == "kino"),
+                None,
+            )
+            pendon_sorteo = kino_payload.get("sorteo") if kino_payload else None
+            if pendon_sorteo and kino_prices.get("sorteo") != pendon_sorteo:
+                LOGGER.warning(
+                    "Kino price hub sorteo %s does not match pendón sorteo %s; "
+                    "prices skipped for this run",
+                    kino_prices.get("sorteo"),
+                    pendon_sorteo,
                 )
-            if payload.get("montos"):
-                payload["source_name"] = name
-                collected.append(payload)
-        except Exception as exc:
-            if fail_fast:
-                raise
-            LOGGER.warning("Kino fetcher %s failed: %s", name, exc)
-
-    return tuple(collected)
+                log_event(
+                    {
+                        "event": "prices_failed",
+                        "game": "kino",
+                        "error": "sorteo_mismatch",
+                        "hub_sorteo": kino_prices.get("sorteo"),
+                        "pendon_sorteo": pendon_sorteo,
+                    }
+                )
+            else:
+                record.setdefault("precios", {}).update(kino_prices["precios"])
+                log_event({"event": "prices_fetched", "game": "kino"})
+        except Exception as exc:  # noqa: BLE001 - prices are auxiliary per run
+            LOGGER.warning("Could not fetch live Kino prices: %s", exc)
+            log_event({"event": "prices_failed", "game": "kino", "error": type(exc).__name__})
 
 
 def _merge_pozos(
@@ -317,7 +367,7 @@ class _JSONLogStream:
 
     def __call__(self, payload: dict[str, Any]) -> None:
         payload = dict(payload)
-        payload.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+        payload.setdefault("timestamp", datetime.now(UTC).isoformat())
         if self.correlation_id and "correlation_id" not in payload:
             payload["correlation_id"] = self.correlation_id
         payload = sanitize(payload)
@@ -454,6 +504,39 @@ def _build_summary_payload(
     }
 
 
+def _decide_run(
+    *,
+    unchanged: bool,
+    mismatch_ratio: float,
+    max_deviation: float,
+    mismatch_threshold: float,
+    force_publish: bool,
+) -> tuple[str, bool, str]:
+    """Resolve the run decision: skip / publish / quarantine (with reason)."""
+    if unchanged:
+        decision_status = "skip"
+        publish_flag = False
+        publish_reason = "sorteo_fecha_and_amounts_unchanged"
+    elif mismatch_ratio > mismatch_threshold or max_deviation > 0.10:
+        decision_status = "quarantine"
+        publish_flag = False
+        if max_deviation > 0.10:
+            publish_reason = f"max_deviation_{max_deviation:.2f}_exceeds_threshold_0.10"
+        else:
+            publish_reason = (
+                f"mismatch_ratio_{mismatch_ratio:.2f}_exceeds_threshold_{mismatch_threshold}"
+            )
+    else:
+        decision_status = "publish"
+        publish_flag = True
+        publish_reason = "updated_or_new_amounts"
+    if force_publish and unchanged:
+        decision_status = "publish_forced"
+        publish_flag = True
+        publish_reason = "force_publish_requested"
+    return decision_status, publish_flag, publish_reason
+
+
 def _run_ingestion_for_sources(
     *,
     run_id: str,
@@ -532,45 +615,15 @@ def _run_ingestion_for_sources(
         "provenance": {"pozos": pozos_prov},
     }
 
-    if include_prices:
-        if "pozos" in requested_sources:
-            try:
-                prices_payload = prices_module.get_loto_prices(timeout=timeout, retries=retries)
-                record["precios"] = prices_payload["precios"]
-                log_event({"event": "prices_fetched", "game": "loto"})
-            except Exception as exc:  # noqa: BLE001 - prices are auxiliary per run
-                LOGGER.warning("Could not fetch live Loto prices: %s", exc)
-                log_event({"event": "prices_failed", "game": "loto", "error": type(exc).__name__})
-        if "kino" in requested_sources:
-            try:
-                kino_prices = prices_module.get_kino_prices(timeout=timeout, retries=retries)
-                kino_payload = next(
-                    (entry for entry in collected if entry.get("source_name") == "kino"),
-                    None,
-                )
-                pendon_sorteo = kino_payload.get("sorteo") if kino_payload else None
-                if pendon_sorteo and kino_prices.get("sorteo") != pendon_sorteo:
-                    LOGGER.warning(
-                        "Kino price hub sorteo %s does not match pendón sorteo %s; "
-                        "prices skipped for this run",
-                        kino_prices.get("sorteo"),
-                        pendon_sorteo,
-                    )
-                    log_event(
-                        {
-                            "event": "prices_failed",
-                            "game": "kino",
-                            "error": "sorteo_mismatch",
-                            "hub_sorteo": kino_prices.get("sorteo"),
-                            "pendon_sorteo": pendon_sorteo,
-                        }
-                    )
-                else:
-                    record.setdefault("precios", {}).update(kino_prices["precios"])
-                    log_event({"event": "prices_fetched", "game": "kino"})
-            except Exception as exc:  # noqa: BLE001 - prices are auxiliary per run
-                LOGGER.warning("Could not fetch live Kino prices: %s", exc)
-                log_event({"event": "prices_failed", "game": "kino", "error": type(exc).__name__})
+    _attach_prices(
+        record,
+        requested_sources,
+        collected,
+        include_prices=include_prices,
+        timeout=timeout,
+        retries=retries,
+        log_event=log_event,
+    )
 
     # Write raw JSON artifacts (one per source)
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -592,29 +645,15 @@ def _run_ingestion_for_sources(
     _write_jsonl(normalized_path, [record])
     _persist_state(state_path, previous_records, record)
 
-    if unchanged:
-        decision_status = "skip"
-        publish_flag = False
-        publish_reason = "sorteo_fecha_and_amounts_unchanged"
-    elif mismatch_ratio > mismatch_threshold or max_deviation > 0.10:
-        decision_status = "quarantine"
-        publish_flag = False
-        if max_deviation > 0.10:
-            publish_reason = f"max_deviation_{max_deviation:.2f}_exceeds_threshold_0.10"
-        else:
-            publish_reason = (
-                f"mismatch_ratio_{mismatch_ratio:.2f}_exceeds_threshold_{mismatch_threshold}"
-            )
-    else:
-        decision_status = "publish"
-        publish_flag = True
-        publish_reason = "updated_or_new_amounts"
-    if force_publish and unchanged:
-        decision_status = "publish_forced"
-        publish_flag = True
-        publish_reason = "force_publish_requested"
+    decision_status, publish_flag, publish_reason = _decide_run(
+        unchanged=unchanged,
+        mismatch_ratio=mismatch_ratio,
+        max_deviation=max_deviation,
+        mismatch_threshold=mismatch_threshold,
+        force_publish=force_publish,
+    )
 
-    generated_at = datetime.now(timezone.utc).isoformat()
+    generated_at = datetime.now(UTC).isoformat()
     report_payload = _build_report_payload(
         run_id=run_id,
         generated_at=generated_at,

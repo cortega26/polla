@@ -7,7 +7,7 @@ layer never touches the network or the pipeline internals.
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -87,7 +87,7 @@ def build_site_payload(
 
     return {
         "api_version": API_VERSION,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "last_decision": {
             "status": (decision.get("decision") or {}).get("status", "unknown"),
             "reason": decision.get("publish_reason", ""),

@@ -1,7 +1,7 @@
 """Tests for the Kino (Lotería de Concepción) pozo fetcher."""
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -34,7 +34,7 @@ def _metadata(html: str) -> FetchMetadata:
     return FetchMetadata(
         url="https://pendon-kino.loteria.cl/pendonkino",
         user_agent="pytest-agent",
-        fetched_at=datetime(2026, 8, 14, tzinfo=timezone.utc),
+        fetched_at=datetime(2026, 8, 14, tzinfo=UTC),
         html=html,
     )
 
@@ -77,7 +77,7 @@ def test_extract_next_data_invalid_json() -> None:
 
 def test_get_pozo_kino_parses_real_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
     html = FIXTURE.read_text(encoding="utf-8")
-    monkeypatch.setattr("polla_app.sources.kino.fetch_html", lambda *_, **__: _metadata(html))
+    monkeypatch.setattr("polla_app.sources.browser.fetch_html", lambda *_, **__: _metadata(html))
 
     payload = get_pozo_kino()
 
@@ -101,7 +101,7 @@ def test_get_pozo_kino_rejects_empty_montos(monkeypatch: pytest.MonkeyPatch) -> 
         }
     }
     html = f'<html><script id="__NEXT_DATA__" type="application/json">{json.dumps(data)}</script></html>'
-    monkeypatch.setattr("polla_app.sources.kino.fetch_html", lambda *_, **__: _metadata(html))
+    monkeypatch.setattr("polla_app.sources.browser.fetch_html", lambda *_, **__: _metadata(html))
 
     with pytest.raises(ParseError, match="No valid Kino pozo amounts"):
         get_pozo_kino()
@@ -117,7 +117,7 @@ def test_get_pozo_kino_rejects_upstream_error(monkeypatch: pytest.MonkeyPatch) -
         }
     }
     html = f'<html><script id="__NEXT_DATA__" type="application/json">{json.dumps(data)}</script></html>'
-    monkeypatch.setattr("polla_app.sources.kino.fetch_html", lambda *_, **__: _metadata(html))
+    monkeypatch.setattr("polla_app.sources.browser.fetch_html", lambda *_, **__: _metadata(html))
 
     with pytest.raises(ParseError, match="upstream error"):
         get_pozo_kino()
@@ -127,7 +127,7 @@ def test_kino_pipeline_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     from polla_app.pipeline import run_pipeline
 
     html = FIXTURE.read_text(encoding="utf-8")
-    monkeypatch.setattr("polla_app.sources.kino.fetch_html", lambda *_, **__: _metadata(html))
+    monkeypatch.setattr("polla_app.sources.browser.fetch_html", lambda *_, **__: _metadata(html))
 
     summary = run_pipeline(
         sources=["kino"],

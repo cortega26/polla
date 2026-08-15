@@ -27,7 +27,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.13'
           cache: 'pip'
           cache-dependency-path: 'requirements.txt'
 
@@ -65,7 +65,6 @@ jobs:
             --state-file pipeline_state/last_run.jsonl \
             --log-file logs/run.jsonl \
             --mismatch-threshold 0.3 \
-            --include-pozos \
             ${FORCE_FLAG}
           python -m polla_app publish \
             --normalized artifacts/normalized.jsonl \

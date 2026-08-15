@@ -3,12 +3,14 @@
 import logging
 import os
 import re
+from datetime import UTC
 from typing import Any
 
 from bs4 import BeautifulSoup
 
 from ..exceptions import ParseError
-from ..net import fetch_html
+from .browser import fetch_with_browser_fallback
+from .common import build_pozo_payload
 
 LOGGER = logging.getLogger(__name__)
 OPENLOTO_URL = "https://www.openloto.cl/pozo-del-loto.html"
@@ -231,7 +233,9 @@ def _effective_ua(ua: str) -> str:
 def _fetch_pozos(
     *, url: str, ua: str, timeout: int, allow_total: bool, retries: int | None = None
 ) -> dict[str, Any]:
-    metadata = fetch_html(url, ua=_effective_ua(ua), timeout=timeout, retries=retries)
+    metadata = fetch_with_browser_fallback(
+        url, ua=_effective_ua(ua), timeout=timeout, retries=retries
+    )
     soup = BeautifulSoup(metadata.html, "html.parser")
     text = soup.get_text(" ", strip=True)
     amounts = _extract_amounts(text, allow_total=allow_total)
@@ -241,16 +245,9 @@ def _fetch_pozos(
             context={"url": url, "text_snippet": text[:200]},
         )
     sorteo, fecha = _extract_proximo_info(text)
-    return {
-        "fuente": url,
-        "fetched_at": metadata.fetched_at.isoformat(),
-        "sha256": metadata.sha256,
-        "estimado": True,
-        "montos": amounts,
-        "user_agent": metadata.user_agent,
-        "sorteo": sorteo,
-        "fecha": fecha,
-    }
+    return build_pozo_payload(
+        metadata=metadata, montos=amounts, sorteo=sorteo, fecha=fecha, fuente=url
+    )
 
 
 def get_pozo_openloto(
@@ -284,7 +281,7 @@ def get_pozo_polla(
         raise ParseError("scrapling must be installed to fetch from polla.cl") from e
 
     import hashlib
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from bs4 import BeautifulSoup
 
@@ -354,7 +351,7 @@ def get_pozo_polla(
     except Exception as exc:
         raise ParseError(f"Scrapling failed to fetch {url}", original_error=exc) from exc
 
-    fetched_at = datetime.now(timezone.utc)
+    fetched_at = datetime.now(UTC)
 
     soup = BeautifulSoup(html_content, "html.parser")
     amounts: dict[str, int] = {}

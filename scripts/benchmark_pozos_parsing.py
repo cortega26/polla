@@ -1,73 +1,41 @@
+"""Micro-benchmarks for pozos parsing paths (production code only).
+
+Measures parsing throughput of the production extractors against the
+150ms-per-parse target (see docs/SLOs.md). Run:
+
+    python scripts/benchmark_pozos_parsing.py
 """
-Synthetic micro-benchmarks for pozos parsing paths.
 
-Measures impact of precompiled regexes vs. the previous on-the-fly approach.
-
-Run:
-  python scripts/benchmark_pozos_parsing.py
-"""
-
+import functools
 import json
 import sys
 import timeit
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-# Ensure repository root is importable when run as a script
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from polla_app.sources import pozos as new  # noqa: E402
+from polla_app.sources import pozos  # noqa: E402
 
-FIXTURES = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
+FIXTURES = ROOT / "tests" / "fixtures"
 
 
 def load_text(name: str) -> str:
+    """Load a fixture and reduce it the same way the production fetcher does."""
     html = (FIXTURES / name).read_text(encoding="utf-8")
-    try:
-        # Use BeautifulSoup in the same way as production code
-        from bs4 import BeautifulSoup
+    from typing import cast
 
-        return BeautifulSoup(html, "html.parser").get_text(" ", strip=True)
-    except Exception:
-        # Fallback: naive text
-        return html
+    from bs4 import BeautifulSoup
+
+    return cast(str, BeautifulSoup(html, "html.parser").get_text(" ", strip=True))
 
 
-def old_extract_amounts(text: str, *, allow_total: bool = True) -> dict[str, int]:
-    patterns = new._LABEL_PATTERNS  # type: ignore[attr-defined]
-    out: dict[str, int] = {}
-    for label, pattern in patterns.items():
-        if not allow_total and label == "Total estimado":
-            continue
-        regex = __import__("re").compile(
-            pattern + r"[^0-9$]{0,40}\$?([\d\.,]+)\s*(?:MM|MILLON(?:ES)?)?",
-            __import__("re").IGNORECASE,
-        )
-        m = regex.search(text)
-        if m:
-            out[label] = new._parse_millones_to_clp(m.group(1))  # type: ignore[attr-defined]
-    return out
-
-
-def old_extract_proximo_info(text: str) -> tuple[int | None, str | None]:
-    import re
-
-    sorteo: int | None = None
-    m_sorteo = re.search(r"Sorteo\s*(?:N[°º]\s*)?(\d{4,})", text, re.IGNORECASE)
-    if m_sorteo:
-        try:
-            sorteo = int(m_sorteo.group(1))
-        except ValueError:
-            sorteo = None
-    m_fecha_block = re.search(r"Fecha\s+Pr[oó]ximo\s+Sorteo[:\s]*([^\n]+)", text, re.IGNORECASE)
-    fecha_iso = None
-    if m_fecha_block:
-        fecha_iso = new._parse_spanish_date(m_fecha_block.group(1))  # type: ignore[attr-defined]
-    if not fecha_iso:
-        fecha_iso = new._parse_spanish_date(text)  # type: ignore[attr-defined]
-    return sorteo, fecha_iso
+def _avg_ms(fn: Callable[[str], Any], text: str, iters: int) -> float:
+    """Average per-call time in milliseconds over ``iters`` runs."""
+    return timeit.timeit(functools.partial(fn, text), number=iters) / max(1, iters) * 1000
 
 
 def bench() -> dict[str, Any]:
@@ -77,27 +45,18 @@ def bench() -> dict[str, Any]:
     }
     iters = 2000
 
+    extract_amounts = functools.partial(pozos._extract_amounts, allow_total=False)
     timings: dict[str, dict[str, float]] = {"amounts": {}, "proximo": {}}
     for name, text in texts.items():
-        t_old = timeit.timeit(
-            lambda t=text: old_extract_amounts(t, allow_total=False), number=iters
-        )
-        t_new = timeit.timeit(
-            lambda t=text: new._extract_amounts(t, allow_total=False),
-            number=iters,  # type: ignore[attr-defined]
-        )
-        timings["amounts"][name] = t_old / max(1, iters), t_new / max(1, iters)
+        timings["amounts"][name] = _avg_ms(extract_amounts, text, iters)
+        timings["proximo"][name] = _avg_ms(pozos._extract_proximo_info, text, iters)
 
-        t_old2 = timeit.timeit(lambda t=text: old_extract_proximo_info(t), number=iters)
-        t_new2 = timeit.timeit(
-            lambda t=text: new._extract_proximo_info(t),
-            number=iters,  # type: ignore[attr-defined]
-        )
-        timings["proximo"][name] = t_old2 / max(1, iters), t_new2 / max(1, iters)
-
-    return timings
+    total_ms = sum(sum(v for v in game.values()) for game in timings.values())
+    return {**timings, "total_ms": total_ms}
 
 
 if __name__ == "__main__":
     results = bench()
     print(json.dumps(results, indent=2))
+    total = results.get("total_ms", 0.0)
+    print(f"\nTotal por parse (4 combinaciones): {total:.2f} ms")

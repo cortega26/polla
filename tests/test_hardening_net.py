@@ -100,6 +100,31 @@ def test_fetch_html_retries_on_503(monkeypatch: pytest.MonkeyPatch) -> None:
     assert metadata.html == "<html>ok</html>"
 
 
+def test_fetch_html_retries_on_500(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
+    error = requests.HTTPError("Internal Server Error")
+    error.response = requests.Response()
+    error.response.status_code = 500
+    state: list[Any] = [error]
+
+    def fail_once(*args: Any, **kwargs: Any) -> requests.Response:
+        if state:
+            state.pop(0)
+            raise error
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b"<html>ok</html>"
+        return response
+
+    monkeypatch.setattr(
+        "polla_app.net.requests.Session",
+        lambda: type("S", (), {"get": fail_once})(),
+    )
+    monkeypatch.setenv("POLLA_BACKOFF_FACTOR", "0.001")
+    metadata = fetch_html("https://example.test", "ua", timeout=5, retries=2)
+    assert metadata.html == "<html>ok</html>"
+
+
 def test_fetch_html_fails_fast_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
     error = requests.HTTPError("Not Found")

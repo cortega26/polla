@@ -1,6 +1,6 @@
 """Tests for the live Loto/Kino price structure scrapers."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -22,7 +22,7 @@ def _metadata(html: str) -> FetchMetadata:
     return FetchMetadata(
         url="https://www.polla.cl/es/view/juego/loto",
         user_agent="pytest-agent",
-        fetched_at=datetime(2026, 8, 14, tzinfo=timezone.utc),
+        fetched_at=datetime(2026, 8, 14, tzinfo=UTC),
         html=html,
     )
 
@@ -71,7 +71,7 @@ def test_extract_prices_rejects_missing_structure() -> None:
 
 def test_get_loto_prices_full_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "polla_app.sources.prices.fetch_html",
+        "polla_app.sources.browser.fetch_html",
         lambda *_, **__: _metadata(FIXTURE.read_text(encoding="utf-8")),
     )
     payload = get_loto_prices()
@@ -116,7 +116,7 @@ def test_get_kino_prices_full_payload(monkeypatch: pytest.MonkeyPatch) -> None:
         captured["headers"] = str(kwargs.get("extra_headers"))
         return _metadata(KINO_FIXTURE.read_text(encoding="utf-8"))
 
-    monkeypatch.setattr("polla_app.sources.prices.fetch_html", stub_fetch)
+    monkeypatch.setattr("polla_app.sources.browser.fetch_html", stub_fetch)
     payload = get_kino_prices()
     assert payload["precios"]["Chao Jefe $3 Millones"]["delta_clp"] == 500
     # The hub requires browser-like framing headers

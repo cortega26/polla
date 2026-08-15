@@ -8,7 +8,7 @@ import time
 import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import lru_cache
 from time import monotonic
 from typing import Final
@@ -87,7 +87,9 @@ def _calculate_backoff(attempt: int, factor: float, max_seconds: float) -> float
 _RETRYABLE_EXC = (requests.exceptions.Timeout, requests.exceptions.ConnectionError)
 
 # HTTP status codes worth retrying with backoff (transient server errors).
-_RETRYABLE_STATUS = (429, 502, 503, 504)
+# 500 included: upstreams (e.g. pendon-kino.loteria.cl) serve intermittent
+# 500s during deploys/load; persistent 500s still fail after max_retries.
+_RETRYABLE_STATUS = (429, 500, 502, 503, 504)
 
 
 def fetch_html(
@@ -206,7 +208,7 @@ def fetch_html(
     if response is None:  # pragma: no cover - safety guard
         raise RuntimeError(f"Failed to fetch {url}") from last_error
 
-    fetched_at = datetime.now(timezone.utc)
+    fetched_at = datetime.now(UTC)
     html = response.text
     LOGGER.debug("Fetched %s (%d bytes)", url, len(html))
     return FetchMetadata(url=url, user_agent=ua, fetched_at=fetched_at, html=html)

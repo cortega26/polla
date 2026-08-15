@@ -25,7 +25,7 @@ Features nuevas solo entran después de que los tres objetivos anteriores estén
 
 ## 2. Working Assumptions
 
-- Se trabaja sobre Python 3.10+, sin cambios de dependencias salvo justificación explícita.
+- Se trabaja sobre Python 3.13+, sin cambios de dependencias salvo justificación explícita.
 - Los cambios de firma de funciones públicas (`get_pozo_openloto`, `get_pozo_resultadosloto`) se hacen con parámetros keyword-only para mantener backwards compatibility.
 - AGENTS.md es ley: CLI flags existentes no se eliminan sin deprecation notice de al menos 1 MINOR version.
 - No se hacen rewrites de módulos completos. Cada cambio es quirúrgico.

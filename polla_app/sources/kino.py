@@ -17,17 +17,17 @@ Reglas del juego (para validación):
 - Sorteos: miércoles, viernes y domingo.
 """
 
-import hashlib
 import json
 import logging
 import re
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Any
 
 from bs4 import BeautifulSoup
 
 from ..exceptions import ParseError
-from ..net import fetch_html
+from .browser import fetch_with_browser_fallback
+from .common import build_pozo_payload
 
 LOGGER = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ def _extract_pozo_info(
 def _fetch_pozo_kino(
     *, url: str, ua: str, timeout: int, retries: int | None = None
 ) -> dict[str, Any]:
-    metadata = fetch_html(url, ua=ua, timeout=timeout, retries=retries)
+    metadata = fetch_with_browser_fallback(url, ua=ua, timeout=timeout, retries=retries)
     data = _extract_next_data(metadata.html)
     pendon = _extract_pendon(data)
     outputs = pendon.get("outputs") or {}
@@ -146,16 +146,9 @@ def _fetch_pozo_kino(
     if "Kino" not in text and "kino" not in text:
         LOGGER.warning("Kino pendón page content looks unexpected (missing 'Kino' text)")
 
-    return {
-        "fuente": url,
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
-        "sha256": hashlib.sha256(metadata.html.encode("utf-8")).hexdigest(),
-        "estimado": True,
-        "montos": montos,
-        "user_agent": metadata.user_agent,
-        "sorteo": sorteo,
-        "fecha": fecha,
-    }
+    return build_pozo_payload(
+        metadata=metadata, montos=montos, sorteo=sorteo, fecha=fecha, fuente=url
+    )
 
 
 def get_pozo_kino(
