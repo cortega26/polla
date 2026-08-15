@@ -115,7 +115,7 @@ so they never collide with Loto categories in the consensus engine.
 
 ## Dashboard data
 
-`polla_app.site.write_site_data(loto_path, output, kino_path=None, summary_path=None)`
+`polla_app.site.write_site_data(loto_path, output, kino_path=None, summary_path=None, previous_payload=None)`
 
 Aggregates the latest Loto/Kino records (deduplicated by `(sorteo, fecha)`) into the
 static dashboard payload consumed by `site/index.html` (see `docs/DATA-STORE.md`).

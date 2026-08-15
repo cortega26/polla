@@ -381,6 +381,7 @@ def site(
         output=Path(output),
         kino_path=Path(normalized_kino) if normalized_kino else None,
         summary_path=Path(summary) if summary else None,
+        previous_payload=previous_payload,
     )
     _echo_json({"generated": str(output), "api_version": API_VERSION})
 
