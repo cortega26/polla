@@ -13,10 +13,7 @@ def normalized_file(tmp_path: Path) -> Path:
     record = {
         "sorteo": 5198,
         "fecha": "2024-12-01",
-        "fuente": "https://example.test/24h",
-        "premios": [
-            {"categoria": "Loto 6 aciertos", "premio_clp": 0, "ganadores": 0},
-        ],
+        "pozos_proximo": {"Loto": 100_000_000},
     }
     path = tmp_path / "normalized.jsonl"
     path.write_text(json.dumps(record), encoding="utf-8")
@@ -272,3 +269,61 @@ def test_publish_with_empty_pozos(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
     assert result["updated_rows"] == 0
     assert result["rows"] == []
+
+
+def test_canonical_update_is_single_call_with_padding(
+    normalized_file: Path, comparison_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from typing import Any
+
+    import polla_app.publish as pub
+
+    update_calls: list[dict[str, Any]] = []
+    clear_calls: list[str] = []
+
+    class FakeWs:
+        @staticmethod
+        def get_all_values() -> list[list[str]]:
+            return [["sorteo", "fecha", "categoria", "pozo_clp"]] + [
+                ["1", "2024-01-01", "x", "1"]
+            ] * 6
+
+        @staticmethod
+        def clear() -> None:
+            clear_calls.append("clear")
+
+    class FakeSpreadsheet:
+        @staticmethod
+        def worksheet(name: str) -> FakeWs:
+            return FakeWs()
+
+        @staticmethod
+        def values_update(range: str, params: Any = None, body: Any = None) -> None:
+            update_calls.append({"range": range, "params": params, "body": body})
+
+    class FakeClient:
+        @staticmethod
+        def open_by_key(key: str) -> FakeSpreadsheet:
+            return FakeSpreadsheet()
+
+    monkeypatch.setattr(pub, "_load_credentials", lambda: FakeClient())
+    monkeypatch.setenv("GOOGLE_SPREADSHEET_ID", "dummy")
+
+    result = pub.publish_to_google_sheets(
+        normalized_path=normalized_file,
+        comparison_report_path=comparison_file,
+        summary=None,
+        worksheet_name="Normalized",
+        discrepancy_tab="Discrepancies",
+        dry_run=False,
+        force_publish=False,
+        allow_quarantine=False,
+    )
+
+    assert result["updated_rows"] == 1
+    assert len(update_calls) == 1
+    assert len(clear_calls) == 0
+    assert update_calls[0]["range"] == "'Normalized'!A1:D7"
+    assert update_calls[0]["params"] == {"valueInputOption": "RAW"}
+    assert len(update_calls[0]["body"]["values"]) == 7  # 1 header + 1 record + 5 padding
+    assert update_calls[0]["body"]["values"][-1] == ["", "", "", ""]

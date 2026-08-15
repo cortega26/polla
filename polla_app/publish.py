@@ -225,13 +225,32 @@ def _get_or_create_worksheet(spreadsheet: Any, name: str) -> Any:
 def _update_canonical_worksheet(
     spreadsheet: Any, worksheet_name: str, rows: list[list[Any]]
 ) -> int:
-    """Write canonical rows and return the number of updated rows."""
+    """Write canonical rows atomically and return the number of updated rows.
+
+    A single ``values_update`` overwrites the full range, padding blank cells
+    when the dataset shrank, so the sheet never goes empty mid-publish.
+    """
     if not rows:
         return 0
     header = _canonical_rows_header(rows)
     ws = _get_or_create_worksheet(spreadsheet, worksheet_name)
-    ws.clear()
-    ws.update([header] + rows)
+    try:
+        current = ws.get_all_values()
+    except Exception:  # noqa: BLE001 - treat read failure as empty; write still proceeds
+        current = []
+    payload = [header] + rows
+    if len(current) > len(payload):
+        payload += [[""] * len(header) for _ in range(len(current) - len(payload))]
+    from gspread.utils import absolute_range_name, rowcol_to_a1
+
+    full_range = absolute_range_name(
+        worksheet_name, f"A1:{rowcol_to_a1(len(payload), len(header))}"
+    )
+    spreadsheet.values_update(
+        full_range,
+        params={"valueInputOption": "RAW"},
+        body={"values": payload},
+    )
     return len(rows)
 
 
