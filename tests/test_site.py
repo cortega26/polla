@@ -4,7 +4,25 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+from click.testing import CliRunner
+
+from polla_app.__main__ import cli
 from polla_app.site import build_site_payload, write_site_data
+
+
+def _invoke_site(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    args: list[str],
+) -> str:
+    """Run `polla site` with a no-op stats writer and return data.json text."""
+    from polla_app import __main__ as main_mod
+
+    monkeypatch.setattr(main_mod, "write_site_stats", lambda *a, **k: None)
+    result = CliRunner().invoke(cli, ["site", *args])
+    assert result.exit_code == 0, result.output
+    return (tmp_path / "data.json").read_text(encoding="utf-8")
 
 
 def _write_ndjson(path: Path, records: list[dict[str, Any]]) -> Path:
@@ -150,3 +168,117 @@ def test_build_site_payload_without_previous_keeps_none(tmp_path: Path) -> None:
         summary_path=None,
     )
     assert payload["kino"] is None
+
+
+def test_site_cli_reuses_previous_section(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    loto = tmp_path / "loto.jsonl"
+    loto.write_text(
+        json.dumps(
+            {
+                "sorteo": 5465,
+                "fecha": "2026-08-16",
+                "confidence": "full",
+                "fuente": "openloto",
+                "pozos_proximo": {"Loto Clásico": 620_000_000},
+            }
+        ),
+        encoding="utf-8",
+    )
+    previous = tmp_path / "previous.json"
+    previous.write_text(
+        json.dumps(
+            {
+                "loto": {"sorteo": 5465, "pozos_clp": {"Loto Clásico": 620_000_000}},
+                "kino": {"sorteo": 3266, "pozos_clp": {"Kino": 8_370_000_000}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    raw = _invoke_site(
+        tmp_path,
+        monkeypatch,
+        [
+            "--normalized",
+            str(loto),
+            "--normalized-kino",
+            str(tmp_path / "missing_kino.jsonl"),
+            "--previous-data",
+            str(previous),
+            "--output",
+            str(tmp_path / "data.json"),
+        ],
+    )
+    data = json.loads(raw)
+    assert data["kino"]["sorteo"] == 3266
+
+
+def test_site_cli_without_previous_keeps_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    loto = tmp_path / "loto.jsonl"
+    loto.write_text(
+        json.dumps(
+            {
+                "sorteo": 5465,
+                "fecha": "2026-08-16",
+                "confidence": "full",
+                "fuente": "openloto",
+                "pozos_proximo": {"Loto Clásico": 620_000_000},
+            }
+        ),
+        encoding="utf-8",
+    )
+    raw = _invoke_site(
+        tmp_path,
+        monkeypatch,
+        [
+            "--normalized",
+            str(loto),
+            "--normalized-kino",
+            str(tmp_path / "missing_kino.jsonl"),
+            "--output",
+            str(tmp_path / "data.json"),
+        ],
+    )
+    data = json.loads(raw)
+    assert data["kino"] is None
+    assert data["loto"]["sorteo"] == 5465
+
+
+def test_site_cli_stats_failure_still_writes_data(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from polla_app import __main__ as main_mod
+
+    loto = tmp_path / "loto.jsonl"
+    loto.write_text(
+        json.dumps(
+            {
+                "sorteo": 5465,
+                "fecha": "2026-08-16",
+                "confidence": "full",
+                "fuente": "openloto",
+                "pozos_proximo": {"Loto Clásico": 620_000_000},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def boom(*_: object, **__: object) -> None:
+        raise RuntimeError("csv fetch failed")
+
+    monkeypatch.setattr(main_mod, "write_site_stats", boom)
+    result = CliRunner().invoke(
+        cli,
+        [
+            "site",
+            "--normalized",
+            str(loto),
+            "--output",
+            str(tmp_path / "data.json"),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    data = json.loads((tmp_path / "data.json").read_text(encoding="utf-8"))
+    assert data["loto"]["sorteo"] == 5465
