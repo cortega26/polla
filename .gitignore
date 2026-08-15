@@ -3,6 +3,12 @@ __pycache__/
 .venv/
 venv/
 .env
+
+# Google service-account credentials (rotate, never commit)
+service_account*.json
+*service_account*.json
+*credentials*.json
+polla-chilena*.json
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
