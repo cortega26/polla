@@ -7,7 +7,7 @@ issue is reported with the offending value so operators can act.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 
 # Maximum plausible jackpot (CLP) for a single category, per game.
@@ -95,17 +95,10 @@ def validate_pozo_payload(payload: Mapping[str, Any]) -> list[str]:
     return issues
 
 
-def validate_fecha_is_past(fecha: str, *, today: date | None = None) -> bool:
-    """Return True when ``fecha`` (ISO) is today or in the past."""
-    parsed = datetime.fromisoformat(fecha).date()
-    return parsed <= (today or date.today())
-
-
 __all__ = [
     "KINO_NUMBERS_COUNT",
     "KINO_MAX_NUMBER",
     "validate_amounts",
-    "validate_fecha_is_past",
     "validate_kino_numbers",
     "validate_pozo_payload",
 ]

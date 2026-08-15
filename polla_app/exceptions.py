@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import traceback
 from collections.abc import Mapping
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -91,9 +90,3 @@ def redact(text: str) -> str:
         return "…"
     # Mask most of the token but keep prefixes for debugging
     return f"{text[:4]}…{text[-2:]}"
-
-
-@dataclass(frozen=True)
-class ErrorMetric:
-    code: str
-    count: int = 1

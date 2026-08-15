@@ -79,10 +79,9 @@ def test_write_site_stats_uses_net(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["source_url"].startswith("https://docs.google.com")
     assert payload["game_count"] == 2
-    # Empty live data still runs the merges: rows are flagged reference
+    # Empty live data still runs the merges: rows keep sheet prices
     # and stale manual prizes are stripped (never shown as live).
     row = payload["games"]["Loto"][0]
-    assert row["precio_estatico"] is True
     assert row["premio_real_clp"] is None
     assert "Premio Categoría" not in row
 
@@ -193,7 +192,6 @@ def test_merge_real_prices_overlays_live_loto_prices() -> None:
     clasico = loto["Loto Clásico"]
     assert clasico["precio_real_clp"] == 1000
     assert clasico["precio_acumulado_clp"] == 1000
-    assert clasico["precio_estatico"] is False
 
     revancha = loto["Revancha"]
     assert revancha["precio_real_clp"] == 300
@@ -220,7 +218,6 @@ def test_merge_real_prices_marks_unmapped_games_as_static() -> None:
     merge_real_prices(payload, _loto_prices())
 
     exacta = payload["games"]["Loto 3"][0]
-    assert exacta["precio_estatico"] is True
     assert exacta["precio_real_clp"] is None
     # Sheet price columns are kept as reference for static rows
     assert "Precio o apuesta" in exacta

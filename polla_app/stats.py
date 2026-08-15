@@ -207,8 +207,7 @@ def merge_real_prices(
 
     Loto prices change on special draws, so the sheet's manual price columns
     are replaced by the per-draw scrape for Loto rows. Games without a public
-    per-draw price source keep the sheet prices but are flagged
-    ``precio_estatico: True`` so the UI can render them as reference values.
+    per-draw price source keep the sheet prices as reference values.
     """
     for rows in stats.get("games", {}).values():
         for row in rows:
@@ -217,11 +216,9 @@ def merge_real_prices(
             if scraped:
                 row["precio_real_clp"] = scraped.get("delta_clp")
                 row["precio_acumulado_clp"] = scraped.get("acumulado_clp")
-                row["precio_estatico"] = False
             else:
                 row["precio_real_clp"] = None
                 row["precio_acumulado_clp"] = None
-                row["precio_estatico"] = True
     return stats
 
 

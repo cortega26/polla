@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from polla_app.validation import (
     validate_amounts,
-    validate_fecha_is_past,
     validate_kino_numbers,
     validate_pozo_payload,
 )
@@ -77,8 +76,3 @@ def test_validate_pozo_payload_accepts_missing_optional_fields() -> None:
     # sorteo/fecha may be legitimately absent on some sources
     payload = {"montos": {"Loto": 1_000_000_000}}
     assert validate_pozo_payload(payload) == []
-
-
-def test_validate_fecha_is_past() -> None:
-    assert validate_fecha_is_past("2020-01-01")
-    assert not validate_fecha_is_past("2999-01-01")
