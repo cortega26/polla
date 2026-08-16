@@ -98,6 +98,10 @@ def test_normalize_sources_deduplication() -> None:
         _normalize_sources(["pozos", "kino"])
     with pytest.raises(ValueError, match="separate invocation"):
         _normalize_sources(["all", "openloto"])
+    # Any Loto source combined with kino is a mixed-game run and must be rejected
+    for mixed in (["kino", "openloto"], ["openloto", "kino"], ["kino", "polla"], ["polla", "kino"]):
+        with pytest.raises(ValueError, match="separate invocation"):
+            _normalize_sources(mixed)
     # "pozos" collapses to the Loto aggregate
     assert _normalize_sources(["pozos"]) == ["pozos"]
     assert _normalize_sources(["openloto", "pozos"]) == ["pozos"]
