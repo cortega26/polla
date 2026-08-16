@@ -41,6 +41,7 @@ def test_pozos_command_error_handling(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "message" in payload["openloto"]
 
 
+@pytest.mark.network
 def test_health_online_degraded(monkeypatch: pytest.MonkeyPatch) -> None:
     # Stub one source to fail, the other to succeed
     from polla_app import __main__ as main_mod
