@@ -28,6 +28,133 @@ def _fail_once(failures: list[Any], exc: Exception) -> Callable[..., requests.Re
     return inner
 
 
+def _ok(*_: Any, **__: Any) -> requests.Response:
+    """Return a plain 200 response for success-path tests."""
+
+    response = requests.Response()
+    response.status_code = 200
+    response._content = b"<html>ok</html>"
+    return response
+
+
+def _session_stub(get: Callable[..., requests.Response]) -> Any:
+    """Build a fake requests.Session with the given ``get`` callable."""
+    return type("S", (), {"get": get})()
+
+
+def test_fetch_html_rate_limits_same_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
+    monkeypatch.setattr("polla_app.net.requests.Session", lambda: _session_stub(_ok))
+    monkeypatch.setattr(fetch_html, "_last_seen", {}, raising=False)
+    monkeypatch.setenv("POLLA_RATE_LIMIT_RPS", "2")
+
+    clock: dict[str, float] = {"now": 0.0}
+
+    def fake_monotonic() -> float:
+        return clock["now"]
+
+    monkeypatch.setattr("polla_app.net.monotonic", fake_monotonic)
+
+    recorded_sleeps: list[float] = []
+
+    def recorder(delay: float) -> None:
+        recorded_sleeps.append(delay)
+
+    monkeypatch.setattr("polla_app.net.time.sleep", recorder)
+
+    fetch_html("https://a.test/1", "ua")
+    clock["now"] = 0.1
+    fetch_html("https://a.test/2", "ua")
+
+    assert len(recorded_sleeps) == 1
+    assert recorded_sleeps[0] == pytest.approx(0.5 - 0.1)
+
+
+def test_fetch_html_rate_limit_does_not_space_different_hosts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
+    monkeypatch.setattr("polla_app.net.requests.Session", lambda: _session_stub(_ok))
+    monkeypatch.setattr(fetch_html, "_last_seen", {}, raising=False)
+    monkeypatch.setenv("POLLA_RATE_LIMIT_RPS", "2")
+
+    clock: dict[str, float] = {"now": 0.0}
+
+    def fake_monotonic() -> float:
+        return clock["now"]
+
+    monkeypatch.setattr("polla_app.net.monotonic", fake_monotonic)
+
+    recorded_sleeps: list[float] = []
+
+    def recorder(delay: float) -> None:
+        recorded_sleeps.append(delay)
+
+    monkeypatch.setattr("polla_app.net.time.sleep", recorder)
+
+    fetch_html("https://a.test/1", "ua")
+    clock["now"] = 0.1
+    fetch_html("https://b.test/1", "ua")
+
+    assert recorded_sleeps == []
+
+
+def test_fetch_html_rate_limit_ignores_invalid_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
+    monkeypatch.setattr("polla_app.net.requests.Session", lambda: _session_stub(_ok))
+    monkeypatch.setattr(fetch_html, "_last_seen", {}, raising=False)
+    monkeypatch.setenv("POLLA_RATE_LIMIT_RPS", "abc")
+
+    clock: dict[str, float] = {"now": 0.0}
+
+    def fake_monotonic() -> float:
+        return clock["now"]
+
+    monkeypatch.setattr("polla_app.net.monotonic", fake_monotonic)
+
+    recorded_sleeps: list[float] = []
+
+    def recorder(delay: float) -> None:
+        recorded_sleeps.append(delay)
+
+    monkeypatch.setattr("polla_app.net.time.sleep", recorder)
+
+    fetch_html("https://a.test/1", "ua")
+    clock["now"] = 0.1
+    fetch_html("https://a.test/2", "ua")
+
+    assert recorded_sleeps == []
+
+
+def test_fetch_html_rate_limit_state_lives_on_function_object(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
+    monkeypatch.setattr("polla_app.net.requests.Session", lambda: _session_stub(_ok))
+    monkeypatch.setattr(fetch_html, "_last_seen", {}, raising=False)
+    monkeypatch.setenv("POLLA_RATE_LIMIT_RPS", "2")
+
+    clock: dict[str, float] = {"now": 0.0}
+
+    def fake_monotonic() -> float:
+        return clock["now"]
+
+    monkeypatch.setattr("polla_app.net.monotonic", fake_monotonic)
+
+    recorded_sleeps: list[float] = []
+
+    def recorder(delay: float) -> None:
+        recorded_sleeps.append(delay)
+
+    monkeypatch.setattr("polla_app.net.time.sleep", recorder)
+
+    fetch_html("https://a.test/page", "ua")
+
+    last_seen = getattr(fetch_html, "_last_seen", {})
+    assert isinstance(last_seen, dict)
+    assert "a.test" in last_seen
+
+
 def test_fetch_html_retries_on_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
     state: list[Any] = [requests.exceptions.Timeout("slow")]
@@ -115,6 +242,31 @@ def test_fetch_html_retries_on_500(monkeypatch: pytest.MonkeyPatch) -> None:
         response.status_code = 200
         response._content = b"<html>ok</html>"
         return response
+
+    monkeypatch.setattr(
+        "polla_app.net.requests.Session",
+        lambda: type("S", (), {"get": fail_once})(),
+    )
+    monkeypatch.setenv("POLLA_BACKOFF_FACTOR", "0.001")
+    metadata = fetch_html("https://example.test", "ua", timeout=5, retries=2)
+    assert metadata.html == "<html>ok</html>"
+
+
+@pytest.mark.parametrize("status", [429, 502, 504])
+def test_fetch_html_retries_on_transient_status(
+    monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
+    error = requests.HTTPError("Transient error")
+    error.response = requests.Response()
+    error.response.status_code = status
+    state: list[Any] = [error]
+
+    def fail_once(*args: Any, **kwargs: Any) -> requests.Response:
+        if state:
+            state.pop(0)
+            raise error
+        return _ok()
 
     monkeypatch.setattr(
         "polla_app.net.requests.Session",

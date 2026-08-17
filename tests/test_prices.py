@@ -69,6 +69,20 @@ def test_extract_prices_rejects_missing_structure() -> None:
         _extract_prices("no prices here at all")
 
 
+def test_extract_prices_rejects_non_monotonic() -> None:
+    text = """
+    LOTO: $1.000
+    RECARGADO $500 por sorteo
+    REVANCHA $300 por sorteo
+    DESQUITE $0 por sorteo
+    JUBILAZO $500 por sorteo
+    MULTIPLICAR $500 por sorteo
+    JUBILAZO 50 AÑOS $500 por sorteo
+    """
+    with pytest.raises(ParseError, match="not monotonic"):
+        _extract_prices(text)
+
+
 def test_get_loto_prices_full_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "polla_app.sources.browser.fetch_html",

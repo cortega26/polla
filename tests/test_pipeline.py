@@ -5,7 +5,101 @@ from pathlib import Path
 
 import pytest
 
-from polla_app.pipeline import run_pipeline
+from polla_app.pipeline import _compute_unchanged, run_pipeline
+
+
+def _dedup_record(sorteo: int, fecha: str, sha: str, pozos: dict[str, int]) -> dict[str, object]:
+    """Build a state record shaped like a persisted pipeline record."""
+    return {
+        "sorteo": sorteo,
+        "fecha": fecha,
+        "pozos_proximo": pozos,
+        "provenance": {"pozos": {"primary": {"sha256": sha}}},
+    }
+
+
+def test_compute_unchanged_matches_on_sha() -> None:
+    prev = [_dedup_record(6001, "2025-09-30", "abc", {"Loto Clásico": 100_000_000})]
+    current = _dedup_record(6001, "2025-09-30", "abc", {"Loto Clásico": 999_000_000})
+    assert _compute_unchanged(prev, sorteo=6001, fecha="2025-09-30", current_record=current) is True
+
+
+def test_compute_unchanged_falls_back_to_amounts_when_sha_differs() -> None:
+    prev = [_dedup_record(6001, "2025-09-30", "abc", {"Loto Clásico": 100_000_000})]
+
+    same_amounts = _dedup_record(6001, "2025-09-30", "def", {"Loto Clásico": 100_000_000})
+    assert (
+        _compute_unchanged(prev, sorteo=6001, fecha="2025-09-30", current_record=same_amounts)
+        is True
+    )
+
+    different_amounts = _dedup_record(6001, "2025-09-30", "def", {"Loto Clásico": 200_000_000})
+    assert (
+        _compute_unchanged(prev, sorteo=6001, fecha="2025-09-30", current_record=different_amounts)
+        is False
+    )
+
+
+def test_run_pipeline_skips_unchanged_draw(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    payload = {
+        "fuente": "https://resultadoslotochile.com/pozo-para-el-proximo-sorteo/",
+        "fetched_at": "2025-09-28T00:00:00+00:00",
+        "montos": {"Loto Clásico": 111_000_000},
+        "user_agent": "pytest",
+        "estimado": True,
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+        "sha256": "same-content-digest",
+    }
+
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (
+            ("resultadoslotochile", lambda **_: payload),
+            ("openloto", lambda **_: payload),
+        ),
+    )
+    monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
+
+    state_path = tmp_path / "state.jsonl"
+
+    first = run_pipeline(
+        sources=["pozos"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=state_path,
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+    )
+    assert first["publish"] is True
+
+    second = run_pipeline(
+        sources=["pozos"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=state_path,
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+    )
+    assert second["publish"] is False
+    assert second["decision"]["status"] == "skip"
 
 
 def test_pozos_pipeline_produces_artifacts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

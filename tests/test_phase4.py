@@ -68,6 +68,47 @@ def test_slack_notifier_handles_failure(
     assert "Failed to send Slack" in caplog.text
 
 
+def _mock_slack_post(
+    calls: list[tuple[tuple[Any, ...], dict[str, Any]]],
+) -> Any:
+    def mock_post(*args: Any, **kwargs: Any) -> MagicMock:
+        calls.append((args, kwargs))
+        mock = MagicMock()
+        mock.status_code = 200
+        mock.raise_for_status = MagicMock()
+        return mock
+
+    return mock_post
+
+
+def test_notify_slack_skips_unchanged_without_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", "http://mock-slack")
+    import requests
+
+    calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    monkeypatch.setattr(requests, "post", _mock_slack_post(calls))
+
+    notify_slack({"decision": {"status": "skip"}, "prizes_changed": False})
+
+    assert calls == []
+
+
+def test_notify_slack_posts_when_skip_but_prizes_changed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", "http://mock-slack")
+    import requests
+
+    calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    monkeypatch.setattr(requests, "post", _mock_slack_post(calls))
+
+    notify_slack({"decision": {"status": "skip"}, "prizes_changed": True})
+
+    assert len(calls) == 1
+
+
 def test_health_online_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     from click.testing import CliRunner
 
