@@ -625,15 +625,17 @@ def _run_ingestion_for_sources(
         log_event=log_event,
     )
 
-    # Write raw JSON artifacts (one per source)
+    # Write raw JSON artifacts (one per source): the source URL's netloc
+    # identifies the source regardless of requested-sources mode, so the
+    # aggregate mode ("pozos") no longer overwrites openloto with polla.
     raw_dir.mkdir(parents=True, exist_ok=True)
+    from urllib.parse import urlparse
+
     for entry in collected:
-        # Compatibility: if it's the only source, use its name for the test
-        if len(requested_sources) == 1:
+        if len(collected) == 1:
+            # Compatibility: single-source runs keep the requested name
             src_name = requested_sources[0]
         else:
-            from urllib.parse import urlparse
-
             src_name = urlparse(entry.get("fuente", "")).netloc.replace(".", "_") or "source"
         _write_json(raw_dir / f"{src_name}.json", entry)
 
