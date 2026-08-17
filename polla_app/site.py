@@ -13,20 +13,9 @@ from pathlib import Path
 from typing import Any
 
 from .contracts import API_VERSION
+from .io import read_json, read_jsonl
 
 MAX_HISTORY_RECORDS = 100
-
-
-def _load_ndjson(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    records: dict[tuple[Any, Any], dict[str, Any]] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line:
-            continue
-        record = json.loads(line)
-        records[(record.get("sorteo"), record.get("fecha"))] = record
-    return list(records.values())
 
 
 def _format_millones(value: int) -> str:
@@ -49,6 +38,10 @@ def _game_section(record: dict[str, Any] | None) -> dict[str, Any] | None:
     }
 
 
+def _dedup_key(record: dict[str, Any]) -> tuple[Any, Any]:
+    return (record.get("sorteo"), record.get("fecha"))
+
+
 def build_site_payload(
     *,
     loto_path: Path,
@@ -62,8 +55,8 @@ def build_site_payload(
     reused from ``previous_payload`` (e.g. the last successfully deployed
     ``data.json``), so a single-game outage never blanks the dashboard.
     """
-    loto_records = _load_ndjson(loto_path)
-    kino_records = _load_ndjson(kino_path) if kino_path else []
+    loto_records = read_jsonl(loto_path, dedup_key=_dedup_key)
+    kino_records = read_jsonl(kino_path, dedup_key=_dedup_key) if kino_path else []
 
     history = loto_records + kino_records
     history = sorted(
@@ -74,7 +67,7 @@ def build_site_payload(
 
     decision: dict[str, Any] = {}
     if summary_path and summary_path.exists():
-        decision = json.loads(summary_path.read_text(encoding="utf-8"))
+        decision = read_json(summary_path)
 
     loto_section = _game_section(loto_records[-1] if loto_records else None)
     kino_section = _game_section(kino_records[-1] if kino_records else None)
