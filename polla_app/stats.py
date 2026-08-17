@@ -45,13 +45,6 @@ def _to_number(raw: str) -> float | None:
         return None
 
 
-def _clean_rows(reader: Any) -> list[list[str]]:
-    rows: list[list[str]] = []
-    for raw in reader:
-        rows.append([(cell or "").strip() for cell in raw])
-    return rows
-
-
 def _normalize_stats(header: list[str], rows: list[list[str]]) -> dict[str, Any]:
     """Group CSV rows by game (``Nombre``) and normalize numeric columns."""
     games: dict[str, list[dict[str, Any]]] = {}

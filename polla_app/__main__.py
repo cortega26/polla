@@ -226,7 +226,6 @@ def run(
         timeout=timeout,
         fail_fast=fail_fast,
         mismatch_threshold=mismatch_threshold,
-        include_pozos=include_pozos,
         force_publish=force_publish,
         include_prices=True,
     )

@@ -52,7 +52,6 @@ def test_pipeline_to_publish_e2e(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
         force_publish=False,
     )
 

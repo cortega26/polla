@@ -103,7 +103,6 @@ KINO_SOURCES = (("kino", kino_module.get_pozo_kino),)
 
 def _collect_from_sources(
     sources: Sequence[tuple[str, Callable[..., Any]]],
-    include: bool,
     source_overrides: Mapping[str, str] | None = None,
     *,
     timeout: int = 20,
@@ -117,9 +116,6 @@ def _collect_from_sources(
     Shared by the Loto and Kino collectors; a failing source is logged and
     skipped unless ``fail_fast`` is set.
     """
-    if not include:
-        return tuple()
-
     collected: list[dict[str, Any]] = []
     overrides = {k.lower(): v for k, v in (source_overrides or {}).items()}
 
@@ -165,7 +161,6 @@ def _collect_from_sources(
 
 
 def _collect_pozos(
-    include: bool,
     source_overrides: Mapping[str, str] | None = None,
     *,
     timeout: int = 20,
@@ -176,7 +171,6 @@ def _collect_pozos(
     """Collect Loto pozo payloads (openloto + polla)."""
     return _collect_from_sources(
         POZO_SOURCES,
-        include,
         source_overrides,
         timeout=timeout,
         retries=retries,
@@ -187,7 +181,6 @@ def _collect_pozos(
 
 
 def _collect_kino(
-    include: bool,
     source_overrides: Mapping[str, str] | None = None,
     *,
     timeout: int = 20,
@@ -198,7 +191,6 @@ def _collect_kino(
     """Collect Kino pozo payloads (official pendón)."""
     return _collect_from_sources(
         KINO_SOURCES,
-        include,
         source_overrides,
         timeout=timeout,
         retries=retries,
@@ -451,7 +443,6 @@ def _build_report_payload(
     sorteo: Any,
     fecha: Any,
     merged_pozos: Mapping[str, Any],
-    record_source: Any,
     confidence: str,
     decision_status: str,
     decision_reason: str,
@@ -565,7 +556,6 @@ def _run_ingestion_for_sources(
                 continue
             collected.extend(
                 loader(
-                    True,
                     source_overrides or {},
                     timeout=timeout,
                     retries=retries,
@@ -664,7 +654,6 @@ def _run_ingestion_for_sources(
         sorteo=sorteo,
         fecha=fecha,
         merged_pozos=merged_pozos,
-        record_source=record["fuente"],
         confidence=confidence,
         decision_status=decision_status,
         decision_reason=publish_reason,
@@ -737,7 +726,6 @@ def run_pipeline(
     timeout: int,
     fail_fast: bool,
     mismatch_threshold: float,
-    include_pozos: bool,
     force_publish: bool = False,
     include_prices: bool = False,
 ) -> dict[str, Any]:

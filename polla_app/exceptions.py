@@ -56,10 +56,6 @@ class PublishError(ScriptError):
     """Errors during publishing to external services."""
 
 
-class NetworkError(ScriptError):
-    """Network/HTTP errors reaching external services."""
-
-
 class ParseError(ScriptError):
     """HTML or content parsing errors."""
 

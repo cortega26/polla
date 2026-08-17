@@ -142,7 +142,6 @@ def test_kino_pipeline_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.25,
-        include_pozos=True,
     )
 
     assert summary["decision"]["status"] == "publish"

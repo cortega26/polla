@@ -22,10 +22,6 @@ def set_correlation_id(value: str | None) -> None:
     _CORRELATION_ID.set(value)
 
 
-def get_correlation_id() -> str | None:
-    return _CORRELATION_ID.get()
-
-
 def _should_redact_key(key: str) -> bool:
     key_l = key.lower()
     if key_l in {"fuente", "source", "url"}:  # URLs are safe in this context
