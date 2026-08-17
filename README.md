@@ -6,7 +6,7 @@
 
 Agrega estimaciones del próximo pozo integrando la fuente oficial de `polla.cl` con espejos comunitarios verificados, garantiza la procedencia mediante consenso y publica actualizaciones en Google Sheets.
 
-[![Tests](https://github.com/cortega26/polla/actions/workflows/tests.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/tests.yml) [![Docs](https://github.com/cortega26/polla/actions/workflows/docs.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/docs.yml) [![Health](https://github.com/cortega26/polla/actions/workflows/health.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/health.yml) [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3130/) [![License](https://img.shields.io/github/license/cortega26/polla)](license.md) [![Last commit](https://img.shields.io/github/last-commit/cortega26/polla)](https://github.com/cortega26/polla/commits/main)
+[![Tests](https://github.com/cortega26/polla/actions/workflows/tests.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/tests.yml) [![Docs](https://github.com/cortega26/polla/actions/workflows/docs.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/docs.yml) [![Health](https://github.com/cortega26/polla/actions/workflows/health.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/health.yml) [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3130/) [![License](https://img.shields.io/github/license/cortega26/polla)](license.md) [![Last commit](https://img.shields.io/github/last-commit/cortega26/polla)](https://github.com/cortega26/polla/commits/main)
 
 ## Características
 
@@ -86,7 +86,9 @@ flowchart TB
 5. **Simulacro de publicación** (requiere credenciales):
 
    ```bash
-   python -m polla_app publish --dry-run
+   python -m polla_app publish --dry-run \
+     --normalized artifacts/normalized.jsonl \
+     --comparison-report artifacts/comparison_report.json
    ```
 
 ### Configuración
@@ -101,8 +103,9 @@ flowchart TB
 | `POLLA_USER_AGENT`                   | string      | Library default | No             | User-agent HTTP personalizado para scraping respetuoso.               |
 | `POLLA_RATE_LIMIT_RPS`               | float       | sin definir     | No             | Límite de peticiones por segundo por host.                            |
 | `POLLA_MAX_RETRIES`                  | entero      | `3`             | No             | Máximo de intentos de reintento por petición.                         |
-| `POLLA_BACKOFF_FACTOR`               | float       | `0.3`           | No             | Multiplicador para el retraso del retroceso exponencial.              |
-| `POLLA_429_BACKOFF_SECONDS`          | entero      | —               | No             | Retraso fijo tras recibir un código de estado 429 (fallback).         |
+| `POLLA_BACKOFF_FACTOR`               | float       | `30.0`          | No             | Multiplicador base del retroceso exponencial (`factor * 2^(intento-1)` segundos; cubre 429/500/502/503/504). |
+| `POLLA_429_BACKOFF_SECONDS`          | float       | —               | No             | Alias legacy: se usa como factor de retroceso solo si `POLLA_BACKOFF_FACTOR` no está definido. |
+| `GOOGLE_SHEETS_SPREADSHEET_ID`       | string      | —               | Condicional    | Alias legacy de `GOOGLE_SPREADSHEET_ID` (misma hoja).                 |
 | `SLACK_WEBHOOK_URL`                  | string      | —               | No             | Destino para resúmenes de ejecución y alertas de discrepancia.        |
 | `POLLA_PUBLISH_LOCK_PATH`            | string      | `pipeline_state/publish.lock` | No  | Ubicación del lock anti-concurrencia para `publish`.                  |
 | `POLLA_PUBLISH_LOCK_TIMEOUT`         | float       | `300`           | No             | Segundos máximos de espera por el lock de publicación.                |

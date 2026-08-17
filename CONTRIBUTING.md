@@ -25,7 +25,7 @@ black .
 
 ## Project Conventions
 
-- Python 3.11+ only.
+- Python 3.13+ only.
 - Keep functions small and single‑purpose; add docstrings for non‑obvious logic.
 - Prefer `Mapping`/`Iterable` in function signatures for read‑only inputs.
 - Do not log secrets. Prefer structured logs for errors via `ScriptError`.
