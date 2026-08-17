@@ -282,3 +282,112 @@ def test_site_cli_stats_failure_still_writes_data(
     assert result.exit_code == 0, result.output
     data = json.loads((tmp_path / "data.json").read_text(encoding="utf-8"))
     assert data["loto"]["sorteo"] == 5465
+
+
+def test_build_site_payload_history_from_state_file(tmp_path: Path) -> None:
+    state_file = _write_ndjson(
+        tmp_path / "last_run.jsonl",
+        [
+            {"sorteo": 5460, "fecha": "2026-08-10", "pozos_proximo": {"Loto Clásico": 600_000_000}},
+            {"sorteo": 5462, "fecha": "2026-08-12", "pozos_proximo": {"Loto Clásico": 610_000_000}},
+            {"sorteo": 5464, "fecha": "2026-08-13", "pozos_proximo": {"Loto Clásico": 620_000_000}},
+        ],
+    )
+    loto = _write_ndjson(
+        tmp_path / "loto.jsonl",
+        [{"sorteo": 5462, "fecha": "2026-08-12", "pozos_proximo": {"Loto Clásico": 610_000_000}}],
+    )
+
+    payload = build_site_payload(
+        loto_path=loto,
+        kino_path=None,
+        summary_path=None,
+        state_path=state_file,
+    )
+
+    assert [h["sorteo"] for h in payload["history"]] == [5464, 5462, 5460]
+    assert [h["fecha"] for h in payload["history"]] == [
+        "2026-08-13",
+        "2026-08-12",
+        "2026-08-10",
+    ]
+
+
+def test_build_site_payload_state_mixed_games(tmp_path: Path) -> None:
+    state_file = _write_ndjson(
+        tmp_path / "last_run.jsonl",
+        [
+            {"sorteo": 5001, "fecha": "2026-08-01", "pozos_proximo": {"Loto Clásico": 500_000_000}},
+            {"sorteo": 5002, "fecha": "2026-08-03", "pozos_proximo": {"Revancha": 80_000_000}},
+            {"sorteo": 6001, "fecha": "2026-08-02", "pozos_proximo": {"Kino": 8_000_000_000}},
+            {"sorteo": 6002, "fecha": "2026-08-04", "pozos_proximo": {"ReKino": 400_000_000}},
+        ],
+    )
+
+    payload = build_site_payload(
+        loto_path=tmp_path / "missing.jsonl",
+        kino_path=tmp_path / "missing_kino.jsonl",
+        summary_path=None,
+        state_path=state_file,
+    )
+
+    assert len(payload["history"]) == 4
+    assert {
+        h["sorteo"]: h["pozos_millones"]
+        for h in payload["history"]
+        if "Kino" in h["pozos_millones"] or "ReKino" in h["pozos_millones"]
+    } == {6002: {"ReKino": "400"}, 6001: {"Kino": "8.000"}}
+
+
+def test_build_site_payload_state_tolerant_of_bad_lines(tmp_path: Path) -> None:
+    state_file = tmp_path / "last_run.jsonl"
+    state_file.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {"sorteo": 5450, "fecha": "2026-08-05", "pozos_proximo": {"Loto": 500_000_000}}
+                ),
+                "this is not json{{{",
+                json.dumps(
+                    {"sorteo": 5452, "fecha": "2026-08-08", "pozos_proximo": {"Loto": 510_000_000}}
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    payload = build_site_payload(
+        loto_path=tmp_path / "missing.jsonl",
+        kino_path=None,
+        summary_path=None,
+        state_path=state_file,
+    )
+
+    assert [h["sorteo"] for h in payload["history"]] == [5452, 5450]
+
+
+def test_site_cli_accepts_state_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    loto = _write_ndjson(
+        tmp_path / "loto.jsonl",
+        [{"sorteo": 5465, "fecha": "2026-08-16", "pozos_proximo": {"Loto Clásico": 620_000_000}}],
+    )
+    state_file = _write_ndjson(
+        tmp_path / "last_run.jsonl",
+        [{"sorteo": 5460, "fecha": "2026-08-10", "pozos_proximo": {"Loto Clásico": 600_000_000}}],
+    )
+
+    raw = _invoke_site(
+        tmp_path,
+        monkeypatch,
+        [
+            "--normalized",
+            str(loto),
+            "--state-file",
+            str(state_file),
+            "--output",
+            str(tmp_path / "data.json"),
+        ],
+    )
+    data = json.loads(raw)
+    assert data["loto"]["sorteo"] == 5465
+    assert [h["sorteo"] for h in data["history"]] == [5465, 5460]

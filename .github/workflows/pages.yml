@@ -47,6 +47,15 @@ jobs:
           restore-keys: |
             site-data-${{ github.ref_name }}-
 
+      - name: Restore pipeline state
+        id: restore-state
+        uses: actions/cache/restore@v5
+        with:
+          path: pipeline_state
+          key: pipeline-state-${{ github.ref_name }}-${{ github.run_number }}
+          restore-keys: |
+            pipeline-state-${{ github.ref_name }}-
+
       - name: Ingest Loto pozos (dry data for the dashboard)
         id: ingest-loto
         continue-on-error: true
@@ -93,6 +102,7 @@ jobs:
               --normalized-kino artifacts_kino/normalized.jsonl \
               --summary artifacts/run_summary.json \
               --previous-data site/data.json \
+              --state-file pipeline_state/last_run.jsonl \
               --output site/data.json
           else
             echo "::warning::Ingestas fallidas; se conserva la última data del dashboard"
