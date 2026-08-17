@@ -994,3 +994,44 @@ def test_raw_artifact_single_source_name(tmp_path: Path, monkeypatch: pytest.Mon
 
     raw_files = list(raw_dir.glob("*.json"))
     assert [f.name for f in raw_files] == ["openloto.json"]
+
+
+def test_raw_artifact_degraded_aggregate_names_survivor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    polla = {
+        "fuente": "https://www.polla.cl/es/",
+        "fetched_at": "2026-08-14T20:00:10+00:00",
+        "montos": {"Revancha": 222_000_000},
+        "user_agent": "pytest",
+        "estimado": True,
+        "sorteo": 6001,
+        "fecha": "2026-08-16",
+    }
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (("polla", lambda **_: polla),),
+    )
+
+    raw_dir = tmp_path / "raw"
+    run_pipeline(
+        sources=["pozos"],
+        source_overrides={},
+        raw_dir=raw_dir,
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=tmp_path / "state.jsonl",
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+    )
+
+    raw_files = list(raw_dir.glob("*.json"))
+    assert [f.name for f in raw_files] == ["www_polla_cl.json"]

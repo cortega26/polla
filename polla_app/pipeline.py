@@ -632,11 +632,12 @@ def _run_ingestion_for_sources(
     from urllib.parse import urlparse
 
     for entry in collected:
-        if len(collected) == 1:
-            # Compatibility: single-source runs keep the requested name
-            src_name = requested_sources[0]
-        else:
+        if requested_sources == ["pozos"] or len(requested_sources) > 1:
+            # Aggregate or multi-source run: name by the actual source URL netloc
             src_name = urlparse(entry.get("fuente", "")).netloc.replace(".", "_") or "source"
+        else:
+            # Single concrete source requested: keep the legacy requested-name
+            src_name = requested_sources[0]
         _write_json(raw_dir / f"{src_name}.json", entry)
 
     previous_records = _load_previous_state(state_path)
