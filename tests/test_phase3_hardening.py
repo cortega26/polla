@@ -32,6 +32,14 @@ def test_sanitize_redacts_sensitive_url_query_params() -> None:
     assert cleaned["url"] == "https://www.openloto.cl/pozo-del-loto.html"
 
 
+def test_sanitize_redacts_url_userinfo() -> None:
+    payload = {"url": "https://user:supersecret@api.example.test/feed?token=abc&x=1"}
+    cleaned = sanitize(payload)
+    assert "supersecret" not in cleaned["url"]
+    assert "user" not in cleaned["url"]
+    assert "api.example.test/feed?token=<redacted>&x=1" in cleaned["url"]
+
+
 def test_sanitize_keeps_plain_urls_and_non_urls() -> None:
     cleaned = sanitize(
         {"url": "https://www.openloto.cl/pozo-del-loto.html", "nombre": "Loto Clásico"}

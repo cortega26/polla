@@ -11,8 +11,15 @@ from typing import Any
 
 from ..exceptions import ParseError
 from ..net import FetchMetadata, fetch_html
+from ..obs import sanitize
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _redact_url(url: str) -> str:
+    """Redact credentials and sensitive query params from a URL for log text."""
+    return str(sanitize({"url": url})["url"])
+
 
 _fetcher: Any | None = None
 
@@ -52,7 +59,7 @@ def fetch_with_browser_fallback(
             raise
         LOGGER.info(
             "Plain fetch of %s failed (%s%s); retrying with browser",
-            url,
+            _redact_url(url),
             type(exc).__name__,
             f" status={status}" if status else "",
         )
@@ -64,11 +71,11 @@ def fetch_with_browser_fallback(
         raise ParseError("scrapling must be installed to use the browser fallback") from exc
     if getattr(page, "status", None) != 200:
         raise ParseError(
-            f"Browser fetch of {url} failed with status {getattr(page, 'status', None)}"
+            f"Browser fetch of {_redact_url(url)} failed with status {getattr(page, 'status', None)}"
         )
     html = str(getattr(page, "html", "") or getattr(page, "text", ""))
     if not html:
-        raise ParseError(f"Browser fetch of {url} returned empty content")
+        raise ParseError(f"Browser fetch of {_redact_url(url)} returned empty content")
     return FetchMetadata(
         url=url,
         user_agent="Scrapling/StealthyFetcher",
