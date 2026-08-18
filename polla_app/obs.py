@@ -59,6 +59,13 @@ def _redact_url_query(value: str) -> str:
         parts = urlsplit(value)
         if not parts.scheme or not parts.netloc:
             return value
+        netloc = parts.netloc
+        if parts.username or parts.password:
+            # Drop userinfo entirely; never keep any part of it in logs.
+            host = parts.hostname or ""
+            if parts.port:
+                host = f"{host}:{parts.port}"
+            netloc = host
         query = parse_qsl(parts.query, keep_blank_values=True)
         redacted = [
             (k, "<redacted>" if k.lower() in _SENSITIVE_QUERY_PARAMS else v) for k, v in query
@@ -72,7 +79,7 @@ def _redact_url_query(value: str) -> str:
             ]
             fragment = urlencode(frag_redacted, safe="<>")
         return urlunsplit(
-            (parts.scheme, parts.netloc, parts.path, urlencode(redacted, safe="<>"), fragment)
+            (parts.scheme, netloc, parts.path, urlencode(redacted, safe="<>"), fragment)
         )
     except Exception:
         return value

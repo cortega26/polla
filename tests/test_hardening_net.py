@@ -37,14 +37,24 @@ def _ok(*_: Any, **__: Any) -> requests.Response:
     return response
 
 
-def _session_stub(get: Callable[..., requests.Response]) -> Any:
-    """Build a fake requests.Session with the given ``get`` callable."""
+def _fake_session(get: Callable[..., requests.Response]) -> Any:
+    """Build a fake session whose ``get`` is the given callable."""
     return type("S", (), {"get": get})()
+
+
+@pytest.fixture(autouse=True)
+def _restore_module_session() -> Any:
+    """Restore the module-level session after each test."""
+    import polla_app.net as net_mod
+
+    original = net_mod._SESSION
+    yield
+    net_mod._SESSION = original
 
 
 def test_fetch_html_rate_limits_same_host(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
-    monkeypatch.setattr("polla_app.net.requests.Session", lambda: _session_stub(_ok))
+    monkeypatch.setattr("polla_app.net._SESSION", _fake_session(_ok))
     monkeypatch.setattr(fetch_html, "_last_seen", {}, raising=False)
     monkeypatch.setenv("POLLA_RATE_LIMIT_RPS", "2")
 
@@ -74,7 +84,7 @@ def test_fetch_html_rate_limit_does_not_space_different_hosts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
-    monkeypatch.setattr("polla_app.net.requests.Session", lambda: _session_stub(_ok))
+    monkeypatch.setattr("polla_app.net._SESSION", _fake_session(_ok))
     monkeypatch.setattr(fetch_html, "_last_seen", {}, raising=False)
     monkeypatch.setenv("POLLA_RATE_LIMIT_RPS", "2")
 
@@ -101,7 +111,7 @@ def test_fetch_html_rate_limit_does_not_space_different_hosts(
 
 def test_fetch_html_rate_limit_ignores_invalid_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
-    monkeypatch.setattr("polla_app.net.requests.Session", lambda: _session_stub(_ok))
+    monkeypatch.setattr("polla_app.net._SESSION", _fake_session(_ok))
     monkeypatch.setattr(fetch_html, "_last_seen", {}, raising=False)
     monkeypatch.setenv("POLLA_RATE_LIMIT_RPS", "abc")
 
@@ -130,7 +140,7 @@ def test_fetch_html_rate_limit_state_lives_on_function_object(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
-    monkeypatch.setattr("polla_app.net.requests.Session", lambda: _session_stub(_ok))
+    monkeypatch.setattr("polla_app.net._SESSION", _fake_session(_ok))
     monkeypatch.setattr(fetch_html, "_last_seen", {}, raising=False)
     monkeypatch.setenv("POLLA_RATE_LIMIT_RPS", "2")
 
@@ -159,8 +169,8 @@ def test_fetch_html_retries_on_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
     state: list[Any] = [requests.exceptions.Timeout("slow")]
     monkeypatch.setattr(
-        "polla_app.net.requests.Session",
-        lambda: type("S", (), {"get": _fail_once(state, requests.exceptions.Timeout("slow"))})(),
+        "polla_app.net._SESSION",
+        _fake_session(_fail_once(state, requests.exceptions.Timeout("slow"))),
     )
 
     # backoff capped at 300s; use a tiny factor via env to keep the test fast
@@ -173,10 +183,8 @@ def test_fetch_html_retries_on_connection_error(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
     state: list[Any] = [requests.exceptions.ConnectionError("refused")]
     monkeypatch.setattr(
-        "polla_app.net.requests.Session",
-        lambda: type(
-            "S", (), {"get": _fail_once(state, requests.exceptions.ConnectionError("refused"))}
-        )(),
+        "polla_app.net._SESSION",
+        _fake_session(_fail_once(state, requests.exceptions.ConnectionError("refused"))),
     )
     monkeypatch.setenv("POLLA_BACKOFF_FACTOR", "0.001")
     metadata = fetch_html("https://example.test", "ua", timeout=5, retries=2)
@@ -194,8 +202,8 @@ def test_fetch_html_exhausts_retries_on_persistent_timeout(
         raise requests.exceptions.Timeout("slow")
 
     monkeypatch.setattr(
-        "polla_app.net.requests.Session",
-        lambda: type("S", (), {"get": always_timeout})(),
+        "polla_app.net._SESSION",
+        _fake_session(always_timeout),
     )
     monkeypatch.setenv("POLLA_BACKOFF_FACTOR", "0.001")
     with pytest.raises(requests.exceptions.Timeout):
@@ -219,8 +227,8 @@ def test_fetch_html_retries_on_503(monkeypatch: pytest.MonkeyPatch) -> None:
         return response
 
     monkeypatch.setattr(
-        "polla_app.net.requests.Session",
-        lambda: type("S", (), {"get": fail_once})(),
+        "polla_app.net._SESSION",
+        _fake_session(fail_once),
     )
     monkeypatch.setenv("POLLA_BACKOFF_FACTOR", "0.001")
     metadata = fetch_html("https://example.test", "ua", timeout=5, retries=2)
@@ -244,8 +252,8 @@ def test_fetch_html_retries_on_500(monkeypatch: pytest.MonkeyPatch) -> None:
         return response
 
     monkeypatch.setattr(
-        "polla_app.net.requests.Session",
-        lambda: type("S", (), {"get": fail_once})(),
+        "polla_app.net._SESSION",
+        _fake_session(fail_once),
     )
     monkeypatch.setenv("POLLA_BACKOFF_FACTOR", "0.001")
     metadata = fetch_html("https://example.test", "ua", timeout=5, retries=2)
@@ -269,8 +277,8 @@ def test_fetch_html_retries_on_transient_status(
         return _ok()
 
     monkeypatch.setattr(
-        "polla_app.net.requests.Session",
-        lambda: type("S", (), {"get": fail_once})(),
+        "polla_app.net._SESSION",
+        _fake_session(fail_once),
     )
     monkeypatch.setenv("POLLA_BACKOFF_FACTOR", "0.001")
     metadata = fetch_html("https://example.test", "ua", timeout=5, retries=2)
@@ -287,11 +295,39 @@ def test_fetch_html_fails_fast_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
         raise error
 
     monkeypatch.setattr(
-        "polla_app.net.requests.Session",
-        lambda: type("S", (), {"get": always_404})(),
+        "polla_app.net._SESSION",
+        _fake_session(always_404),
     )
     with pytest.raises(requests.HTTPError):
         fetch_html("https://example.test", "ua", timeout=5, retries=3)
+
+
+def test_fetch_html_closes_failed_response_on_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("polla_app.net._robots_allowed", lambda *_, **__: True)
+    closed: list[Any] = []
+
+    class FakeResponse:
+        status_code = 503
+
+        def close(self) -> None:
+            closed.append(self)
+
+    error = requests.HTTPError("Service Unavailable")
+    error.response = FakeResponse()  # type: ignore[assignment]
+
+    def fail_once(*args: Any, **kwargs: Any) -> requests.Response:
+        if closed:
+            response = requests.Response()
+            response.status_code = 200
+            response._content = b"<html>ok</html>"
+            return response
+        raise error
+
+    monkeypatch.setattr("polla_app.net._SESSION", _fake_session(fail_once))
+    monkeypatch.setenv("POLLA_BACKOFF_FACTOR", "0.001")
+    metadata = fetch_html("https://example.test", "ua", timeout=5, retries=2)
+    assert metadata.html == "<html>ok</html>"
+    assert len(closed) == 1
 
 
 def test_persist_state_dedupes_by_sorteo_and_caps(tmp_path: Path) -> None:

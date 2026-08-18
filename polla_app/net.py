@@ -18,8 +18,30 @@ from urllib.robotparser import RobotFileParser
 import requests
 
 from .exceptions import RobotsDisallowedError
+from .obs import sanitize
 
 LOGGER = logging.getLogger(__name__)
+
+# One session per process: reuses connection pools across fetches within a run.
+_SESSION = requests.Session()
+
+
+def _redact_url(url: str) -> str:
+    """Redact credentials and sensitive query params from a URL for log text."""
+    return str(sanitize({"url": url})["url"])
+
+
+def _close_response(response: requests.Response | None) -> None:
+    """Best-effort close of a response, tolerating fakes/unsent responses."""
+    if response is None:
+        return
+    close = getattr(response, "close", None)
+    if callable(close):
+        try:
+            close()
+        except AttributeError:
+            # Unsent/fabricated responses have no raw socket to release.
+            pass
 
 
 @dataclass(frozen=True)
@@ -47,7 +69,7 @@ def _get_robots_parser(robots_url: str, ua: str) -> RobotFileParser | None:
         parser.set_url(robots_url)
         parser.parse(lines)
     except Exception as exc:  # pragma: no cover - network/IO edge cases
-        LOGGER.warning("Failed to read robots.txt from %s: %s", robots_url, exc)
+        LOGGER.warning("Failed to read robots.txt from %s: %s", _redact_url(robots_url), exc)
         return None
     return parser
 
@@ -67,7 +89,7 @@ def _robots_allowed(url: str, ua: str) -> bool:
         return True
     allowed = parser.can_fetch(ua, url)
     if not allowed:
-        LOGGER.warning("robots.txt forbids %s for UA %s", url, ua)
+        LOGGER.warning("robots.txt forbids %s for UA %s", _redact_url(url), ua)
     return allowed
 
 
@@ -110,7 +132,7 @@ def fetch_html(
     (e.g. Sec-Fetch-* for sources that require browser-like framing).
     """
 
-    session = requests.Session()
+    session = _SESSION
     headers = {
         "User-Agent": ua,
         "Accept-Language": "es-CL,es;q=0.9",
@@ -177,12 +199,14 @@ def fetch_html(
             status = getattr(err.response, "status_code", None)
             if attempts >= max_retries or status not in _RETRYABLE_STATUS:
                 raise
+            # Release the failed response's connection before retrying.
+            _close_response(err.response)
 
             sleep_time = _calculate_backoff(attempts, backoff_factor, 300.0)
             LOGGER.info(
                 "%s received from %s (attempt %d/%d); backing off %.1fs",
                 status,
-                url,
+                _redact_url(url),
                 attempts,
                 max_retries,
                 sleep_time,
@@ -193,11 +217,13 @@ def fetch_html(
             last_error = err
             if attempts >= max_retries:
                 raise
+            # Release the failed response's connection if one was created.
+            _close_response(err.response)
 
             sleep_time = _calculate_backoff(attempts, backoff_factor, 300.0)
             LOGGER.info(
                 "Transient failure fetching %s (%s; attempt %d/%d); retrying in %.1fs",
-                url,
+                _redact_url(url),
                 type(err).__name__,
                 attempts,
                 max_retries,
@@ -206,9 +232,9 @@ def fetch_html(
             time.sleep(sleep_time)
 
     if response is None:  # pragma: no cover - safety guard
-        raise RuntimeError(f"Failed to fetch {url}") from last_error
+        raise RuntimeError(f"Failed to fetch {_redact_url(url)}") from last_error
 
     fetched_at = datetime.now(UTC)
     html = response.text
-    LOGGER.debug("Fetched %s (%d bytes)", url, len(html))
+    LOGGER.debug("Fetched %s (%d bytes)", _redact_url(url), len(html))
     return FetchMetadata(url=url, user_agent=ua, fetched_at=fetched_at, html=html)
