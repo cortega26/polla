@@ -28,8 +28,14 @@ Sanity check doctest:
 | `mismatch_threshold`     | `float`             | Max ratio of category mismatches tolerated before quarantine.     |
 | `include_pozos`          | `bool`              | Include próximo pozo enrichment (deprecated, always True).        |
 | `force_publish`          | `bool`              | Force ingestion and state update even if data is unchanged.       |
+| `include_prices`         | `bool`              | Fetch live prices for the game and attach them to the normalized record (default False). Cuando `include_prices=True`, se obtienen los precios vivos del juego y se adjuntan al registro normalizado. |
 
-**Returns**: A dictionary containing `status` (publish/skip/quarantine), `publish_reason`, and `max_deviation`.
+**Returns**: A dictionary (the run summary, also written to `summary_path`) with:
+`run_id`, `generated_at`, `decision` (with `status` ∈ publish/publish_forced/skip/quarantine,
+`confidence`, `total_categories`, `mismatched_categories`, `reason`), `prizes_changed`,
+`normalized_path`, `comparison_report`, `raw_dir`, `state_path`, `publish` (bool),
+`publish_reason`, and `api_version`. `max_deviation` no es un key del resumen: vive
+dentro de cada `mismatch` del comparison report.
 
 ### Example
 
@@ -127,3 +133,37 @@ static dashboard payload consumed by `site/index.html` (see `docs/DATA-STORE.md`
 `validate_kino_numbers(numbers)` checks 14 unique numbers in 1..25. Validation runs
 inside the pipeline before a payload is accepted; invalid payloads are rejected
 (quarantined / logged), never published silently.
+
+---
+
+## Esquemas de artefactos
+
+Claves de nivel superior de cada artefacto emitido por `run_pipeline` (ver
+`tests/test_contracts.py` para las claves asertadas).
+
+### artifacts/normalized.jsonl
+
+Una línea por juego (record normalizado; `game` distingue Loto de Kino, plan 030):
+
+```
+sorteo, fecha, game, fuente, confidence, premios, pozos_proximo, provenance,
+precios (cuando include_prices=True)
+```
+
+### artifacts/comparison_report.json
+
+```
+run:        {id, generated_at, sources, timeout, retries, fail_fast}
+last_draw:  {sorteo, fecha}
+decision:   {status, confidence, total_categories, mismatched_categories, reason}
+mismatches: [ ... ]   (cada mismatch incluye su propio max_deviation)
+api_version
+```
+
+### artifacts/run_summary.json
+
+```
+run_id, generated_at, decision{...}, prizes_changed, publish (bool),
+publish_reason, normalized_path, comparison_report, raw_dir, state_path,
+api_version
+```

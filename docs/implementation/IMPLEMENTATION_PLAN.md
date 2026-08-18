@@ -1,5 +1,9 @@
 # Implementation Plan — Post-Audit Hardening Wave 2
 
+> **Estado: HISTÓRICO.** Este backlog describe el repositorio en su estado
+> v3.1.0 y NO refleja el código actual. Para el backlog vivo, ver
+> `plans/README.md` (y `CHANGELOG.md` para la historia de cambios).
+
 **Versión del plan:** 1.0
 **Fecha:** 2026-03-28
 **Basado en:** Auditoría técnica completa del repositorio v3.1.0 (commit `cd6a80e`)

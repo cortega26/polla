@@ -32,7 +32,8 @@ All notable changes to this project are documented in this file.
 ### Changed
 
 - **Consenso sin ceros fantasma:** categorías ausentes ya no votan `0` en el
-  consenso (openloto/polla); `--sources all` ahora incluye Loto y Kino.
+  consenso (openloto/polla); `--sources all` rechazado: cada juego (Loto/Kino)
+  se ingesta en una invocación separada.
 - **Estado rotativo:** `pipeline_state/last_run.jsonl` se deduplica por
   `(sorteo, fecha)` y se acota a `MAX_STATE_RECORDS` (1000), frenando el
   crecimiento ilimitado.
