@@ -162,7 +162,7 @@ To ensure high-velocity delivery without regression, the following automated gua
 
 - **Local Enforcement (Primary)**: Always run `make ready` before committing. This target runs all linters, formatters, and tests locally, ensuring a "clean" commit that won't conflict with CI.
 - **CI Enforcement**:
-  - `tests.yml`: Automatically fixes and commits minor formatting issues to keep the history clean.
+  - `tests.yml`: Enforces formatting with strict `--check` (black + ruff) and fails the build on any drift; no auto-commit.
   - `scrape.yml` (Production): Performs strict checks (`--check`) without auto-fixing to ensure the integrity of the production pipeline.
 - **Fail-Fast**: If `mypy` or `pytest` fail in any CI pipeline, the build is marked as failed and requires manual intervention.
 
