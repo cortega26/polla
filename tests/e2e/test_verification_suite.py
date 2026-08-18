@@ -44,6 +44,7 @@ def test_cli_help() -> None:
     assert "ignoring discrepancies" in result.stdout
 
 
+@pytest.mark.network
 def test_source_isolation(clean_artifacts: dict[str, Any]) -> None:
     """Verify that only the requested source is fetched (BUG-03) and confidence is correct (FEAT-01)."""
     result = run_cli(
@@ -95,6 +96,7 @@ def test_redaction_correctness() -> None:
     assert sanitized["api_key"] == "secr…23"
 
 
+@pytest.mark.network
 def test_degraded_mode(clean_artifacts: dict[str, Any]) -> None:
     """Verify that pipeline continues when one source fails (TEST-01)."""
     # Use an invalid URL for one source to trigger failure
@@ -142,6 +144,7 @@ def test_degraded_mode(clean_artifacts: dict[str, Any]) -> None:
                 assert "openloto" in mismatch["missing_sources"]
 
 
+@pytest.mark.network
 def test_deprecation_warning() -> None:
     """Verify that --no-include-pozos issues a warning (BUG-02)."""
     result = run_cli(["run", "--no-include-pozos"])

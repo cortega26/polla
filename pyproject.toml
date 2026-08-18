@@ -29,7 +29,10 @@ version = { attr = "polla_app.__version__" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m \"not network\""
+markers = [
+    "network: tests that hit live third-party sites (opt-in with -m network)",
+]
 
 [tool.black]
 line-length = 100
