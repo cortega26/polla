@@ -22,6 +22,7 @@ from .contracts import API_VERSION
 from .net import fetch_html
 from .numbers import to_number as _to_number
 from .sources.categories import KINO_STATS_CATEGORIES as _KINO_CATEGORIES
+from .sources.common import DEFAULT_UA
 
 LOGGER = logging.getLogger(__name__)
 
@@ -30,7 +31,6 @@ DEFAULT_STATS_URL = (
     "https://docs.google.com/spreadsheets/d/16WK4Qg59G38mK1twGzN8tq2o3Y3DnYg11Lh2LyJ6tsc/"
     "gviz/tq?tqx=out:csv&gid=0"
 )
-DEFAULT_UA = "PollaAltSourcesBot/1.0 (+contact@example.com)"
 
 
 def _normalize_stats(header: list[str], rows: list[list[str]]) -> dict[str, Any]:

@@ -9,14 +9,14 @@ from typing import Any
 from bs4 import BeautifulSoup
 
 from ..exceptions import ParseError
+from ..net import FetchMetadata
 from ..numbers import parse_millones_to_clp as _parse_millones_to_clp
 from .browser import fetch_with_browser_fallback
-from .common import build_pozo_payload
+from .common import DEFAULT_UA, build_pozo_payload
 
 LOGGER = logging.getLogger(__name__)
 OPENLOTO_URL = "https://www.openloto.cl/pozo-del-loto.html"
 POLLA_URL = "https://www.polla.cl/es/"
-DEFAULT_UA = "PollaAltSourcesBot/1.0 (+contact@example.com)"
 
 _LABEL_PATTERNS = {
     "Loto Clásico": r"Loto\s+Cl[aá]sico",
@@ -193,7 +193,6 @@ def get_pozo_polla(
     except ImportError as e:
         raise ParseError("scrapling must be installed to fetch from polla.cl") from e
 
-    import hashlib
     from datetime import datetime
 
     from bs4 import BeautifulSoup
@@ -332,15 +331,16 @@ def get_pozo_polla(
 
     sorteo, fecha = _extract_proximo_info(text_content)
 
-    sha256 = hashlib.sha256(html_content.encode("utf-8")).hexdigest()
-
-    return {
-        "fuente": url,
-        "fetched_at": fetched_at.isoformat(),
-        "sha256": sha256,
-        "estimado": True,
-        "montos": amounts,
-        "user_agent": "Scrapling/StealthyFetcher",
-        "sorteo": sorteo,
-        "fecha": fecha,
-    }
+    metadata_envelope = FetchMetadata(
+        url=url,
+        user_agent="Scrapling/StealthyFetcher",
+        fetched_at=fetched_at,
+        html=html_content,
+    )
+    return build_pozo_payload(
+        metadata=metadata_envelope,
+        montos=amounts,
+        sorteo=sorteo,
+        fecha=fecha,
+        fuente=url,
+    )
