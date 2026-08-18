@@ -88,11 +88,39 @@ jobs:
           restore-keys: |
             pipeline-state-${{ github.ref_name }}-
 
+      - name: Cache playwright chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-1228
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.lock
           python -m playwright install chromium --with-deps || python -m playwright install chromium
+
+      - name: Verify chromium parity (playwright vs patchright)
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          import playwright
+          import patchright
+
+          def revision(driver):
+              p = pathlib.Path(driver.__file__).parent / "driver" / "package" / "browsers.json"
+              data = json.loads(p.read_text(encoding="utf-8"))
+              for b in data.get("browsers", []):
+                  if b.get("name") == "chromium":
+                      return b["revision"]
+              raise SystemExit("chromium not in browsers.json")
+
+          rev_pw = revision(playwright)
+          rev_pr = revision(patchright)
+          print(f"playwright chromium={rev_pw} patchright chromium={rev_pr}")
+          if rev_pw != rev_pr:
+              raise SystemExit(f"CHROMIUM PARITY BROKEN: playwright {rev_pw} != patchright {rev_pr}")
+          PY
 
       - name: Run alternative-source pipeline (Loto pozos)
         id: pipeline
