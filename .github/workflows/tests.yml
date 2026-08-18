@@ -29,6 +29,7 @@ jobs:
         run: |
           black --check polla_app tests
           ruff check polla_app tests
+          ruff format --check polla_app tests
       - name: Check lockfile freshness
         run: |
           pip-compile --dry-run --output-file requirements.lock requirements.txt \
