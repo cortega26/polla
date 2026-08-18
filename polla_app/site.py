@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from .contracts import API_VERSION
+from .io import read_json, read_jsonl
 
 LOGGER = logging.getLogger(__name__)
 
@@ -36,36 +37,13 @@ _KINO_LABELS = frozenset(
 )
 
 
-def _load_ndjson(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    records: dict[tuple[Any, Any], dict[str, Any]] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line:
-            continue
-        record = json.loads(line)
-        records[(record.get("sorteo"), record.get("fecha"))] = record
-    return list(records.values())
-
-
 def _load_state_records(path: Path) -> list[dict[str, Any]]:
     """Load pipeline state records, skipping invalid JSON lines.
 
     The state file mixes Loto and Kino draws (see plan 030 for per-game
     files), so classification happens later via :func:`_classify_game`.
     """
-    if not path.exists():
-        return []
-    records: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            records.append(json.loads(line))
-        except json.JSONDecodeError:
-            LOGGER.warning("Invalid JSON line in %s; ignoring", path)
-    return records
+    return read_jsonl(path, tolerant=True)
 
 
 def _classify_game(record: Mapping[str, Any]) -> str:
@@ -109,6 +87,10 @@ def _game_section(record: dict[str, Any] | None) -> dict[str, Any] | None:
     }
 
 
+def _dedup_key(record: dict[str, Any]) -> tuple[Any, Any]:
+    return (record.get("sorteo"), record.get("fecha"))
+
+
 def build_site_payload(
     *,
     loto_path: Path,
@@ -128,8 +110,8 @@ def build_site_payload(
     the current ``normalized.jsonl`` records, which may be fresher within the
     same run.
     """
-    loto_records = _load_ndjson(loto_path)
-    kino_records = _load_ndjson(kino_path) if kino_path else []
+    loto_records = read_jsonl(loto_path, dedup_key=_dedup_key)
+    kino_records = read_jsonl(kino_path, dedup_key=_dedup_key) if kino_path else []
 
     state_loto: list[dict[str, Any]] = []
     state_kino: list[dict[str, Any]] = []
@@ -148,7 +130,7 @@ def build_site_payload(
 
     decision: dict[str, Any] = {}
     if summary_path and summary_path.exists():
-        decision = json.loads(summary_path.read_text(encoding="utf-8"))
+        decision = read_json(summary_path)
 
     loto_section = _game_section(loto_records[-1] if loto_records else None)
     kino_section = _game_section(kino_records[-1] if kino_records else None)

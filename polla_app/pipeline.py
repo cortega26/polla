@@ -11,6 +11,7 @@ from typing import Any, Protocol
 
 from .contracts import API_VERSION
 from .exceptions import ParseError
+from .io import read_jsonl, write_jsonl
 from .notifiers import notify_quarantine, notify_slack
 from .obs import metric, sanitize, set_correlation_id, span
 from .sources import kino as kino_module
@@ -71,27 +72,11 @@ def _write_json(path: Path, payload: Any) -> None:
 
 
 def _write_jsonl(path: Path, rows: Iterable[Mapping[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
-        for row in rows:
-            handle.write(json.dumps(row, ensure_ascii=False))
-            handle.write("\n")
+    write_jsonl(path, rows)
 
 
 def _load_previous_state(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    previous: list[dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                previous.append(json.loads(line))
-            except json.JSONDecodeError:
-                LOGGER.warning("Invalid JSON line in %s; ignoring", path)
-    return previous
+    return read_jsonl(path, tolerant=True)
 
 
 POZO_SOURCES = (
@@ -404,11 +389,7 @@ def _persist_state(
     # Prune oldest entries (insertion order is chronological).
     if len(updated) > MAX_STATE_RECORDS:
         updated = updated[-MAX_STATE_RECORDS:]
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    with state_path.open("w", encoding="utf-8") as handle:
-        for record in updated:
-            handle.write(json.dumps(record, ensure_ascii=False))
-            handle.write("\n")
+    write_jsonl(state_path, updated)
 
 
 def _compute_unchanged(

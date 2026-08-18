@@ -10,6 +10,7 @@ from typing import Any
 
 from .contracts import API_VERSION
 from .exceptions import ConfigError, PublishError
+from .io import read_json, read_jsonl
 from .notifiers import notify_slack
 
 try:
@@ -62,23 +63,7 @@ _normalise_summary = _normalize_summary
 
 
 def _load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _load_normalized_ndjson(path: Path) -> list[dict[str, Any]]:
-    """Load NDJSON file into a list of dicts, de-duplicating records.
-
-    Each line must be a valid JSON object. Records are keyed by
-    (sorteo, fecha): later records for the same draw replace earlier ones,
-    so repeated pipeline runs never publish duplicates.
-    """
-    records: dict[tuple[Any, Any], dict[str, Any]] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line:
-            continue
-        record = json.loads(line)
-        records[(record.get("sorteo"), record.get("fecha"))] = record
-    return list(records.values())
+    return read_json(path)
 
 
 class _PublishLock:
@@ -287,7 +272,7 @@ def publish_to_google_sheets(
 ) -> dict[str, Any]:
     """Publish normalized data to Google Sheets."""
 
-    normalized = _load_normalized_ndjson(normalized_path)
+    normalized = read_jsonl(normalized_path, dedup_key=lambda r: (r.get("sorteo"), r.get("fecha")))
     if not normalized:
         raise RuntimeError("Normalized dataset is empty; nothing to publish")
 
