@@ -20,6 +20,7 @@ from typing import Any
 
 from .contracts import API_VERSION
 from .net import fetch_html
+from .numbers import to_number as _to_number
 from .sources.categories import KINO_STATS_CATEGORIES as _KINO_CATEGORIES
 
 LOGGER = logging.getLogger(__name__)
@@ -30,20 +31,6 @@ DEFAULT_STATS_URL = (
     "gviz/tq?tqx=out:csv&gid=0"
 )
 DEFAULT_UA = "PollaAltSourcesBot/1.0 (+contact@example.com)"
-
-
-def _to_number(raw: str) -> float | None:
-    """Parse Chilean-formatted numbers (dots as thousands, comma as decimal)."""
-    value = (raw or "").strip().replace("$", "").replace("%", "")
-    if not value or value.lower() in {"n/a", "na", "-"}:
-        return None
-    if "1 en" in value:
-        value = value.split("1 en", 1)[1].strip()
-    value = value.replace(" ", "").replace(".", "").replace(",", ".")
-    try:
-        return float(value)
-    except ValueError:
-        return None
 
 
 def _normalize_stats(header: list[str], rows: list[list[str]]) -> dict[str, Any]:

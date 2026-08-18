@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from ..exceptions import ParseError
+from ..numbers import clean_clp as _clean_clp
 from .browser import fetch_with_browser_fallback
 from .categories import KINO_PRICE_FIELDS as _KINO_PRICE_FIELDS
 
@@ -71,10 +72,6 @@ _DELTA_RE = re.compile(
     r"(RECARGADO|REVANCHA|DESQUITE|JUBILAZO(?: 50 AÑOS)?|MULTIPLICAR)\b[^$]{0,80}\$?\s?([\d.]+)\s*por sorteo",
     re.IGNORECASE,
 )
-
-
-def _clean_clp(raw: str) -> int:
-    return int(raw.replace(".", "").replace("$", "").replace(" ", ""))
 
 
 def _extract_prices(text: str) -> dict[str, Any]:
