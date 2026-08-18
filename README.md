@@ -62,6 +62,8 @@ flowchart TB
    make ready
    ```
 
+   Si `make ready` falla por falta de pre-commit, instala las dependencias de desarrollo (`pip install -r requirements-dev.txt`) y los hooks (`pre-commit install`).
+
 2. **Ejecuta el pipeline de pozos localmente**:
 
    ```bash
