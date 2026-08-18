@@ -342,6 +342,11 @@ def publish(
     default=None,
     help="Previous data.json to reuse sections for games that produced no records.",
 )
+@click.option(
+    "--state-file",
+    default=None,
+    help="Pipeline state file (pipeline_state/last_run.jsonl) to source draw history from.",
+)
 def site(
     normalized: str,
     normalized_kino: str | None,
@@ -349,6 +354,7 @@ def site(
     stats_url: str | None,
     output: str,
     previous_data: str | None,
+    state_file: str | None,
 ) -> None:
     """Generate the static dashboard data payload (site/data.json)."""
 
@@ -358,11 +364,13 @@ def site(
             previous_payload = json.loads(Path(previous_data).read_text(encoding="utf-8"))
         except FileNotFoundError:
             previous_payload = None
+    state_path = Path(state_file) if state_file else None
     payload = build_site_payload(
         loto_path=Path(normalized),
         kino_path=Path(normalized_kino) if normalized_kino else None,
         summary_path=Path(summary) if summary else None,
         previous_payload=previous_payload,
+        state_path=state_path,
     )
 
     stats_path = Path(output).parent / "stats.json"
@@ -382,6 +390,7 @@ def site(
         kino_path=Path(normalized_kino) if normalized_kino else None,
         summary_path=Path(summary) if summary else None,
         previous_payload=previous_payload,
+        state_path=state_path,
     )
     _echo_json({"generated": str(output), "api_version": API_VERSION})
 
