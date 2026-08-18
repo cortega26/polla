@@ -123,6 +123,27 @@ def test_get_pozo_kino_rejects_upstream_error(monkeypatch: pytest.MonkeyPatch) -
         get_pozo_kino()
 
 
+def test_get_pozo_kino_warns_on_html_without_kino_text(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    data = {
+        "props": {
+            "pageProps": {
+                "pendon": {"outputs": SAMPLE_OUTPUTS, "error": None},
+                "firstSorteo": 3266,
+            }
+        }
+    }
+    html = f'<html><script id="__NEXT_DATA__" type="application/json">{json.dumps(data)}</script></html>'
+    monkeypatch.setattr("polla_app.sources.browser.fetch_html", lambda *_, **__: _metadata(html))
+
+    with caplog.at_level("WARNING", logger="polla_app.sources.kino"):
+        payload = get_pozo_kino()
+
+    assert payload["montos"]["Kino"] == 8_370_000_000
+    assert "missing 'Kino' text" in caplog.text
+
+
 def test_kino_pipeline_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from polla_app.pipeline import run_pipeline
 
