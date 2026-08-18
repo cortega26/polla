@@ -21,7 +21,12 @@ def _dedup_record(sorteo: int, fecha: str, sha: str, pozos: dict[str, int]) -> d
 def test_compute_unchanged_matches_on_sha() -> None:
     prev = [_dedup_record(6001, "2025-09-30", "abc", {"Loto Clásico": 100_000_000})]
     current = _dedup_record(6001, "2025-09-30", "abc", {"Loto Clásico": 999_000_000})
-    assert _compute_unchanged(prev, game="loto", sorteo=6001, fecha="2025-09-30", current_record=current) is True
+    assert (
+        _compute_unchanged(
+            prev, game="loto", sorteo=6001, fecha="2025-09-30", current_record=current
+        )
+        is True
+    )
 
 
 def test_compute_unchanged_falls_back_to_amounts_when_sha_differs() -> None:
@@ -29,13 +34,17 @@ def test_compute_unchanged_falls_back_to_amounts_when_sha_differs() -> None:
 
     same_amounts = _dedup_record(6001, "2025-09-30", "def", {"Loto Clásico": 100_000_000})
     assert (
-        _compute_unchanged(prev, game="loto", sorteo=6001, fecha="2025-09-30", current_record=same_amounts)
+        _compute_unchanged(
+            prev, game="loto", sorteo=6001, fecha="2025-09-30", current_record=same_amounts
+        )
         is True
     )
 
     different_amounts = _dedup_record(6001, "2025-09-30", "def", {"Loto Clásico": 200_000_000})
     assert (
-        _compute_unchanged(prev, game="loto", sorteo=6001, fecha="2025-09-30", current_record=different_amounts)
+        _compute_unchanged(
+            prev, game="loto", sorteo=6001, fecha="2025-09-30", current_record=different_amounts
+        )
         is False
     )
 
@@ -979,8 +988,6 @@ def test_kino_prices_attached_when_sorteo_matches(
     assert record["precios"]["Kino"]["delta_clp"] == 1000
 
 
-
-
 def _load_state_lines(path: Path) -> list[dict[str, object]]:
     return [
         json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
@@ -1109,6 +1116,7 @@ def test_pipeline_loto_then_kino_same_draw_not_false_skip(
     )
     assert summary2["publish"] is True
     assert summary2["publish_reason"] == "updated_or_new_amounts"
+
 
 def test_raw_artifacts_preserved_in_aggregate_mode(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
