@@ -390,6 +390,7 @@ def site(
         summary_path=Path(summary) if summary else None,
         previous_payload=previous_payload,
         state_path=state_path,
+        payload=payload,
     )
     _echo_json({"generated": str(output), "api_version": API_VERSION})
 

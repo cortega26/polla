@@ -187,15 +187,22 @@ def write_site_data(
     summary_path: Path | None = None,
     previous_payload: Mapping[str, Any] | None = None,
     state_path: Path | None = None,
+    payload: Mapping[str, Any] | None = None,
 ) -> Path:
-    """Write the dashboard data payload to ``output``."""
-    payload = build_site_payload(
-        loto_path=loto_path,
-        kino_path=kino_path,
-        summary_path=summary_path,
-        previous_payload=previous_payload,
-        state_path=state_path,
-    )
+    """Write the dashboard data payload to ``output``.
+
+    ``payload`` may be a prebuilt payload from :func:`build_site_payload`
+    (avoids a duplicate build + NDJSON re-read when the caller already built
+    it); when ``None`` it is built here for backward compatibility.
+    """
+    if payload is None:
+        payload = build_site_payload(
+            loto_path=loto_path,
+            kino_path=kino_path,
+            summary_path=summary_path,
+            previous_payload=previous_payload,
+            state_path=state_path,
+        )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),

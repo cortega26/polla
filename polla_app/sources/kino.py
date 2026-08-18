@@ -23,8 +23,6 @@ import re
 from datetime import date
 from typing import Any
 
-from bs4 import BeautifulSoup
-
 from ..exceptions import ParseError
 from .browser import fetch_with_browser_fallback
 from .common import build_pozo_payload
@@ -139,11 +137,8 @@ def _fetch_pozo_kino(
     if sorteo is not None and sorteo <= 0:
         raise ParseError("Kino sorteo number is invalid", context={"sorteo": sorteo})
 
-    # Sanity-check the embedded HTML with BeautifulSoup only to confirm the
-    # page rendered content (defensive against a stub page without data).
-    soup = BeautifulSoup(metadata.html, "html.parser")
-    text = soup.get_text(" ", strip=True)
-    if "Kino" not in text and "kino" not in text:
+    # Advisory sanity check on the raw HTML (no full DOM parse needed).
+    if "Kino" not in metadata.html and "kino" not in metadata.html:
         LOGGER.warning("Kino pendón page content looks unexpected (missing 'Kino' text)")
 
     return build_pozo_payload(
