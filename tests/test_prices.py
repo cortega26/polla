@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -120,6 +121,53 @@ def test_extract_kino_prices_structure() -> None:
 def test_extract_kino_prices_rejects_missing_sorteos() -> None:
     with pytest.raises(ParseError, match="initialSorteos"):
         _extract_kino_prices({"props": {"pageProps": {}}})
+
+
+def _kino_draw(**fields: object) -> dict[str, Any]:
+    return {
+        "NumeroSorteo": 3266,
+        "FechaSorteo": "2026/08/14",
+        "PrecioKino": 1000,
+        "PrecioReKino": 500,
+        "PrecioRequeteKino": 500,
+        "PrecioChaoJefe2M": 500,
+        "PrecioChaoJefe3M": 500,
+        "PrecioComboMarraqueta": 500,
+        **fields,
+    }
+
+
+def _kino_next_data(draw: dict[str, Any]) -> dict[str, Any]:
+    return {"props": {"pageProps": {"initialSorteos": {"data": [draw]}}}}
+
+
+def test_extract_kino_prices_skips_missing_variant() -> None:
+    draw = _kino_draw()
+    draw.pop("PrecioComboMarraqueta")
+    payload = _extract_kino_prices(_kino_next_data(draw))
+
+    assert len(payload["precios"]) == 5
+    assert payload["cumulative"] == 3000
+    assert "Súper Combo Marraqueta" not in payload["precios"]
+    assert payload["precios"]["Kino"] == {"delta_clp": 1000, "acumulado_clp": 1000}
+    assert payload["precios"]["Chao Jefe $3 Millones"] == {
+        "delta_clp": 500,
+        "acumulado_clp": 3000,
+    }
+
+
+def test_extract_kino_prices_zero_variant_skipped() -> None:
+    payload = _extract_kino_prices(_kino_next_data(_kino_draw(PrecioReKino=0)))
+
+    assert len(payload["precios"]) == 5
+    assert payload["cumulative"] == 3000
+    assert "ReKino" not in payload["precios"]
+
+
+def test_extract_kino_prices_all_missing_raises() -> None:
+    draw = {k: v for k, v in _kino_draw().items() if not k.startswith("Precio")}
+    with pytest.raises(ParseError, match="no valid price fields"):
+        _extract_kino_prices(_kino_next_data(draw))
 
 
 def test_get_kino_prices_full_payload(monkeypatch: pytest.MonkeyPatch) -> None:
