@@ -21,7 +21,7 @@ def _dedup_record(sorteo: int, fecha: str, sha: str, pozos: dict[str, int]) -> d
 def test_compute_unchanged_matches_on_sha() -> None:
     prev = [_dedup_record(6001, "2025-09-30", "abc", {"Loto Clásico": 100_000_000})]
     current = _dedup_record(6001, "2025-09-30", "abc", {"Loto Clásico": 999_000_000})
-    assert _compute_unchanged(prev, sorteo=6001, fecha="2025-09-30", current_record=current) is True
+    assert _compute_unchanged(prev, game="loto", sorteo=6001, fecha="2025-09-30", current_record=current) is True
 
 
 def test_compute_unchanged_falls_back_to_amounts_when_sha_differs() -> None:
@@ -29,13 +29,13 @@ def test_compute_unchanged_falls_back_to_amounts_when_sha_differs() -> None:
 
     same_amounts = _dedup_record(6001, "2025-09-30", "def", {"Loto Clásico": 100_000_000})
     assert (
-        _compute_unchanged(prev, sorteo=6001, fecha="2025-09-30", current_record=same_amounts)
+        _compute_unchanged(prev, game="loto", sorteo=6001, fecha="2025-09-30", current_record=same_amounts)
         is True
     )
 
     different_amounts = _dedup_record(6001, "2025-09-30", "def", {"Loto Clásico": 200_000_000})
     assert (
-        _compute_unchanged(prev, sorteo=6001, fecha="2025-09-30", current_record=different_amounts)
+        _compute_unchanged(prev, game="loto", sorteo=6001, fecha="2025-09-30", current_record=different_amounts)
         is False
     )
 
@@ -79,7 +79,6 @@ def test_run_pipeline_skips_unchanged_draw(tmp_path: Path, monkeypatch: pytest.M
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
     assert first["publish"] is True
 
@@ -96,7 +95,6 @@ def test_run_pipeline_skips_unchanged_draw(tmp_path: Path, monkeypatch: pytest.M
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
     assert second["publish"] is False
     assert second["decision"]["status"] == "skip"
@@ -981,6 +979,137 @@ def test_kino_prices_attached_when_sorteo_matches(
     assert record["precios"]["Kino"]["delta_clp"] == 1000
 
 
+
+
+def _load_state_lines(path: Path) -> list[dict[str, object]]:
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+
+
+def test_persist_state_namespaces_by_game(tmp_path: Path) -> None:
+    from polla_app.pipeline import _persist_state
+
+    state_path = tmp_path / "state.jsonl"
+    base = {"sorteo": 6001, "fecha": "2025-09-30", "pozos_proximo": {"Loto Clásico": 111_000_000}}
+    _persist_state(state_path, [], {**base, "game": "loto"})
+    _persist_state(state_path, _load_state_lines(state_path), {**base, "game": "kino"})
+
+    records = _load_state_lines(state_path)
+    assert len(records) == 2
+    assert {record["game"] for record in records} == {"loto", "kino"}
+
+
+def test_compute_unchanged_ignores_other_game() -> None:
+    from polla_app.pipeline import _compute_unchanged
+
+    previous = [
+        {
+            "game": "loto",
+            "sorteo": 6001,
+            "fecha": "2025-09-30",
+            "pozos_proximo": {"Loto Clásico": 111_000_000},
+        }
+    ]
+    current = {
+        "game": "kino",
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+        "pozos_proximo": {"Loto Clásico": 111_000_000},
+    }
+    assert (
+        _compute_unchanged(
+            previous, game="kino", sorteo=6001, fecha="2025-09-30", current_record=current
+        )
+        is False
+    )
+
+
+def test_compute_unchanged_same_game_matches() -> None:
+    from polla_app.pipeline import _compute_unchanged
+
+    previous = [
+        {
+            "game": "loto",
+            "sorteo": 6001,
+            "fecha": "2025-09-30",
+            "provenance": {"pozos": {"primary": {"sha256": "abc"}}},
+        }
+    ]
+    current = {
+        "game": "loto",
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+        "provenance": {"pozos": {"primary": {"sha256": "abc"}}},
+    }
+    assert (
+        _compute_unchanged(
+            previous, game="loto", sorteo=6001, fecha="2025-09-30", current_record=current
+        )
+        is True
+    )
+
+
+def test_pipeline_loto_then_kino_same_draw_not_false_skip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    loto_payload = {
+        "fuente": "https://resultadoslotochile.com/pozo-para-el-proximo-sorteo/",
+        "montos": {"Loto Clásico": 111_000_000},
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+        "sha256": "same-draw-sha",
+    }
+    kino_payload = {
+        "fuente": "https://pendon-kino.loteria.cl/pendonkino",
+        "montos": {"Kino": 8_370_000_000},
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+        "sha256": "same-draw-sha",
+    }
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (("resultadoslotochile", lambda **_: loto_payload),),
+    )
+    monkeypatch.setattr(pipeline_mod, "KINO_SOURCES", (("kino", lambda **_: kino_payload),))
+
+    state = tmp_path / "state.jsonl"
+    summary1 = run_pipeline(
+        sources=["pozos"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=state,
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+    )
+    assert summary1["publish"] is True
+
+    summary2 = run_pipeline(
+        sources=["kino"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=state,
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+    )
+    assert summary2["publish"] is True
+    assert summary2["publish_reason"] == "updated_or_new_amounts"
+
 def test_raw_artifacts_preserved_in_aggregate_mode(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1024,7 +1153,6 @@ def test_raw_artifacts_preserved_in_aggregate_mode(
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
 
     raw_files = sorted(f.name for f in raw_dir.glob("*.json"))
@@ -1064,7 +1192,6 @@ def test_raw_artifact_single_source_name(tmp_path: Path, monkeypatch: pytest.Mon
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
 
     raw_files = list(raw_dir.glob("*.json"))
@@ -1105,7 +1232,6 @@ def test_raw_artifact_degraded_aggregate_names_survivor(
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
 
     raw_files = list(raw_dir.glob("*.json"))
