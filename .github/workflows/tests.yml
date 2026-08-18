@@ -29,6 +29,10 @@ jobs:
         run: |
           black --check polla_app tests
           ruff check polla_app tests
+      - name: Check lockfile freshness
+        run: |
+          pip-compile --dry-run --output-file requirements.lock requirements.txt \
+            || { echo "::error::requirements.lock is stale; run pip-compile and commit"; exit 1; }
       - name: Scan tracked files for credentials
         run: |
           matches=$(git ls-files | grep -iE 'service_account|(^\.env$)|credentials.*\.json' || true)

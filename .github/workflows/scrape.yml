@@ -77,7 +77,7 @@ jobs:
         with:
           python-version: '3.13'
           cache: 'pip'
-          cache-dependency-path: 'requirements.txt'
+          cache-dependency-path: 'requirements.lock'
 
       - name: Restore pipeline state
         id: restore-state
@@ -91,7 +91,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.lock
           python -m playwright install chromium --with-deps || python -m playwright install chromium
 
       - name: Run alternative-source pipeline (Loto pozos)
@@ -296,13 +296,13 @@ jobs:
         with:
           python-version: '3.13'
           cache: 'pip'
-          cache-dependency-path: 'requirements.txt'
+          cache-dependency-path: 'requirements.lock'
 
       - name: Install dependencies
         if: ${{ needs.ingest.outputs.publish == 'true' }}
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.lock
 
       - name: Download artifacts
         if: ${{ needs.ingest.outputs.publish == 'true' }}
