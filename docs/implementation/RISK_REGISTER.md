@@ -1,5 +1,9 @@
 # Risk Register — polla v3.1.0
 
+> **Estado: HISTÓRICO.** Este backlog describe el repositorio en su estado
+> v3.1.0 y NO refleja el código actual. Para el backlog vivo, ver
+> `plans/README.md` (y `CHANGELOG.md` para la historia de cambios).
+
 **Fecha:** 2026-03-28
 **Scope:** Riesgos activos antes de completar Wave 2.
 **Formato:** Probabilidad × Impacto = Exposición (H/M/L)
