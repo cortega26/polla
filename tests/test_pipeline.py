@@ -148,7 +148,6 @@ def test_pozos_pipeline_produces_artifacts(tmp_path: Path, monkeypatch: pytest.M
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
 
     assert (tmp_path / "normalized.jsonl").exists()
@@ -231,7 +230,6 @@ def test_pozos_pipeline_skip_when_unchanged(
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
 
     # Previous state only had one category; current merge adds Recargado -> should publish
@@ -298,7 +296,6 @@ def test_pozos_pipeline_reason_when_unchanged(
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
 
     assert summary["publish"] is False
@@ -355,7 +352,6 @@ def test_pozos_pipeline_force_publish_reason(
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
         force_publish=True,
     )
 
@@ -393,7 +389,6 @@ def test_openloto_only_logs_pozos(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=False,
     )
 
     events = [json.loads(line) for line in log_path.read_text().splitlines() if line]
@@ -456,7 +451,6 @@ def test_pozos_pipeline_applies_source_overrides(
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
 
     # Read normalized record
@@ -512,7 +506,6 @@ def test_timeout_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         timeout=7,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
 
     assert len(received_timeouts) > 0
@@ -562,7 +555,6 @@ def test_retries_reaches_fetch_html(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
 
     assert len(received_retries) > 0
@@ -598,7 +590,6 @@ def test_openloto_only_uses_override(tmp_path: Path, monkeypatch: pytest.MonkeyP
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=False,
     )
 
     # Verify raw payload wrote the override URL
@@ -646,7 +637,6 @@ def test_pipeline_continues_when_one_source_fails(
         timeout=5,
         fail_fast=False,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
 
     assert summary["publish"] is True
@@ -686,7 +676,6 @@ def test_pipeline_raises_when_all_sources_fail(
             timeout=5,
             fail_fast=False,
             mismatch_threshold=0.5,
-            include_pozos=True,
         )
 
 
@@ -727,7 +716,6 @@ def test_pipeline_fail_fast_raises_on_first_source_failure(
             timeout=5,
             fail_fast=True,
             mismatch_threshold=0.5,
-            include_pozos=True,
         )
 
 
@@ -762,7 +750,6 @@ def test_pipeline_single_source_openloto(tmp_path: Path, monkeypatch: pytest.Mon
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
 
     assert summary["publish"] is True
@@ -784,7 +771,6 @@ def test_pipeline_unsupported_source_raises_error(tmp_path: Path) -> None:
             timeout=5,
             fail_fast=True,
             mismatch_threshold=0.5,
-            include_pozos=True,
         )
 
 
@@ -803,7 +789,6 @@ def test_pipeline_mixed_sources_rejected(tmp_path: Path) -> None:
             timeout=5,
             fail_fast=False,
             mismatch_threshold=0.5,
-            include_pozos=True,
         )
 
 
@@ -852,7 +837,6 @@ def test_pipeline_handles_mismatched_pozos(tmp_path: Path, monkeypatch: pytest.M
         timeout=5,
         fail_fast=True,
         mismatch_threshold=2.0,
-        include_pozos=True,
     )
 
     assert summary["publish"] is True
@@ -908,7 +892,6 @@ def test_pipeline_consensus_tie_breaking(tmp_path: Path, monkeypatch: pytest.Mon
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
 
     record = json.loads((tmp_path / "normalized.jsonl").read_text().splitlines()[0])
@@ -946,7 +929,6 @@ def test_kino_prices_skipped_on_sorteo_mismatch(
         timeout=5,
         fail_fast=False,
         mismatch_threshold=0.5,
-        include_pozos=True,
         include_prices=True,
     )
 
@@ -992,7 +974,6 @@ def test_kino_prices_attached_when_sorteo_matches(
         timeout=5,
         fail_fast=False,
         mismatch_threshold=0.5,
-        include_pozos=True,
         include_prices=True,
     )
 

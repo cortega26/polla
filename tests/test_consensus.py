@@ -43,7 +43,6 @@ def test_consensus_agreement(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.25,
-        include_pozos=True,
     )
 
     summary = json.loads(summary_path.read_text())
@@ -93,7 +92,6 @@ def test_consensus_disagreement_quarantine(tmp_path: Path, monkeypatch: pytest.M
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.1,
-        include_pozos=True,
     )
 
     summary = json.loads(summary_path.read_text())

@@ -57,7 +57,6 @@ def test_normalized_and_report_schema_and_idempotency(
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
     assert summary1["publish"] is True
     assert isinstance(summary1.get("api_version"), str)
@@ -97,7 +96,6 @@ def test_normalized_and_report_schema_and_idempotency(
         timeout=5,
         fail_fast=True,
         mismatch_threshold=0.5,
-        include_pozos=True,
     )
     assert summary2["publish"] is False
 
