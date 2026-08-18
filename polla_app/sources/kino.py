@@ -25,27 +25,19 @@ from typing import Any
 
 from ..exceptions import ParseError
 from .browser import fetch_with_browser_fallback
-from .common import build_pozo_payload
-
-LOGGER = logging.getLogger(__name__)
-
-PENDON_URL = "https://pendon-kino.loteria.cl/pendonkino"
-DEFAULT_UA = "PollaAltSourcesBot/1.0 (+contact@example.com)"
 
 # Map field -> canonical category label. Values are expressed in MILLONES.
 # Labels match the official hub (kino.loteria.cl) additional-game names, so
 # they align 1:1 with the price structure and never collide with Loto.
 # Fields with value 0 ("no estimado publicado") are omitted to avoid
 # phantom zeros in the consensus engine.
-_POZO_FIELDS: dict[str, str] = {
-    "F_SrtKinAproxSrt": "Kino",
-    "F_SrtKinRevAprox": "ReKino",
-    "F_SrtKinRev2Aprox": "RequeteKino",
-    "F_SrtKinRevSd2Aprox": "Chao Jefe $2 Millones",
-    "F_SrtKinRevCJ4Aprox": "Chao Jefe $3 Millones",
-    "F_SrtKinRevCJ2Aprox": "Súper Combo Marraqueta",
-    "F_SrtKinRevGMSdAprox": "Kino Gran Sueldo",
-}
+from .categories import KINO_POZO_FIELDS as _POZO_FIELDS
+from .common import build_pozo_payload
+
+LOGGER = logging.getLogger(__name__)
+
+PENDON_URL = "https://pendon-kino.loteria.cl/pendonkino"
+DEFAULT_UA = "PollaAltSourcesBot/1.0 (+contact@example.com)"
 
 _NEXT_DATA_RE = re.compile(
     r'<script\s+id="__NEXT_DATA__"\s+type="application/json">(.*?)</script>',

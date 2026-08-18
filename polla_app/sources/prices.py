@@ -20,6 +20,7 @@ from typing import Any
 
 from ..exceptions import ParseError
 from .browser import fetch_with_browser_fallback
+from .categories import KINO_PRICE_FIELDS as _KINO_PRICE_FIELDS
 
 LOGGER = logging.getLogger(__name__)
 
@@ -44,15 +45,6 @@ _KINO_FRAME_HEADERS = {
     "Referer": "https://www.loteria.cl/juegos/kino/",
 }
 
-# Kino price fields (per draw) -> canonical category labels.
-_KINO_PRICE_FIELDS: tuple[tuple[str, str], ...] = (
-    ("PrecioKino", "Kino"),
-    ("PrecioReKino", "ReKino"),
-    ("PrecioRequeteKino", "RequeteKino"),
-    ("PrecioChaoJefe2M", "Chao Jefe $2 Millones"),
-    ("PrecioChaoJefe3M", "Chao Jefe $3 Millones"),
-    ("PrecioComboMarraqueta", "Súper Combo Marraqueta"),
-)
 _KINO_NEXT_DATA_RE = re.compile(
     r'<script\s+id="__NEXT_DATA__"\s+type="application/json">(.*?)</script>',
     re.DOTALL,

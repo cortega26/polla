@@ -125,3 +125,23 @@ def test_publish_result_contract(tmp_path: Path) -> None:
     for k in ("updated_rows", "discrepancy_rows", "status", "publish_allowed", "api_version"):
         assert k in out
     assert isinstance(out["api_version"], str)
+
+
+def test_kino_category_registries_consistent() -> None:
+    from polla_app.sources.categories import (
+        KINO_CATEGORY_LABELS,
+        KINO_POZO_FIELDS,
+        KINO_PRICE_FIELDS,
+        KINO_STATS_CATEGORIES,
+    )
+
+    pozo_labels = set(KINO_POZO_FIELDS.values())
+    price_labels = {label for _, label in KINO_PRICE_FIELDS}
+    stats_labels = set(KINO_STATS_CATEGORIES)
+    assert pozo_labels <= KINO_CATEGORY_LABELS
+    assert price_labels <= KINO_CATEGORY_LABELS
+    assert stats_labels == price_labels  # stats rows mirror the priced set
+    # "Kino Gran Sueldo" is pendón-only today (no hub price field, no stats
+    # row) — if the hub adds it, extend KINO_PRICE_FIELDS and
+    # KINO_STATS_CATEGORIES together.
+    assert price_labels == KINO_CATEGORY_LABELS - {"Kino Gran Sueldo"}

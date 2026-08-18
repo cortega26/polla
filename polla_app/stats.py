@@ -20,6 +20,7 @@ from typing import Any
 
 from .contracts import API_VERSION
 from .net import fetch_html
+from .sources.categories import KINO_STATS_CATEGORIES as _KINO_CATEGORIES
 
 LOGGER = logging.getLogger(__name__)
 
@@ -131,16 +132,6 @@ _PRICE_CATEGORY_MAP: dict[str, str] = {
 # Kino odds are the same for every variant (14 numbers drawn from 25).
 _KINO_COMBINATIONS = 4_457_400.0
 _KINO_ODDS_TEXT = "1 en 4.457.400"
-
-# Kino additional games, in official hub order.
-_KINO_CATEGORIES: tuple[str, ...] = (
-    "Kino",
-    "ReKino",
-    "RequeteKino",
-    "Chao Jefe $2 Millones",
-    "Chao Jefe $3 Millones",
-    "Súper Combo Marraqueta",
-)
 
 
 def merge_live_kino(
