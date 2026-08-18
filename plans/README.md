@@ -36,7 +36,7 @@ su fila al terminar.
 | 036 | pages.yml reutiliza artefactos de scrape.yml en vez de re-ingestar | P3 | M | — | DONE |
 | 037 | Reconciliar docs: API.md, CHANGELOG, docs/implementation, observability.md | P3 | M | — | DONE |
 | 038 | Eliminar trabajo desperdiciado: soup de Kino y doble build del payload | P3 | S | — | DONE |
-| 039 | Registro único de categorías Kino (drift de "Kino Gran Sueldo") | P3 | M | — | TODO |
+| 039 | Registro único de categorías Kino (drift de "Kino Gran Sueldo") | P3 | M | — | DONE |
 | 040 | Consolidar los 4 parsers/formatters es-CL en `polla_app/numbers.py` | P3 | M | — | TODO |
 | 041 | `_get_or_create_worksheet`: solo capturar WorksheetNotFound | P3 | S | — | TODO |
 | 042 | Tolerar puntuación final en montos de openloto (`$1.000.000.-`) | P3 | S | — | TODO |
