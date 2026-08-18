@@ -57,6 +57,14 @@ def test_parse_millones_to_clp_large_ranges(raw: str, expected: int) -> None:
     assert parse_millones_to_clp(raw) == expected
 
 
+def test_parse_trailing_dot() -> None:
+    assert parse_millones_to_clp("1.000.000.") == 1_000_000_000_000
+
+
+def test_parse_trailing_dash_dot() -> None:
+    assert parse_millones_to_clp("4.300.-") == 4_300_000_000
+
+
 def test_to_number_variants() -> None:
     assert to_number("1 en 3.000.000") == 3000000.0
     assert to_number("12,5%") == 12.5
