@@ -98,7 +98,6 @@ jobs:
         id: pipeline
         env:
           ALT_SOURCE_URLS: ${{ vars.ALT_SOURCE_URLS }}
-          ALT_SOURCES_API_KEYS: ${{ secrets.ALT_SOURCES_API_KEYS }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
           GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
         run: |

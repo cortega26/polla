@@ -29,6 +29,13 @@ jobs:
         run: |
           black --check polla_app tests
           ruff check polla_app tests
+      - name: Scan tracked files for credentials
+        run: |
+          matches=$(git ls-files | grep -iE 'service_account|(^\.env$)|credentials.*\.json' || true)
+          if [ -n "$matches" ]; then
+            echo "::error::Credential-shaped files are tracked:"; echo "$matches"
+            exit 1
+          fi
 
       - name: Mypy
         run: mypy polla_app tests
