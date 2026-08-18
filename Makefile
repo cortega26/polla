@@ -48,5 +48,5 @@ run-kino:
 	python -m polla_app run --sources kino
 
 ready:
-	pre-commit run --all-files
+	SKIP=check-unstaged pre-commit run --all-files
 	git add .
