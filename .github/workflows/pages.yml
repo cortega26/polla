@@ -30,6 +30,12 @@ jobs:
           cache: 'pip'
           cache-dependency-path: 'requirements.lock'
 
+      - name: Cache playwright chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-1228
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
