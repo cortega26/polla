@@ -15,6 +15,7 @@ from typing import Any
 
 from .contracts import API_VERSION
 from .io import read_json, read_jsonl
+from .numbers import format_millones as _format_millones
 
 LOGGER = logging.getLogger(__name__)
 
@@ -65,11 +66,6 @@ def _merge_history_records(*groups: Iterable[Mapping[str, Any]]) -> list[dict[st
         for record in group:
             merged[(record.get("sorteo"), record.get("fecha"))] = dict(record)
     return list(merged.values())
-
-
-def _format_millones(value: int) -> str:
-    """Format CLP as 'X.XXX' (millones) with Chilean grouping."""
-    return f"{value / 1_000_000:,.0f}".replace(",", ".")
 
 
 def _game_section(record: dict[str, Any] | None) -> dict[str, Any] | None:
