@@ -7,10 +7,20 @@
 > in `plans/README.md` — unless a reviewer dispatched you and told you they
 > maintain the index.
 >
-> **Drift check (run first)**: `git diff --stat 8a5da7f..HEAD -- requirements.txt requirements-dev.txt pyproject.toml .github/workflows/ docs/`
+> **Drift check (run first)**: `git diff --stat a05e05a..HEAD -- requirements.txt requirements-dev.txt pyproject.toml .github/workflows/ docs/`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
+>
+> **Refresh note (2026-08-17)**: this plan was originally written against
+> commit `8a5da7f`. Since then plans 019-031 were merged into `main`
+> (now `a05e05a`). The content this plan edits is unchanged — `requirements.txt`
+> still has the six floor pins, the `pyproject.toml` dependencies block is
+> identical, and the workflows still run `pip install -r requirements.txt`
+> with `cache-dependency-path: 'requirements.txt'`. Only line numbers in
+> `scrape.yml`/`update.yml`/`pages.yml`/`tests.yml` shifted (install steps now
+> at scrape.yml:94/305, update.yml:37, pages.yml:36). The `scrapling[fetchers]`
+> pin at `pyproject.toml:13` is unchanged. Proceed on that basis.
 
 ## Status
 
@@ -19,7 +29,7 @@
 - **Risk**: MED (first bump after locking is deliberate; installs must be re-verified)
 - **Depends on**: plan 033 should follow this one (both touch manifests/workflows)
 - **Category**: migration
-- **Planned at**: commit `8a5da7f`, 2026-08-15
+- **Planned at**: commit `a05e05a` (original `8a5da7f`), 2026-08-17 (refresh)
 
 ## Why this matters
 

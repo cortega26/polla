@@ -111,6 +111,11 @@ Estado: TODO | IN PROGRESS | DONE | BLOCKED (razón en una línea) | REJECTED (r
 
 ## Notas de la auditoría (ronda 3)
 
+- **Fusión 2026-08-17**: ramas advisor/019..031 fusionadas a `main`
+  (ahora `a05e05a`, pushed a origin). Se resolvieron 3 conflictos
+  cross-branch (site.py: 024×027; test_hardening_net.py: 026×029;
+  test_pipeline.py: 023×026×030) + ajustes de firma post-028/030 en tests.
+  Verificación integrada: 197 passed, 1 skip, 4 deselected (hermético).
 - Veredicto "todo lo netamente positivo": 25 hallazgos → 25 planes
   (019-043), todos con evidencia verificada en el código (`8a5da7f`).
 - 019 (ejecutado y aprobado): el plan original no cubría el patrón de
