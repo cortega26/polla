@@ -10,7 +10,7 @@ dependencies = [
     "click>=8.1.7",
     "requests>=2.33.1",
     "gspread>=6.1.0",
-    "scrapling[fetchers]>=0.4.7",
+    "scrapling[fetchers]>=0.4.14,<0.5",
     "playwright>=1.61.0,<1.62",
 ]
 
