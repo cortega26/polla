@@ -30,7 +30,7 @@ su fila al terminar.
 | 030 | Estado por juego: archivo y dedupe con campo `game` | P2 | S | — | DONE |
 | 031 | tests.yml con `contents: read` + AGENTS.md realista | P2 | S | — | DONE |
 | 032 | Lockfile + cota superior de scrapling; CI instala desde el lock | P2 | M | — | DONE |
-| 033 | Pin unificado de playwright + chequeo de paridad chromium + caché | P2 | S | 032 | TODO |
+| 033 | Pin unificado de playwright + chequeo de paridad chromium + caché | P2 | S | 032 | DONE |
 | 034 | `make ready` sin `git add .` previo; pre-commit en requirements-dev | P3 | S | — | TODO |
 | 035 | Alinear invocaciones de mypy y `ruff format --check` en todos los gates | P3 | S | — | TODO |
 | 036 | pages.yml reutiliza artefactos de scrape.yml en vez de re-ingestar | P3 | M | — | TODO |
