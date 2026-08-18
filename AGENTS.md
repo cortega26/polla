@@ -10,6 +10,14 @@ This repository uses AGENTS.md to guide AI/automation and humans on how to make 
 - Do not leak secrets. Redact sensitive data in logs and examples.
 - Document non‑obvious code with concise, helpful docstrings.
 
+## Plans Backlog (HARD RULE)
+
+- Plan files whose status in `plans/README.md` becomes `DONE` MUST be moved
+  to `plans/archive/` in the same change that flips the status (executor or
+  reviewer). Never leave a DONE plan file in `plans/` root.
+- Archived plans are the record and must not be deleted or rewritten;
+  `plans/README.md` remains the single index of the full backlog.
+
 ## Project Overview
 
 - Language: Python 3.13+
