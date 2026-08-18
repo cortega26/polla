@@ -177,12 +177,19 @@ def _extract_kino_prices(next_data: dict[str, Any]) -> dict[str, Any]:
     for field, label in _KINO_PRICE_FIELDS:
         value = draw.get(field)
         if not isinstance(value, int | float) or value <= 0:
-            raise ParseError(
-                f"Kino hub price field {field} missing for sorteo {draw.get('NumeroSorteo')}",
-                context={"draw": draw},
+            LOGGER.info(
+                "Kino hub price field %s absent for sorteo %s; skipping",
+                field,
+                draw.get("NumeroSorteo"),
             )
+            continue
         cumulative += int(value)
         prices[label] = {"delta_clp": int(value), "acumulado_clp": cumulative}
+    if not prices:
+        raise ParseError(
+            "Kino hub exposed no valid price fields",
+            context={"draw": draw},
+        )
     return {
         "precios": prices,
         "sorteo": draw.get("NumeroSorteo"),
