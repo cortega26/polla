@@ -33,7 +33,7 @@ su fila al terminar.
 | 033 | Pin unificado de playwright + chequeo de paridad chromium + caché | P2 | S | 032 | DONE |
 | 034 | `make ready` sin `git add .` previo; pre-commit en requirements-dev | P3 | S | — | DONE |
 | 035 | Alinear invocaciones de mypy y `ruff format --check` en todos los gates | P3 | S | — | DONE |
-| 036 | pages.yml reutiliza artefactos de scrape.yml en vez de re-ingestar | P3 | M | — | TODO |
+| 036 | pages.yml reutiliza artefactos de scrape.yml en vez de re-ingestar | P3 | M | — | DONE |
 | 037 | Reconciliar docs: API.md, CHANGELOG, docs/implementation, observability.md | P3 | M | — | TODO |
 | 038 | Eliminar trabajo desperdiciado: soup de Kino y doble build del payload | P3 | S | — | TODO |
 | 039 | Registro único de categorías Kino (drift de "Kino Gran Sueldo") | P3 | M | — | TODO |
