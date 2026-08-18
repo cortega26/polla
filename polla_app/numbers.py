@@ -21,6 +21,7 @@ def parse_millones_to_clp(raw: str) -> int:
     """
 
     cleaned = (raw or "").strip().lower()
+    cleaned = cleaned.rstrip(".-").strip()
     if not cleaned:
         raise ParseError("Empty monetary value", context={"raw": raw})
 
