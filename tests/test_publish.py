@@ -59,6 +59,10 @@ def test_discrepancy_sheet_written_on_allow_quarantine(
         class WorksheetNotFound(Exception):  # noqa: N818
             pass
 
+    MockGspread.exceptions = type(  # type: ignore[attr-defined]
+        "exceptions", (), {"WorksheetNotFound": MockGspread.WorksheetNotFound}
+    )
+
     monkeypatch.setattr(pub, "gspread", MockGspread)
 
     class FakeWorksheet:
@@ -325,3 +329,62 @@ def test_canonical_update_is_single_call_with_padding(
     assert update_calls[0]["params"] == {"valueInputOption": "RAW"}
     assert len(update_calls[0]["body"]["values"]) == 7  # 1 header + 1 record + 5 padding
     assert update_calls[0]["body"]["values"][-1] == ["", "", "", ""]
+
+
+def test_get_or_create_worksheet_creates_when_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import polla_app.publish as pub
+
+    class MockGspread:
+        class WorksheetNotFound(Exception):  # noqa: N818
+            pass
+
+    MockGspread.exceptions = type(  # type: ignore[attr-defined]
+        "exceptions", (), {"WorksheetNotFound": MockGspread.WorksheetNotFound}
+    )
+
+    monkeypatch.setattr(pub, "gspread", MockGspread)
+
+    class FakeWorksheet:
+        pass
+
+    class FakeSpreadsheet:
+        def __init__(self) -> None:
+            self.add_calls: list[tuple[str, str, str]] = []
+
+        def worksheet(self, name: str) -> FakeWorksheet:
+            raise pub.gspread.WorksheetNotFound("missing")
+
+        def add_worksheet(self, title: str, rows: str, cols: str) -> FakeWorksheet:
+            self.add_calls.append((title, rows, cols))
+            return FakeWorksheet()
+
+    spreadsheet = FakeSpreadsheet()
+    result = pub._get_or_create_worksheet(spreadsheet, "Normalized")
+
+    assert spreadsheet.add_calls == [("Normalized", "200", "10")]
+    assert isinstance(result, FakeWorksheet)
+
+
+def test_get_or_create_worksheet_propagates_api_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import polla_app.publish as pub
+
+    class FakeSpreadsheet:
+        def __init__(self) -> None:
+            self.add_calls = 0
+
+        def worksheet(self, name: str) -> None:
+            raise ConnectionError("boom")
+
+        def add_worksheet(self, title: str, rows: str, cols: str) -> None:
+            self.add_calls += 1
+
+    spreadsheet = FakeSpreadsheet()
+
+    with pytest.raises(ConnectionError, match="boom"):
+        pub._get_or_create_worksheet(spreadsheet, "Normalized")
+
+    assert spreadsheet.add_calls == 0

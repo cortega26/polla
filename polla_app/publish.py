@@ -201,7 +201,7 @@ def _get_or_create_worksheet(spreadsheet: Any, name: str) -> Any:
     """Return existing worksheet by name or create it if missing."""
     try:
         return spreadsheet.worksheet(name)
-    except Exception:  # noqa: BLE001 – gspread.WorksheetNotFound when not installed
+    except gspread.exceptions.WorksheetNotFound:
         return spreadsheet.add_worksheet(title=name, rows="200", cols="10")
 
 
