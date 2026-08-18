@@ -10,7 +10,9 @@ Thanks for your interest in contributing! This project focuses on a small, wellâ
 pip install -r requirements-dev.txt
 ```
 
-2. Run the test suite:
+2. Instala los hooks locales (una vez): `pre-commit install`
+
+3. Run the test suite:
 
 ```bash
 pytest -q
