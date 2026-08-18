@@ -904,3 +904,135 @@ def test_kino_prices_attached_when_sorteo_matches(
 
     record = json.loads((tmp_path / "normalized.jsonl").read_text(encoding="utf-8").splitlines()[0])
     assert record["precios"]["Kino"]["delta_clp"] == 1000
+
+
+def _load_state_lines(path: Path) -> list[dict[str, object]]:
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+
+
+def test_persist_state_namespaces_by_game(tmp_path: Path) -> None:
+    from polla_app.pipeline import _persist_state
+
+    state_path = tmp_path / "state.jsonl"
+    base = {"sorteo": 6001, "fecha": "2025-09-30", "pozos_proximo": {"Loto Clásico": 111_000_000}}
+    _persist_state(state_path, [], {**base, "game": "loto"})
+    _persist_state(state_path, _load_state_lines(state_path), {**base, "game": "kino"})
+
+    records = _load_state_lines(state_path)
+    assert len(records) == 2
+    assert {record["game"] for record in records} == {"loto", "kino"}
+
+
+def test_compute_unchanged_ignores_other_game() -> None:
+    from polla_app.pipeline import _compute_unchanged
+
+    previous = [
+        {
+            "game": "loto",
+            "sorteo": 6001,
+            "fecha": "2025-09-30",
+            "pozos_proximo": {"Loto Clásico": 111_000_000},
+        }
+    ]
+    current = {
+        "game": "kino",
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+        "pozos_proximo": {"Loto Clásico": 111_000_000},
+    }
+    assert (
+        _compute_unchanged(
+            previous, game="kino", sorteo=6001, fecha="2025-09-30", current_record=current
+        )
+        is False
+    )
+
+
+def test_compute_unchanged_same_game_matches() -> None:
+    from polla_app.pipeline import _compute_unchanged
+
+    previous = [
+        {
+            "game": "loto",
+            "sorteo": 6001,
+            "fecha": "2025-09-30",
+            "provenance": {"pozos": {"primary": {"sha256": "abc"}}},
+        }
+    ]
+    current = {
+        "game": "loto",
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+        "provenance": {"pozos": {"primary": {"sha256": "abc"}}},
+    }
+    assert (
+        _compute_unchanged(
+            previous, game="loto", sorteo=6001, fecha="2025-09-30", current_record=current
+        )
+        is True
+    )
+
+
+def test_pipeline_loto_then_kino_same_draw_not_false_skip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from polla_app import pipeline as pipeline_mod
+
+    loto_payload = {
+        "fuente": "https://resultadoslotochile.com/pozo-para-el-proximo-sorteo/",
+        "montos": {"Loto Clásico": 111_000_000},
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+        "sha256": "same-draw-sha",
+    }
+    kino_payload = {
+        "fuente": "https://pendon-kino.loteria.cl/pendonkino",
+        "montos": {"Kino": 8_370_000_000},
+        "sorteo": 6001,
+        "fecha": "2025-09-30",
+        "sha256": "same-draw-sha",
+    }
+    monkeypatch.setattr(
+        pipeline_mod,
+        "POZO_SOURCES",
+        (("resultadoslotochile", lambda **_: loto_payload),),
+    )
+    monkeypatch.setattr(pipeline_mod, "KINO_SOURCES", (("kino", lambda **_: kino_payload),))
+
+    state = tmp_path / "state.jsonl"
+    summary1 = run_pipeline(
+        sources=["pozos"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=state,
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+    )
+    assert summary1["publish"] is True
+
+    summary2 = run_pipeline(
+        sources=["kino"],
+        source_overrides={},
+        raw_dir=tmp_path / "raw",
+        normalized_path=tmp_path / "normalized.jsonl",
+        comparison_report_path=tmp_path / "comparison.json",
+        summary_path=tmp_path / "summary.json",
+        state_path=state,
+        log_path=tmp_path / "run.jsonl",
+        retries=1,
+        timeout=5,
+        fail_fast=True,
+        mismatch_threshold=0.5,
+        include_pozos=True,
+    )
+    assert summary2["publish"] is True
+    assert summary2["publish_reason"] == "updated_or_new_amounts"

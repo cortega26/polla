@@ -391,13 +391,15 @@ def _persist_state(
 ) -> None:
     """Persist the state file with deduplication and a bounded history.
 
-    Records are keyed by (sorteo, fecha); a newer record for the same draw
-    replaces the previous one. The file never exceeds MAX_STATE_RECORDS
-    entries (oldest draws are pruned first).
+    Records are keyed by (game, sorteo, fecha); a newer record for the same
+    draw of the same game replaces the previous one. The file never exceeds
+    MAX_STATE_RECORDS entries (oldest draws are pruned first).
     """
-    key = (new_record.get("sorteo"), new_record.get("fecha"))
+    key = (new_record.get("game"), new_record.get("sorteo"), new_record.get("fecha"))
     updated = [
-        record for record in previous_records if (record.get("sorteo"), record.get("fecha")) != key
+        record
+        for record in previous_records
+        if (record.get("game"), record.get("sorteo"), record.get("fecha")) != key
     ]
     updated.append(dict(new_record))
     # Prune oldest entries (insertion order is chronological).
@@ -413,15 +415,26 @@ def _persist_state(
 def _compute_unchanged(
     previous_records: list[dict[str, Any]],
     *,
+    game: str,
     sorteo: Any,
     fecha: Any,
     current_record: Mapping[str, Any],
 ) -> bool:
-    """Return True if previous state contains same sorteo/fecha and identical content/amounts."""
+    """Return True if previous state contains same game/sorteo/fecha and identical content/amounts.
+
+    Backward compatibility: state records written before the ``game`` field
+    existed held Loto draws, so a record with a missing ``game`` is treated as
+    Loto; Kino runs skip them, preventing a false "unchanged skip" against
+    records from the old shared state file (one-time dedup blip on first run).
+    """
     curr_prov = current_record.get("provenance", {}).get("pozos", {})
     curr_sha = curr_prov.get("primary", {}).get("sha256")
 
     for prev in previous_records:
+        prev_game = prev.get("game")
+        if prev_game != game:
+            if prev_game is not None or game != "loto":
+                continue
         if prev.get("sorteo") == sorteo and prev.get("fecha") == fecha:
             # Try content-hash deduplication first (PROV-01)
             prev_prov = prev.get("provenance", {}).get("pozos", {})
@@ -604,10 +617,12 @@ def _run_ingestion_for_sources(
 
     sorteo = primary.get("sorteo")
     fecha = primary.get("fecha")
+    game = "kino" if requested_sources[0] == "kino" else "loto"
 
     record: dict[str, Any] = {
         "sorteo": sorteo,
         "fecha": fecha,
+        "game": game,
         "fuente": pozos_prov.get("primary", {}).get("fuente"),
         "confidence": confidence,
         "premios": [],
@@ -639,7 +654,7 @@ def _run_ingestion_for_sources(
 
     previous_records = _load_previous_state(state_path)
     unchanged = _compute_unchanged(
-        previous_records, sorteo=sorteo, fecha=fecha, current_record=record
+        previous_records, game=game, sorteo=sorteo, fecha=fecha, current_record=record
     )
 
     _write_jsonl(normalized_path, [record])

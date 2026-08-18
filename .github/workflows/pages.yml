@@ -80,7 +80,7 @@ jobs:
             --normalized artifacts_kino/normalized.jsonl \
             --comparison-report artifacts_kino/comparison_report.json \
             --summary artifacts_kino/run_summary.json \
-            --state-file pipeline_state/last_run.jsonl \
+            --state-file pipeline_state/last_run_kino.jsonl \
             --log-file logs/run_kino.jsonl \
             --mismatch-threshold 0.2 \
             || echo "::warning::Kino ingest failed; dashboard will show last known data"
