@@ -25,7 +25,7 @@ lint:
 	ruff check polla_app tests
 
 type-check:
-	mypy polla_app
+	mypy polla_app tests
 
 test:
 	pytest -q

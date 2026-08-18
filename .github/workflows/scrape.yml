@@ -49,9 +49,10 @@ jobs:
         run: |
           black --check polla_app tests
           ruff check polla_app tests
+          ruff format --check polla_app tests
 
       - name: Run type checking
-        run: mypy polla_app
+        run: mypy polla_app tests
 
       - name: Run tests
         run: pytest tests -v --cov=polla_app --cov-report=xml --cov-fail-under=80

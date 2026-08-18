@@ -120,7 +120,7 @@ flowchart TB
 
 - `pytest -q` – ejecuta las suites de unidad e integración con fixtures offline; espera `N passed` en menos de 10s.
 - `ruff check polla_app tests` – impone reglas de linting, nomenclatura e higiene de importaciones.
-- `mypy polla_app` – verifica el tipado estricto (se ignoran stubs de terceros no disponibles).
+- `mypy polla_app tests` – verifica el tipado estricto (se ignoran stubs de terceros no disponibles).
 - `black --check polla_app tests` – mantiene un formato consistente.
 - `pytest --doctest-glob='*.md' README.md docs -q` – asegura que los ejemplos de la documentación sigan siendo ejecutables.
 
