@@ -67,12 +67,15 @@ def test_extract_montos_empty_when_all_zero() -> None:
 
 def test_extract_next_data_missing_block() -> None:
     with pytest.raises(ParseError, match="__NEXT_DATA__"):
-        _extract_next_data("<html><body>no data</body></html>")
+        _extract_next_data("<html><body>no data</body></html>", context="Kino pendón")
 
 
 def test_extract_next_data_invalid_json() -> None:
     with pytest.raises(ParseError, match="not valid JSON"):
-        _extract_next_data('<script id="__NEXT_DATA__" type="application/json">{broken</script>')
+        _extract_next_data(
+            '<script id="__NEXT_DATA__" type="application/json">{broken</script>',
+            context="Kino pendón",
+        )
 
 
 def test_get_pozo_kino_parses_real_fixture(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -22,11 +22,11 @@ from ..exceptions import ParseError
 from ..numbers import clean_clp as _clean_clp
 from .browser import fetch_with_browser_fallback
 from .categories import KINO_PRICE_FIELDS as _KINO_PRICE_FIELDS
+from .common import DEFAULT_UA, extract_next_data
 
 LOGGER = logging.getLogger(__name__)
 
 LOTO_PRICES_URL = "https://www.polla.cl/es/view/juego/loto"
-DEFAULT_UA = "PollaAltSourcesBot/1.0 (+contact@example.com)"
 
 # Kino hub (kino.loteria.cl) requires browser-like framing headers or it
 # redirects to the loteria.cl home. The price structure per draw lives in
@@ -45,11 +45,6 @@ _KINO_FRAME_HEADERS = {
     "Sec-Fetch-Site": "same-site",
     "Referer": "https://www.loteria.cl/juegos/kino/",
 }
-
-_KINO_NEXT_DATA_RE = re.compile(
-    r'<script\s+id="__NEXT_DATA__"\s+type="application/json">(.*?)</script>',
-    re.DOTALL,
-)
 
 # Category labels as published in the price block (canonical order).
 _CATEGORY_ORDER = (
@@ -216,24 +211,13 @@ def get_kino_prices(
         retries=retries,
         extra_headers=_KINO_FRAME_HEADERS,
     )
-    match = _KINO_NEXT_DATA_RE.search(metadata.html)
-    if not match:
-        raise ParseError(
-            "Kino hub page did not contain __NEXT_DATA__ (blocked or layout changed?)",
-            context={"snippet": metadata.html[:200]},
-        )
-    import json
-
-    try:
-        next_data = json.loads(match.group(1))
-    except json.JSONDecodeError as exc:
-        raise ParseError("Kino hub __NEXT_DATA__ is not valid JSON", original_error=exc) from exc
+    next_data = extract_next_data(metadata.html, context="Kino hub")
 
     payload = _extract_kino_prices(next_data)
     return {
         "fuente": url,
-        "fetched_at": datetime.now(UTC).isoformat(),
-        "sha256": hashlib.sha256(metadata.html.encode("utf-8")).hexdigest(),
+        "fetched_at": metadata.fetched_at.isoformat(),
+        "sha256": metadata.sha256,
         "user_agent": metadata.user_agent,
         **payload,
     }
