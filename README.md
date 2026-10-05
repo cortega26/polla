@@ -1,12 +1,42 @@
-# Polla App — Ingesta confiable de pozos para el Loto de Chile
+<div align="center">
 
-*Parte del [ecosistema Tooltician](https://tooltician.com) — datos de pozos confiables y verificados para el Loto de Chile.*
+# Polla App
 
-[![Parte de Tooltician](https://img.shields.io/badge/Parte_de-Tooltician.com-6C47FF?v=2)](https://tooltician.com)
+<p><strong>Datos de pozos no deberían publicarse porque “un scraper dijo que sí”.</strong></p>
+<p>Pipeline multi-fuente para Loto y Kino con validación, consenso, cuarentena y trazabilidad antes de publicar.</p>
 
-Agrega estimaciones del próximo pozo integrando la fuente oficial de `polla.cl` con espejos comunitarios verificados, garantiza la procedencia mediante consenso y publica actualizaciones en Google Sheets.
+[![GitHub stars](https://img.shields.io/github/stars/cortega26/polla?style=flat&logo=github)](https://github.com/cortega26/polla/stargazers)
+[![Tests](https://github.com/cortega26/polla/actions/workflows/tests.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/tests.yml)
+[![Health](https://github.com/cortega26/polla/actions/workflows/health.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/health.yml)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3130/)
+[![License](https://img.shields.io/github/license/cortega26/polla)](license.md)
 
-[![Tests](https://github.com/cortega26/polla/actions/workflows/tests.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/tests.yml) [![Docs](https://github.com/cortega26/polla/actions/workflows/docs.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/docs.yml) [![Health](https://github.com/cortega26/polla/actions/workflows/health.yml/badge.svg)](https://github.com/cortega26/polla/actions/workflows/health.yml) [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3130/) [![License](https://img.shields.io/github/license/cortega26/polla)](license.md) [![Last commit](https://img.shields.io/github/last-commit/cortega26/polla)](https://github.com/cortega26/polla/commits/main)
+<p>
+  <a href="https://tooltician.com/polla/"><strong>Ver dashboard</strong></a> ·
+  <a href="#inicio-rápido">Ejecutar localmente</a> ·
+  <a href="#arquitectura-de-un-vistazo">Arquitectura</a>
+</p>
+
+</div>
+
+## Del scraping a datos publicables
+
+El problema difícil no es extraer un número. Es decidir **si ese número merece confianza suficiente para publicarse** cuando una fuente cae, cambia HTML o discrepa del resto.
+
+Polla App convierte esa decisión en un pipeline explícito y auditable:
+
+`fuentes → validación → normalización → consenso → publicar / cuarentena`
+
+| Riesgo operativo | Respuesta del pipeline |
+|:---|:---|
+| Una fuente oficial falla temporalmente | Fallbacks deterministas |
+| Dos fuentes discrepan materialmente | Cuarentena por consenso |
+| Un valor parece plausible pero no válido | Validación por juego antes de publicar |
+| Necesitas saber de dónde salió | Artefactos JSONL + procedencia |
+| Quieres automatizar sin publicar a ciegas | `--dry-run`, health checks y alertas |
+| Necesitas una salida visible | Google Sheets + dashboard estático |
+
+> **Principio central:** ante evidencia insuficiente, el sistema degrada confianza o pone en cuarentena; no convierte incertidumbre en un dato “oficial” por accidente.
 
 ## Características
 
